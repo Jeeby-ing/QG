@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, validator
@@ -2411,6 +2411,49 @@ async def export_data():
         cur.execute("SELECT name, color FROM tags")
         export_data["tags"] = [dict(row) for row in cur.fetchall()]
     return {"data": export_data}
+
+
+@app.delete("/api/data/clear")
+async def clear_data(scope: str = Query("all", description="tasks | resources | all")):
+    """清空测试数据。保留 settings 与 achievements(预设定义)。
+    - tasks:     任务 + 标签关联 + 追踪/番茄会话 + 任务相关成就解锁
+    - resources: 资源(经验等)重置为初始值 + 资源流水
+    - all:       以上全部 + 礼包 + 现实奖励 + 全部成就解锁
+    """
+    if scope not in ("tasks", "resources", "all"):
+        raise HTTPException(status_code=400, detail="无效的清空范围，必须是 tasks / resources / all")
+
+    cleared = {}
+    with db_cursor() as cur:
+        if scope in ("tasks", "all"):
+            cur.execute("DELETE FROM task_tags")
+            cur.execute("DELETE FROM tracking_sessions")
+            cur.execute("DELETE FROM pomodoro_sessions")
+            cur.execute("DELETE FROM achievement_unlocks")
+            cur.execute("DELETE FROM tasks")
+            cleared["tasks"] = True
+        if scope in ("resources", "all"):
+            cur.execute("DELETE FROM resources")
+            cur.execute("DELETE FROM resource_transactions")
+            init_resources = [
+                ("exp", 0, None),
+                ("source_stone", 0, None),
+                ("lungmen", 0, None),
+                ("orundum", 0, None),
+                ("sanity", 120, 120),
+            ]
+            for r in init_resources:
+                cur.execute(
+                    "INSERT INTO resources (resource_type, current_value, max_value) VALUES (?, ?, ?)",
+                    r,
+                )
+            cleared["resources"] = True
+        if scope == "all":
+            cur.execute("DELETE FROM gift_packs")
+            cur.execute("DELETE FROM reality_rewards")
+            cleared["gift_packs"] = True
+            cleared["reality_rewards"] = True
+    return {"data": {"scope": scope, "cleared": cleared, "message": "数据已清空"}}
 
 
 @app.get("/api/settings")

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260830-24">
+    <link rel="stylesheet" href="static/style.css?v=20260830-25">
 </head>
 <body>
     <svg style="position:absolute;width:0;height:0;pointer-events:none;" aria-hidden="true">
@@ -297,7 +297,17 @@
         <div class="modal-container hidden" id="settingsModal">
             <div class="modal">
                 <div class="modal-header"><h3 class="modal-title">全局设置</h3><button class="icon-btn modal-close" id="settingsModalClose"><i class="fa-solid fa-xmark"></i></button></div>
-                <div class="modal-body"><div class="settings-list" id="settingsList"></div></div>
+                <div class="modal-body"><div class="settings-list" id="settingsList"></div>
+                    <div class="settings-divider"><span>数据管理</span></div>
+                    <div class="data-manage-section">
+                        <p class="micro-text">测试结束后一键清空数据（不可恢复，建议先导出备份）。</p>
+                        <div class="data-manage-actions">
+                            <button class="btn btn-danger btn-medium" id="clearTasksBtn"><i class="fa-solid fa-list-check"></i><span>清空任务</span></button>
+                            <button class="btn btn-danger btn-medium" id="clearResourcesBtn"><i class="fa-solid fa-coins"></i><span>清空资源/经验</span></button>
+                            <button class="btn btn-danger btn-medium" id="clearAllBtn"><i class="fa-solid fa-eraser"></i><span>清空全部</span></button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- 自定义蚀刻章弹窗 -->
@@ -402,6 +412,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260830-24"></script>
+    <script src="static/app.js?v=20260830-25"></script>
 </body>
 </html>

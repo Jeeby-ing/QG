@@ -252,6 +252,11 @@ function bindEvents() {
     document.getElementById('exportCopyBtn').addEventListener('click', copyExport);
     document.getElementById('exportDownloadBtn').addEventListener('click', downloadExport);
 
+    // 清空数据按钮
+    document.getElementById('clearTasksBtn').addEventListener('click', () => clearData('tasks'));
+    document.getElementById('clearResourcesBtn').addEventListener('click', () => clearData('resources'));
+    document.getElementById('clearAllBtn').addEventListener('click', () => clearData('all'));
+
     DOM.claimAllBtn.addEventListener('click', handleClaimAll);
     DOM.settingsBtn.addEventListener('click', openSettingsModal);
 
@@ -2428,6 +2433,22 @@ async function handleExport(){ const data=await apiGet('/export'); if(data){ DOM
 function copyExport(){ if(navigator.clipboard){ navigator.clipboard.writeText(DOM.exportTextarea.value).then(()=>showToast('已复制到剪贴板')).catch(()=>fallbackCopy()); } else fallbackCopy(); }
 function fallbackCopy(){ try{ DOM.exportTextarea.select(); const success=document.execCommand('copy'); if(success) showToast('已复制到剪贴板'); else showToast('复制失败，请手动复制'); }catch{ showToast('复制失败，请手动复制'); } }
 function downloadExport(){ const text=DOM.exportTextarea.value; const blob=new Blob([text],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='quest-log-backup.json'; a.click(); URL.revokeObjectURL(url); }
+
+const CLEAR_SCOPE_TEXT = {
+    tasks: '所有任务、标签关联、追踪/专注记录与任务成就解锁',
+    resources: '所有资源（经验、源石、龙门币、合成玉、理智）将重置为初始值，并清空资源流水',
+    all: '全部任务、资源/经验、礼包、现实奖励与成就解锁（保留设置与成就定义）'
+};
+async function clearData(scope){
+    showConfirm(`确定要清空「${CLEAR_SCOPE_TEXT[scope]}」吗？此操作不可恢复。建议先导出备份。`, async () => {
+        const res = await apiDelete(`/api/data/clear?scope=${scope}`);
+        if(res){
+            closeAllModals();
+            await Promise.all([loadTasks(), loadResources(), loadTransactions(), loadAchievements(), loadRealityRewards(), loadGiftPacks()]);
+            showToast(res.message || '数据已清空');
+        }
+    });
+}
 
 async function openSettingsModal(){ const settings=state.settings; DOM.settingsList.innerHTML='';
     const themeWrap = document.createElement('div');
