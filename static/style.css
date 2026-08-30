@@ -363,6 +363,7 @@ body.focus-mode .bg-particles { opacity:1; }
 
 .tracking-handle {
     width: 72px;
+    flex: 0 0 72px;
     height: 100%;
     background: var(--glass-1);
     backdrop-filter: blur(8px);
@@ -1701,8 +1702,9 @@ body.focus-mode .tracking-timer {
     overflow:hidden;
 }
 .tracking-expanded {
-    width:448px;
-    min-width:448px;
+    width:0;
+    min-width:0;
+    flex:0 0 auto;
     transform:translateX(-100%);
     opacity:0;
     visibility:hidden;
@@ -1710,6 +1712,7 @@ body.focus-mode .tracking-timer {
 }
 .tracking-panel.expanded .tracking-expanded {
     width:448px;
+    flex:1 1 448px;
     transform:translateX(0);
     opacity:1;
     visibility:visible;
