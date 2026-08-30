@@ -9,7 +9,8 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260830-20">
+    <link rel="stylesheet" href="static/style.css?v=20260830-21">
+    <link rel="stylesheet" href="static/theme-v5.css?v=20260830-21">
 </head>
 <body>
     <svg style="position:absolute;width:0;height:0;pointer-events:none;" aria-hidden="true">
@@ -60,7 +61,7 @@
             <div class="nav-right">
                 <div class="resource-display" id="resourceDisplay">
                     <div class="resource-item" title="龙门币">
-                        <span class="resource-icon lungmen-icon"><i class="fa-solid fa-coins"></i></span>
+                        <span class="resource-icon lungmen-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 4.5 L18 12 L12 19.5 L6 12 Z" fill="currentColor" fill-opacity="0.22"/></svg></span>
                         <span class="resource-value" id="resLungmen">0</span>
                     </div>
                     <div class="resource-item" title="合成玉">
@@ -70,11 +71,11 @@
                         <span class="resource-value" id="resOrundum">0</span>
                     </div>
                     <div class="resource-item" title="源石">
-                        <span class="resource-icon stone-icon"><i class="fa-solid fa-gem"></i></span>
+                        <span class="resource-icon stone-icon"><svg viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.85"><path d="M12 2.5 L19.5 9 L12 21.5 L4.5 9 Z"/><path d="M4.5 9 H19.5 M12 2.5 V21.5" stroke="rgba(0,0,0,0.28)" stroke-width="1"/></svg></span>
                         <span class="resource-value" id="resStone">0</span>
                     </div>
                     <div class="resource-item sanity-item" title="理智" id="sanityDisplay">
-                        <span class="resource-icon sanity-icon"><i class="fa-solid fa-brain"></i></span>
+                        <span class="resource-icon sanity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2 L20 7 V17 L12 22 L4 17 V7 Z"/><circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity="0.5"/></svg></span>
                         <div class="sanity-values">
                             <span class="sanity-current" id="resSanityCurrent">120</span>
                             <span class="sanity-max" id="resSanityMax">120</span>
@@ -188,10 +189,10 @@
                         </div>
                         <div class="profile-resources">
                             <div class="profile-res-item"><span class="res-icon exp-icon"><i class="fa-solid fa-bolt"></i></span><span class="res-label">经验值</span><span class="res-value" id="profileExp">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon stone-icon"><i class="fa-solid fa-gem"></i></span><span class="res-label">源石</span><span class="res-value" id="profileStone">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon lungmen-icon"><i class="fa-solid fa-coins"></i></span><span class="res-label">龙门币</span><span class="res-value" id="profileLungmen">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon stone-icon"><svg viewBox="0 0 24 24" fill="currentColor" fill-opacity="0.85"><path d="M12 2.5 L19.5 9 L12 21.5 L4.5 9 Z"/><path d="M4.5 9 H19.5 M12 2.5 V21.5" stroke="rgba(0,0,0,0.28)" stroke-width="1"/></svg></span><span class="res-label">源石</span><span class="res-value" id="profileStone">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon lungmen-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M12 4.5 L18 12 L12 19.5 L6 12 Z" fill="currentColor" fill-opacity="0.22"/></svg></span><span class="res-label">龙门币</span><span class="res-value" id="profileLungmen">0</span></div>
                             <div class="profile-res-item"><span class="res-icon orundum-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 20,7 20,17 12,22 4,17 4,7"/></svg></span><span class="res-label">合成玉</span><span class="res-value" id="profileOrundum">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon sanity-icon"><i class="fa-solid fa-brain"></i></span><span class="res-label">理智</span><span class="res-value" id="profileSanity">120/120</span></div>
+                            <div class="profile-res-item"><span class="res-icon sanity-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 2 L20 7 V17 L12 22 L4 17 V7 Z"/><circle cx="12" cy="12" r="3.2" fill="currentColor" fill-opacity="0.5"/></svg></span><span class="res-label">理智</span><span class="res-value" id="profileSanity">120/120</span></div>
                         </div>
                         <div class="profile-actions">
                             <button class="btn btn-secondary btn-medium" id="exchangeBtn"><i class="fa-solid fa-exchange-alt"></i><span>龙门币兑换</span></button>
@@ -402,6 +403,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260830-20"></script>
+    <script src="static/app.js?v=20260830-21"></script>
 </body>
 </html>

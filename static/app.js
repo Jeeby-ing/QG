@@ -1388,7 +1388,7 @@ function renderGraph() {
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     path.setAttribute('d', d);
                     path.setAttribute('fill', 'none');
-                    path.setAttribute('stroke', idx === 0 ? '#ffffff' : 'rgba(255,255,255,0.75)');
+                    path.setAttribute('stroke', idx === 0 ? 'rgba(0,194,255,0.55)' : 'rgba(0,194,255,0.85)');
                     path.setAttribute('stroke-width', cfg.width);
                     path.setAttribute('stroke-opacity', cfg.opacity);
                     path.setAttribute('stroke-dasharray', cfg.dash);
@@ -1422,32 +1422,22 @@ function renderGraph() {
         for(let i=0;i<numVertices;i++){ const angle=(Math.PI/3)*i - Math.PI/2; points.push(`${cx+r*Math.cos(angle)},${cy+r*Math.sin(angle)}`); }
         const outer = document.createElementNS('http://www.w3.org/2000/svg','polygon');
         outer.setAttribute('points',points.join(' '));
-        let fillColor = 'rgba(40,40,45,0.95)';
-        if (n.status==='done') fillColor = 'rgba(50,60,55,0.92)';
-        else if (n.status==='cancelled') fillColor = 'rgba(28,28,30,0.92)';
-        else if (isBlocked(n)) fillColor = 'rgba(80,40,40,0.92)';
-        else if (n.status==='in_progress') fillColor = 'rgba(30,70,120,0.92)';
+        let fillColor = 'rgba(30,32,42,0.95)';
+        if (n.status==='done') fillColor = 'rgba(24,40,32,0.95)';
+        else if (n.status==='cancelled') fillColor = 'rgba(26,26,30,0.92)';
+        else if (isBlocked(n)) fillColor = 'rgba(42,26,26,0.95)';
+        else if (n.status==='in_progress') fillColor = 'rgba(16,34,48,0.96)';
         outer.setAttribute('fill', fillColor);
-        outer.setAttribute('stroke', n.status==='in_progress'?'#5a9ad0':(n.status==='done'?'#5a9a70':(n.status==='cancelled'?'#444':(isBlocked(n)?'#c05048':'#666'))));
+        outer.setAttribute('stroke', n.status==='in_progress'?'#2AD4FF':(n.status==='done'?'#5FB37A':(n.status==='cancelled'?'#5A5A62':(isBlocked(n)?'#E06050':'rgba(255,255,255,0.4)'))));
         outer.setAttribute('stroke-width','2'); outer.setAttribute('filter','url(#graphGlow)');
         outer.classList.add('graph-node', `status-${n.status}`);
         outer.setAttribute('data-priority', n.priority);
         outer.style.cursor='grab'; outer.addEventListener('click',()=>openTaskDetail(n.id));
         outer.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
         g.appendChild(outer);
-        const frosted = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        const frostPoints=[]; for(let i=0;i<numVertices;i++){ const angle=(Math.PI/3)*i - Math.PI/2; const offset=r*0.72; frostPoints.push(`${cx+offset*Math.cos(angle)},${cy+offset*Math.sin(angle)}`); }
-        frosted.setAttribute('points',frostPoints.join(' ')); frosted.setAttribute('fill','rgba(255,255,255,0.04)'); frosted.setAttribute('stroke','rgba(255,255,255,0.12)'); frosted.setAttribute('stroke-width','1'); frosted.classList.add('graph-frost'); g.appendChild(frosted);
-        const innerR=r*0.48; const innerPoints=[]; for(let i=0;i<6;i++){ const angle=(Math.PI/3)*i - Math.PI/2; innerPoints.push(`${cx+innerR*Math.cos(angle)},${cy+innerR*Math.sin(angle)}`); }
+        const innerR=r*0.62; const innerPoints=[]; for(let i=0;i<6;i++){ const angle=(Math.PI/3)*i - Math.PI/2; innerPoints.push(`${cx+innerR*Math.cos(angle)},${cy+innerR*Math.sin(angle)}`); }
         const inner = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        inner.setAttribute('points',innerPoints.join(' ')); inner.setAttribute('fill','none'); inner.setAttribute('stroke','rgba(255,255,255,0.35)'); inner.setAttribute('stroke-width','1.5'); inner.setAttribute('stroke-dasharray','2,3'); inner.classList.add('graph-inner'); g.appendChild(inner);
-        const shine=document.createElementNS('http://www.w3.org/2000/svg','line');
-        shine.setAttribute('x1',cx-r*0.3); shine.setAttribute('y1',cy-r*0.3); shine.setAttribute('x2',cx+r*0.35); shine.setAttribute('y2',cy+r*0.35);
-        shine.setAttribute('stroke','rgba(255,255,255,0.4)'); shine.setAttribute('stroke-width','2'); shine.setAttribute('stroke-linecap','round'); g.appendChild(shine);
-        const dot1=document.createElementNS('http://www.w3.org/2000/svg','circle');
-        dot1.setAttribute('cx',cx-r*0.4); dot1.setAttribute('cy',cy-r*0.35); dot1.setAttribute('r','2'); dot1.setAttribute('fill','#fff'); dot1.setAttribute('opacity','0.7'); g.appendChild(dot1);
-        const dot2=document.createElementNS('http://www.w3.org/2000/svg','circle');
-        dot2.setAttribute('cx',cx+r*0.4); dot2.setAttribute('cy',cy+r*0.3); dot2.setAttribute('r','2.5'); dot2.setAttribute('fill','#fff'); dot2.setAttribute('opacity','0.45'); g.appendChild(dot2);
+        inner.setAttribute('points',innerPoints.join(' ')); inner.setAttribute('fill','none'); inner.setAttribute('stroke','rgba(0,194,255,0.35)'); inner.setAttribute('stroke-width','1'); inner.classList.add('graph-inner'); g.appendChild(inner);
         const hit = document.createElementNS('http://www.w3.org/2000/svg','polygon');
         hit.setAttribute('points', points.join(' '));
         hit.setAttribute('fill', '#000');
@@ -1466,16 +1456,19 @@ function renderGraph() {
         text.textContent=n.title.substring(0,12); g.appendChild(text);
     });
     svg.appendChild(g);
+    // 自动适配 viewBox，保证父子结构再多也不会被裁掉
+    let _gx = 0, _gy = 0;
+    Object.values(state.graphNodePositions).forEach(p => { _gx = Math.max(_gx, p.x + 60); _gy = Math.max(_gy, p.y + 60); });
+    const _vw = Math.max(_gx + 110, 640), _vh = Math.max(_gy + 60, 440);
+    svg.setAttribute('viewBox', `0 0 ${_vw} ${_vh}`);
+    state.graphViewBox = { x: 0, y: 0, width: _vw, height: _vh };
 }
 
 function getDefaultNodePosition(n, levelMap) {
     const lvl = n.level||0;
-    const arr = levelMap[lvl];
-    const index = arr.indexOf(n);
-    return {
-        x: state.graphBaseWidth/2 + (index - (arr.length-1)/2)*140,
-        y: lvl*80 + 40
-    };
+    const arr = levelMap[lvl] || [n];
+    const index = Math.max(0, arr.indexOf(n));
+    return { x: 110 + lvl * 220, y: 60 + index * 96 };
 }
 
 let dragNodeId = null;
@@ -1913,13 +1906,33 @@ function updateParentProgress(task) {
     updateParentProgress(parent);
 }
 
+function refreshTaskCard(taskId) {
+    const task = state.flatTasks.find(t => t.id === taskId);
+    if (!task) return;
+    const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    if (!card) return;
+    const percent = task.progress_mode === 'count' && task.target_value ? Math.min(100, (task.current_value / task.target_value) * 100) : (task.progress || 0);
+    const fill = card.querySelector('.progress-fill');
+    if (fill) fill.style.width = `${percent}%`;
+    const txt = card.querySelector('.progress-text');
+    if (txt) txt.textContent = task.progress_mode === 'count' && task.target_value ? `${task.current_value}/${task.target_value}` : `${Math.round(percent)}%`;
+    const input = card.querySelector('.count-input');
+    if (input) input.value = task.current_value;
+    const thumb = card.querySelector('.progress-thumb');
+    if (thumb) thumb.style.left = `${percent}%`;
+    card.className = `task-card status-${task.status} ${(task.children && task.children.length) ? 'parent-task' : 'child-task'}${isBlocked(task) ? ' dependency-blocked' : ''}`;
+    card.dataset.status = task.status;
+    const claim = card.querySelector('.claim-btn');
+    if (claim) claim.style.display = (task.status === 'done' && !task.reward_claimed && hasActualReward(task)) ? '' : 'none';
+}
+
 async function updateCount(taskId, delta){
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task||task.status==='done') return;
     const newVal=Math.max(0,Math.min(task.target_value,(task.current_value||0)+delta));
     if(newVal>=task.target_value){
         task.current_value = newVal;
         updateParentProgress(task);
-        renderTasks();
+        refreshTaskCard(taskId); if(task.parent_id) refreshTaskCard(task.parent_id);
         updateTrackingPanelIfNeeded();
         const result = await apiPost(`/tasks/${taskId}/count`,{ current_value: newVal });
         if(result){
@@ -1954,7 +1967,7 @@ async function updateCount(taskId, delta){
     } else {
         task.current_value = newVal;
         updateParentProgress(task);
-        renderTasks();
+        refreshTaskCard(taskId); if(task.parent_id) refreshTaskCard(task.parent_id);
         updateTrackingPanelIfNeeded();
         await apiPost(`/tasks/${taskId}/count`,{ current_value: newVal });
     }
@@ -1972,7 +1985,7 @@ function startProgressDrag(e, task, bar, fill, thumb){
         } else {
             task.progress = percent;
             updateParentProgress(task);
-            renderTasks();
+            refreshTaskCard(task.id); if(task.parent_id) refreshTaskCard(task.parent_id);
             updateTrackingPanelIfNeeded();
             await apiPost(`/tasks/${task.id}/progress`,{ progress: percent });
         }
@@ -1992,7 +2005,7 @@ function startProgressDragTouch(e, task, bar, fill, thumb){
         } else {
             task.progress = percent;
             updateParentProgress(task);
-            renderTasks();
+            refreshTaskCard(task.id); if(task.parent_id) refreshTaskCard(task.parent_id);
             updateTrackingPanelIfNeeded();
             await apiPost(`/tasks/${task.id}/progress`,{ progress: percent });
         }
@@ -2521,7 +2534,13 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
                             state.settings.wp_current_id = wp.id;
                             grid.querySelectorAll('.wp-wallpaper-item').forEach(el => el.classList.remove('active'));
                             item.classList.add('active');
-                            showToast(res.message || '已切换系统壁纸');
+                            // 同时把该壁纸预览图设为应用内背景，切换即时可见
+                            const previewUrl = `/api/wallpaper-software/preview?id=${encodeURIComponent(wp.id)}`;
+                            state.settings.wallpaper_type = 'image';
+                            state.settings.wallpaper_url = previewUrl;
+                            try { await apiPut('/settings', { wallpaper_type: 'image', wallpaper_url: previewUrl }); } catch (e) {}
+                            applyWallpaper();
+                            showToast(res.message || '已切换壁纸');
                         } else if (res) {
                             showToast(res.message || '切换失败');
                         }
