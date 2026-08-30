@@ -26,3 +26,11 @@ references/
 # ===== 系统 / 编辑器 =====
 .DS_Store
 Thumbs.db
+
+# ===== 远程隧道二进制 / 运行时备份（不入库） =====
+cloudflared.exe
+*.bak
+
+# ===== 桌面运行虚拟环境（若有） =====
+venv/
+.venv/
