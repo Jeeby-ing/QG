@@ -2451,8 +2451,10 @@ async def clear_data(scope: str = Query("all", description="tasks | resources | 
         if scope == "all":
             cur.execute("DELETE FROM gift_packs")
             cur.execute("DELETE FROM reality_rewards")
+            cur.execute("DELETE FROM tags")
             cleared["gift_packs"] = True
             cleared["reality_rewards"] = True
+            cleared["tags"] = True
     return {"data": {"scope": scope, "cleared": cleared, "message": "数据已清空"}}
 
 
