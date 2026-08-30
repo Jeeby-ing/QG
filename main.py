@@ -15,6 +15,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, validator
 import mimetypes
 
+# 壁纸软件接入：检测并控制本机 Wallpaper Engine / Lively Wallpaper
+from wallpaper_software import detect_wallpaper_software, apply_wallpaper, get_wallpaper_entry
+
 # ---------- 数据库初始化 ----------
 DB_PATH = "quest_log.db"
 STATIC_DIR = "static"
@@ -2435,6 +2438,7 @@ async def update_settings(settings: Dict[str, Any]):
         "pomodoro_break_minutes",
         "wallpaper_url",
         "wallpaper_type",
+        "wp_current_id",
         "theme",
         "username",
     }
@@ -2454,6 +2458,46 @@ async def update_settings(settings: Dict[str, Any]):
         if cur.rowcount == 0:
             cur.execute("INSERT INTO settings (id, settings_json) VALUES (1, ?)", (json.dumps(existing),))
     return {"data": existing}
+
+
+# ============================================================
+# 壁纸软件接入：检测本机 Wallpaper Engine / Lively Wallpaper 并一键切换
+# ============================================================
+@app.get("/api/wallpaper-software")
+async def api_wallpaper_software():
+    """检测本机已安装的壁纸软件及其可用壁纸列表。"""
+    return {"data": detect_wallpaper_software()}
+
+
+@app.get("/api/wallpaper-software/preview")
+async def api_wallpaper_preview(id: str):
+    """按需提供壁纸预览图（仅限已探测到的壁纸，避免路径穿越）。"""
+    entry = get_wallpaper_entry(id)
+    if not entry or not entry.get("preview_file") or not os.path.isfile(entry["preview_file"]):
+        return Response(status_code=404, media_type="text/plain")
+    return FileResponse(entry["preview_file"])
+
+
+class WallpaperApplyRequest(BaseModel):
+    id: str
+    software: Optional[str] = None
+
+
+@app.post("/api/wallpaper-software/apply")
+async def api_wallpaper_apply(req: WallpaperApplyRequest):
+    """一键切换系统壁纸到指定条目，并记录当前壁纸到设置以便回显。"""
+    result = apply_wallpaper(req.software, req.id)
+    if result.get("success"):
+        try:
+            with db_cursor() as cur:
+                cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+                row = cur.fetchone()
+                existing = json.loads(row[0]) if row else {}
+                existing["wp_current_id"] = req.id
+                cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(existing),))
+        except Exception:
+            pass
+    return {"data": result}
 
 
 if __name__ == "__main__":

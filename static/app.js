@@ -1089,6 +1089,10 @@ function createTaskCard(task) {
     card.dataset.priority = task.priority;
     card.dataset.status = task.status;
     card.draggable = !isBlocked(task) && task.status !== 'done';
+    // V4 光泽扫过层（hover 时划过一道高光）
+    const cardSheen = document.createElement('div');
+    cardSheen.className = 'card-sheen';
+    card.appendChild(cardSheen);
     if (isBlocked(task)) {
         card.classList.add('dependency-blocked');
         card.style.pointerEvents = 'none';
@@ -2439,6 +2443,109 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
     wallpaperWrap.appendChild(wpUrlLabel);
     wallpaperWrap.appendChild(wpUrl);
     DOM.settingsList.appendChild(wallpaperWrap);
+
+    // ===== 本机壁纸软件接入（一键切换，无需手动放文件）=====
+    const wpPanel = document.createElement('div');
+    wpPanel.className = 'wallpaper-setting wallpaper-software-panel';
+    const wpHeader = document.createElement('div');
+    wpHeader.className = 'wp-software-header';
+    const wpTitle = document.createElement('span');
+    wpTitle.className = 'wp-software-title';
+    wpTitle.textContent = '本机壁纸软件';
+    const wpRefreshIcon = document.createElement('button');
+    wpRefreshIcon.className = 'icon-btn';
+    wpRefreshIcon.innerHTML = '<i class="fa-solid fa-rotate"></i>';
+    wpRefreshIcon.title = '刷新壁纸列表';
+    wpHeader.appendChild(wpTitle);
+    wpHeader.appendChild(wpRefreshIcon);
+    wpPanel.appendChild(wpHeader);
+    const wpList = document.createElement('div');
+    wpList.id = 'wpSoftwareList';
+    wpPanel.appendChild(wpList);
+    const wpRefreshBtn = document.createElement('button');
+    wpRefreshBtn.className = 'btn btn-secondary btn-medium wp-refresh-btn';
+    wpRefreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i><span>重新扫描本机壁纸</span>';
+    wpPanel.appendChild(wpRefreshBtn);
+    DOM.settingsList.appendChild(wpPanel);
+
+    const renderWp = async () => {
+        wpList.innerHTML = '<div class="micro-text">正在检测本机壁纸软件…</div>';
+        const data = await apiGet('/wallpaper-software');
+        if (!data) { wpList.innerHTML = '<div class="micro-text">检测失败，请确认后端已启动</div>'; return; }
+        wpList.innerHTML = '';
+        const current = state.settings.wp_current_id;
+        (data.software || []).forEach(sw => {
+            const block = document.createElement('div');
+            block.className = 'wp-software-block';
+            const row = document.createElement('div');
+            row.className = 'wp-software-row';
+            const swName = document.createElement('span');
+            swName.className = 'wp-software-name';
+            swName.textContent = sw.name;
+            const status = document.createElement('span');
+            status.className = 'wp-software-status ' + (sw.installed ? 'detected' : 'not-detected');
+            status.textContent = sw.installed ? `已安装 · ${sw.count} 款` : '未安装';
+            row.appendChild(swName);
+            row.appendChild(status);
+            block.appendChild(row);
+            if (sw.installed && sw.wallpapers && sw.wallpapers.length) {
+                const grid = document.createElement('div');
+                grid.className = 'wp-wallpaper-grid';
+                sw.wallpapers.forEach(wp => {
+                    const item = document.createElement('div');
+                    item.className = 'wp-wallpaper-item' + (wp.id === current ? ' active' : '');
+                    item.dataset.id = wp.id;
+                    item.dataset.name = wp.name;
+                    item.title = wp.name;
+                    const img = document.createElement('img');
+                    img.className = 'wp-wallpaper-thumb';
+                    img.loading = 'lazy';
+                    img.src = `/api/wallpaper-software/preview?id=${encodeURIComponent(wp.id)}`;
+                    img.onerror = () => {
+                        img.remove();
+                        item.classList.add('no-preview');
+                        const ic = document.createElement('i');
+                        ic.className = 'fa-solid ' + (wp.type === 'video' ? 'fa-film' : 'fa-photo-film');
+                        item.appendChild(ic);
+                    };
+                    const label = document.createElement('span');
+                    label.className = 'wp-wallpaper-name';
+                    label.textContent = wp.name;
+                    item.appendChild(img);
+                    item.appendChild(label);
+                    item.addEventListener('click', async () => {
+                        item.style.opacity = '0.6';
+                        const res = await apiPost('/wallpaper-software/apply', { id: wp.id, software: sw.id });
+                        item.style.opacity = '1';
+                        if (res && res.success) {
+                            state.settings.wp_current_id = wp.id;
+                            grid.querySelectorAll('.wp-wallpaper-item').forEach(el => el.classList.remove('active'));
+                            item.classList.add('active');
+                            showToast(res.message || '已切换系统壁纸');
+                        } else if (res) {
+                            showToast(res.message || '切换失败');
+                        }
+                    });
+                    grid.appendChild(item);
+                });
+                block.appendChild(grid);
+            } else if (sw.installed) {
+                const note = document.createElement('div');
+                note.className = 'micro-text';
+                note.textContent = '已安装，但未扫描到可用壁纸';
+                block.appendChild(note);
+            } else {
+                const note = document.createElement('div');
+                note.className = 'micro-text';
+                note.textContent = '未检测到，请先安装 Wallpaper Engine 或 Lively Wallpaper';
+                block.appendChild(note);
+            }
+            wpList.appendChild(block);
+        });
+    };
+    wpRefreshIcon.addEventListener('click', renderWp);
+    wpRefreshBtn.addEventListener('click', renderWp);
+    renderWp();
 
     const settingDefs=[ {key:'tracking_panel_collapsed',label:'追踪面板收起',type:'checkbox'}, {key:'focus_mode',label:'专注模式默认开启',type:'checkbox'}, {key:'quick_track',label:'快捷追踪按钮',type:'checkbox'}, {key:'show_side_when_tracking_main',label:'追踪主线时显示支线',type:'checkbox'}, {key:'show_main_when_tracking_side',label:'追踪支线时显示主线',type:'checkbox'}, {key:'show_sanity',label:'理智显示开关',type:'checkbox'} ];
     settingDefs.forEach(def=>{

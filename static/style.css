@@ -2619,3 +2619,899 @@ body.theme-light .filter-search {
     display: none !important;
 }
 
+/* =============================================
+   QUEST LOG Visual V4 — 鹰角/明日方舟风格全面增强层
+   在 V3 基础上叠加，不破坏现有类名与 DOM 结构
+   目标：从 50% → 85%+ 视觉完成度
+   ============================================= */
+
+/* ===== V4 色彩精修：更贴近鹰角实际色值 ===== */
+:root {
+    /* 鹰角青蓝（官网主高亮） */
+    --ak-cyan: #00C2FF;
+    --ak-cyan-dim: #00AEEF;
+    --ak-cyan-glow: rgba(0, 194, 255, 0.35);
+    --ak-cyan-subtle: rgba(0, 194, 255, 0.12);
+
+    /* 鹰角真金 */
+    --ak-gold: #E8B818;
+    --ak-gold-bright: #F8D840;
+    --ak-gold-deep: #C99700;
+    --ak-gold-glow: rgba(232, 184, 24, 0.4);
+
+    /* 鹰角暖橙 */
+    --ak-orange: #E86A3A;
+
+    /* 鹰角纸白 */
+    --ak-paper: #F2F2F2;
+    --ak-paper-warm: #DEDEDE;
+    --ak-paper-cool: #E8E8E8;
+
+    /* 鹰角炭黑 */
+    --ak-charcoal: #1E1E1E;
+    --ak-void: #0E0E0E;
+
+    /* V4 动效 */
+    --ak-sheen-duration: 6s;
+    --ak-pulse-duration: 3s;
+}
+
+/* ===== V4 大号装饰背景英文（鹰角官网风格） ===== */
+#app::before {
+    content: 'QUEST LOG';
+    position: fixed;
+    bottom: 20px;
+    right: 28px;
+    font-family: var(--font-display);
+    font-size: clamp(48px, 5vw, 120px);
+    font-weight: 900;
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
+    line-height: 1;
+    text-transform: uppercase;
+}
+#app::after {
+    content: 'OPERATIONAL TERMINAL';
+    position: fixed;
+    top: 80px;
+    left: 24px;
+    font-family: var(--font-display);
+    font-size: clamp(10px, 1vw, 14px);
+    letter-spacing: 0.35em;
+    color: rgba(255, 255, 255, 0.04);
+    pointer-events: none;
+    z-index: 0;
+    user-select: none;
+    text-transform: uppercase;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+
+/* 视图专属背景标签 */
+body[data-view="tasks"] #app::before { content: 'TASK MANAGER'; }
+body[data-view="graph"] #app::before { content: 'DEPENDENCY GRAPH'; }
+body[data-view="calendar"] #app::before { content: 'SCHEDULE'; }
+body[data-view="achievements"] #app::before { content: 'ETCHED BADGES'; }
+body[data-view="rewards"] #app::before { content: 'REALITY REWARDS'; }
+body[data-view="profile"] #app::before { content: 'OPERATOR PROFILE'; }
+
+/* 浅色主题下装饰文字适配 */
+body.theme-light #app::before,
+body.theme-light #app::after {
+    color: rgba(0, 0, 0, 0.03);
+}
+
+/* ===== V4 导航重设计：英+中双语、青蓝高亮 ===== */
+.nav-tab {
+    flex-direction: column;
+    align-items: center;
+    gap: 2px !important;
+    padding: 8px 16px !important;
+    min-width: 56px;
+    position: relative;
+    font-size: 13px !important;
+    letter-spacing: 0.05em;
+}
+.nav-tab i {
+    font-size: 16px !important;
+    margin-bottom: 2px;
+}
+.nav-tab span {
+    font-size: 10px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+.nav-tab.active span {
+    opacity: 1;
+    font-weight: 600;
+}
+/* 活跃态：青蓝色 + 下划线光晕（替代金色） */
+.nav-tab.active {
+    color: var(--ak-cyan) !important;
+    background: linear-gradient(180deg, rgba(0, 194, 255, 0.08), transparent) !important;
+    border-radius: 8px 8px 4px 4px;
+}
+.nav-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 20%;
+    right: 20%;
+    height: 2px;
+    background: var(--ak-cyan);
+    box-shadow: 0 0 12px var(--ak-cyan-glow), 0 0 24px rgba(0, 194, 255, 0.15);
+    border-radius: 2px;
+}
+.nav-tab:hover {
+    color: var(--text-primary) !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+.nav-tab:hover span {
+    opacity: 1;
+}
+
+/* 导航底部细线（鹰角风格分隔） */
+.top-nav::after {
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, var(--ak-cyan-subtle) 30%, var(--ak-cyan-subtle) 70%, transparent 100%);
+}
+
+/* ===== V4 Logo 增强 ===== */
+.logo-text {
+    background: linear-gradient(135deg, var(--text-primary) 30%, var(--ak-cyan) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.logo-version {
+    border-color: rgba(0, 194, 255, 0.15);
+    color: var(--ak-cyan);
+    font-family: var(--font-mono);
+    letter-spacing: 0.15em;
+}
+
+/* ===== V4 任务卡片：操作员卡片风格 ===== */
+.task-card {
+    border-radius: 6px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    position: relative;
+    overflow: hidden;
+}
+/* 卡片顶部高光线（鹰角面板特征） */
+.task-card::before {
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent) !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: auto !important;
+    border-radius: 0 !important;
+    z-index: 3;
+}
+/* 卡片光泽扫过动效 */
+.task-card .card-sheen {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+        105deg,
+        transparent 0%,
+        transparent 40%,
+        rgba(255, 255, 255, 0.06) 45%,
+        rgba(255, 255, 255, 0.12) 50%,
+        rgba(255, 255, 255, 0.06) 55%,
+        transparent 60%,
+        transparent 100%
+    );
+    pointer-events: none;
+    z-index: 4;
+    transition: left 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    mix-blend-mode: overlay;
+}
+.task-card:hover .card-sheen {
+    left: 150%;
+}
+
+/* 星星区域：更像游戏内的星级牌匾 */
+.star-bg {
+    width: auto !important;
+    min-width: 90px;
+    height: 32px !important;
+    padding: 0 10px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background:
+        linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.25) 100%) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -1px 0 rgba(0,0,0,0.3),
+        0 2px 8px rgba(0,0,0,0.35) !important;
+}
+.star-bg .star {
+    font-size: 18px !important;
+    margin-left: -2px !important;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6)) drop-shadow(0 0 3px var(--ak-gold-glow));
+}
+.star-bg.priority-1 {
+    background: linear-gradient(180deg, rgba(220,220,215,0.25), rgba(180,180,175,0.12)) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+}
+.star-bg.priority-2 {
+    background: linear-gradient(180deg, rgba(170,200,120,0.28), rgba(140,170,90,0.12)) !important;
+    border-color: rgba(170,200,120,0.15) !important;
+}
+.star-bg.priority-3 {
+    background: linear-gradient(180deg, rgba(70,130,200,0.30), rgba(50,100,160,0.15)) !important;
+    border-color: rgba(70,130,200,0.18) !important;
+}
+.star-bg.priority-4 {
+    background: linear-gradient(180deg, rgba(160,130,200,0.32), rgba(130,100,170,0.16)) !important;
+    border-color: rgba(160,130,200,0.20) !important;
+}
+.star-bg.priority-5 {
+    background: linear-gradient(180deg, rgba(220,185,110,0.38), rgba(190,160,80,0.18)) !important;
+    border-color: rgba(232,184,24,0.22) !important;
+}
+.star-bg.priority-6 {
+    background: linear-gradient(180deg, rgba(80,55,40,0.75), rgba(55,38,28,0.65)) !important;
+    border-color: rgba(232,184,24,0.18) !important;
+}
+
+/* 任务标题：更锐利的层级 */
+.task-title {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+.task-line-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+}
+
+/* 卡片左侧色条：更锐利，带内发光 */
+.task-card::after {
+    width: 3px !important;
+    border-radius: 0 2px 2px 0 !important;
+    filter: none !important;
+    box-shadow:
+        inset 0 0 6px rgba(0,0,0,0.3),
+        1px 0 8px rgba(0,0,0,0.25) !important;
+}
+
+/* ===== V4 进度条：钻石标记 + 更精细 ===== */
+.progress-bar {
+    height: 5px !important;
+    border-radius: 3px !important;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(20,20,24,0.5)) !important;
+    border: none !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.6), inset 0 -1px 0 rgba(255,255,255,0.03) !important;
+}
+.progress-fill {
+    border-radius: 3px !important;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.25) 0%, transparent 40%),
+        linear-gradient(90deg, var(--ak-gold-deep), var(--ak-gold), var(--ak-gold-bright), var(--ak-gold)) !important;
+    background-size: auto, 200% 100% !important;
+    animation: v4ProgressFlow 5s ease-in-out infinite alternate !important;
+    box-shadow: 0 0 10px var(--ak-gold-glow), inset 0 1px 0 rgba(255,255,255,0.25) !important;
+}
+@keyframes v4ProgressFlow {
+    0% { background-position: 0% 0, 0% 0; }
+    100% { background-position: 0% 0, 200% 0; }
+}
+/* 进度条钻石端点标记 */
+.progress-bar.diamond-marked {
+    position: relative;
+}
+.progress-bar.diamond-marked::after {
+    content: '';
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg) scale(0.6);
+    width: 10px;
+    height: 10px;
+    background: var(--ak-gold-bright);
+    box-shadow: 0 0 8px var(--ak-gold-glow);
+    pointer-events: none;
+    z-index: 3;
+}
+.progress-thumb {
+    width: 12px !important;
+    height: 12px !important;
+    border-width: 2px !important;
+    background: radial-gradient(circle at 35% 30%, #fff, var(--ak-gold) 70%) !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6), 0 0 10px var(--ak-gold-glow) !important;
+}
+
+/* ===== V4 按钮：更强烈的物理三态 ===== */
+.btn {
+    border-radius: 4px !important;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 13px;
+    position: relative;
+    overflow: hidden;
+}
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+.btn:hover::before { opacity: 1; }
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--ak-cyan), var(--ak-cyan-dim)) !important;
+    border-color: var(--ak-cyan) !important;
+    box-shadow:
+        0 4px 16px rgba(0, 194, 255, 0.35),
+        inset 0 1px 0 rgba(255,255,255,0.2),
+        inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+}
+.btn-primary:hover {
+    background: linear-gradient(135deg, #1ad0ff, var(--ak-cyan)) !important;
+    box-shadow:
+        0 6px 24px rgba(0, 194, 255, 0.5),
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        inset 0 -2px 4px rgba(0,0,0,0.15) !important;
+    transform: translateY(-2px) !important;
+}
+.btn-primary:active {
+    transform: translateY(1px) scale(0.97) !important;
+    box-shadow:
+        0 1px 4px rgba(0, 194, 255, 0.3),
+        inset 0 2px 6px rgba(0,0,0,0.25) !important;
+}
+
+.btn-secondary {
+    background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)) !important;
+    border-color: rgba(255,255,255,0.10) !important;
+    box-shadow:
+        0 3px 10px rgba(0,0,0,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -1px 3px rgba(0,0,0,0.15) !important;
+}
+.btn-secondary:hover {
+    background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04)) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+}
+
+/* 图标按钮：更精致 */
+.icon-btn {
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+.icon-btn:hover {
+    border-color: var(--ak-cyan-subtle) !important;
+    box-shadow:
+        0 4px 14px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(0, 194, 255, 0.1),
+        inset 0 1px 0 rgba(255,255,255,0.08) !important;
+}
+
+/* ===== V4 弹窗：玻璃质感升级 ===== */
+.modal {
+    border-radius: 8px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    overflow: hidden;
+}
+.modal-header {
+    background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.25)) !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    padding: 12px 18px !important;
+    position: relative;
+}
+.modal-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 18px;
+    right: 18px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ak-cyan-subtle), transparent);
+    opacity: 0.5;
+}
+.modal-title {
+    font-family: var(--font-display);
+    font-size: 17px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.modal-close {
+    border-radius: 4px !important;
+    transition: all 0.2s;
+}
+.modal-close:hover {
+    background: rgba(212, 48, 40, 0.15) !important;
+    color: var(--highlight-red-1) !important;
+    transform: rotate(90deg);
+}
+.modal-body {
+    background:
+        radial-gradient(circle at 100% 0%, rgba(0, 194, 255, 0.03), transparent 40%),
+        linear-gradient(180deg, rgba(255,255,255,0.015), transparent) !important;
+}
+
+/* ===== V4 筛选栏：更紧凑、更有秩序感 ===== */
+.filter-bar {
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+        var(--glass-1) !important;
+    gap: 10px !important;
+}
+.filter-select, .filter-search {
+    border-radius: 4px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(14, 14, 16, 0.85) !important;
+    font-size: 13px !important;
+    transition: all 0.2s;
+}
+.filter-select:focus, .filter-search:focus {
+    border-color: var(--ak-cyan) !important;
+    box-shadow: 0 0 0 3px var(--ak-cyan-subtle), 0 0 12px rgba(0, 194, 255, 0.15) !important;
+}
+.tag-chip {
+    border-radius: 2px !important;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    padding: 3px 10px !important;
+    transition: all 0.2s;
+}
+.tag-chip.active {
+    background: var(--ak-cyan-subtle) !important;
+    border-color: var(--ak-cyan) !important;
+    color: var(--ak-cyan) !important;
+    box-shadow: 0 0 8px rgba(0, 194, 255, 0.2) !important;
+}
+
+/* ===== V4 六边形蚀刻章（成就卡片） ===== */
+.achievement-card {
+    border-radius: 0 !important;
+    clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+    padding: 20px 16px !important;
+    background:
+        linear-gradient(145deg, rgba(255,255,255,0.06), rgba(20,20,24,0.85)),
+        var(--glass-2) !important;
+    border: none !important;
+    position: relative;
+}
+.achievement-card::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    clip-path: polygon(50% 2%, 90% 26%, 90% 74%, 50% 98%, 10% 74%, 10% 26%);
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255,255,255,0.06);
+    pointer-events: none;
+    z-index: 0;
+}
+.achievement-card > * {
+    position: relative;
+    z-index: 1;
+}
+.achievement-card.locked {
+    filter: grayscale(0.7) brightness(0.7);
+}
+.achievement-card:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow:
+        0 16px 40px rgba(0,0,0,0.5),
+        0 0 20px rgba(0, 194, 255, 0.1) !important;
+}
+.badge-icon {
+    font-size: 42px;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5));
+}
+
+/* ===== V4 表单元素精修 ===== */
+.form-input, .form-select, .form-textarea {
+    border-radius: 4px !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    background: rgba(14, 14, 16, 0.85) !important;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: var(--ak-cyan) !important;
+    box-shadow: 0 0 0 3px var(--ak-cyan-subtle), 0 0 16px rgba(0, 194, 255, 0.12) !important;
+}
+.form-label {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary-1);
+    font-weight: 600;
+}
+
+/* ===== V4 开关控件：更精致 ===== */
+.switch .slider {
+    border-radius: 13px !important;
+    background: linear-gradient(180deg, #2a2a2e, #1e1e22) !important;
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.5),
+        inset 0 -1px 0 rgba(255,255,255,0.03),
+        0 1px 0 rgba(255,255,255,0.03) !important;
+}
+.switch .slider::before {
+    box-shadow:
+        0 2px 5px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255,255,255,0.08),
+        inset 0 -1px 2px rgba(0,0,0,0.2) !important;
+    background: linear-gradient(180deg, #f0f0ec, #d8d4cc) !important;
+}
+.switch input:checked + .slider {
+    background: linear-gradient(135deg, var(--ak-cyan-dim), #0078b8) !important;
+    box-shadow:
+        0 0 12px var(--ak-cyan-glow),
+        inset 0 2px 4px rgba(0,0,0,0.3),
+        inset 0 -1px 0 rgba(255,255,255,0.08) !important;
+}
+
+/* ===== V4 资源显示：终端数字风格 ===== */
+.resource-item {
+    border-radius: 4px !important;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02)),
+        var(--glass-2) !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+}
+.resource-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ===== V4 追踪面板增强 ===== */
+.tracking-expanded {
+    background:
+        radial-gradient(circle at 0% 0%, rgba(0, 194, 255, 0.03), transparent 40%),
+        linear-gradient(180deg, rgba(30,30,34,0.98), rgba(20,20,24,0.95)),
+        var(--glass-1) !important;
+}
+.tracking-handle i {
+    color: var(--ak-cyan) !important;
+    text-shadow: 0 0 12px var(--ak-cyan-glow) !important;
+}
+.tracking-title {
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
+    font-size: 20px;
+}
+
+/* ===== V4 日历增强 ===== */
+.calendar-container {
+    border-radius: 6px !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+}
+.calendar-day {
+    border-radius: 3px !important;
+    border: 1px solid rgba(255,255,255,0.04) !important;
+    transition: all 0.2s;
+}
+.calendar-day.today {
+    border-color: var(--ak-cyan) !important;
+    box-shadow: 0 0 12px var(--ak-cyan-subtle), inset 0 0 8px rgba(0, 194, 255, 0.08) !important;
+}
+.calendar-day.has-tasks {
+    background: rgba(0, 194, 255, 0.06) !important;
+}
+
+/* ===== V4 图谱节点增强 ===== */
+.graph-node {
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.graph-node:hover {
+    filter: drop-shadow(0 0 14px var(--ak-cyan-glow)) brightness(1.15) !important;
+}
+.graph-edge {
+    stroke: rgba(0, 194, 255, 0.25) !important;
+    stroke-width: 1.5 !important;
+}
+.graph-edge.highlight {
+    stroke: var(--ak-cyan) !important;
+    stroke-width: 2.5 !important;
+    filter: drop-shadow(0 0 10px var(--ak-cyan-glow)) !important;
+}
+
+/* ===== V4 Toast 通知 ===== */
+.toast {
+    border-radius: 4px !important;
+    border: 1px solid var(--ak-cyan) !important;
+    border-left: 3px solid var(--ak-cyan) !important;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.4),
+        0 0 16px rgba(0, 194, 255, 0.1) !important;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+}
+
+/* ===== V4 等级/经验显示 ===== */
+.level-number {
+    background: linear-gradient(180deg, var(--ak-gold-bright), var(--ak-gold)) !important;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* ===== V4 个人主页卡片 ===== */
+.profile-card {
+    border-radius: 8px !important;
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    overflow: hidden;
+}
+.profile-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--ak-cyan), var(--ak-gold), var(--ak-orange));
+    opacity: 0.8;
+}
+
+/* ===== V4 现实奖励卡片 ===== */
+.reality-reward-card {
+    border-radius: 6px !important;
+    border-left: 3px solid var(--ak-cyan) !important;
+}
+.reality-reward-card.status-achieved {
+    border-left-color: var(--ak-gold) !important;
+}
+.reality-reward-card.status-claimed {
+    border-left-color: var(--highlight-green-1) !important;
+}
+
+/* ===== V4 壁纸软件设置面板 ===== */
+.wallpaper-software-panel {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 6px;
+    background: rgba(0, 194, 255, 0.03);
+    border: 1px solid rgba(0, 194, 255, 0.1);
+}
+.wp-software-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.wp-software-title {
+    font-family: var(--font-display);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    color: var(--ak-cyan);
+    text-transform: uppercase;
+}
+.wp-software-status {
+    font-size: 11px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+}
+.wp-software-status.detected {
+    background: rgba(64, 160, 104, 0.15);
+    color: var(--highlight-green-2);
+    border: 1px solid rgba(64, 160, 104, 0.2);
+}
+.wp-software-status.not-detected {
+    background: rgba(200, 160, 32, 0.1);
+    color: var(--warning-yellow-2);
+    border: 1px solid rgba(200, 160, 32, 0.15);
+}
+.wp-wallpaper-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding: 4px;
+}
+.wp-wallpaper-item {
+    position: relative;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.08);
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s;
+    aspect-ratio: 16/9;
+    background: rgba(20,20,24,0.8);
+}
+.wp-wallpaper-item:hover {
+    border-color: var(--ak-cyan);
+    box-shadow: 0 0 12px var(--ak-cyan-subtle);
+    transform: translateY(-2px);
+}
+.wp-wallpaper-item.active {
+    border-color: var(--ak-gold);
+    box-shadow: 0 0 16px var(--ak-gold-glow);
+}
+.wp-wallpaper-thumb {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.wp-wallpaper-name {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 4px 6px;
+    font-size: 10px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wp-refresh-btn {
+    margin-top: 10px;
+    width: 100%;
+}
+
+/* ===== V4 动画：微妙脉冲（活跃状态呼吸感） ===== */
+@keyframes v4SubtlePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.85; }
+}
+.task-card.status-in_progress {
+    animation: v4BreatheCyan 4s ease-in-out infinite !important;
+}
+@keyframes v4BreatheCyan {
+    0%, 100% {
+        box-shadow:
+            0 16px 32px rgba(0,0,0,0.6),
+            0 4px 12px rgba(0,0,0,0.3),
+            0 0 0 1px rgba(0, 194, 255, 0.08);
+    }
+    50% {
+        box-shadow:
+            0 16px 32px rgba(0,0,0,0.6),
+            0 4px 12px rgba(0,0,0,0.3),
+            0 0 20px rgba(0, 194, 255, 0.2);
+    }
+}
+
+/* ===== V4 移动端同步增强 ===== */
+@media (max-width: 768px) {
+    #app::before {
+        font-size: 36px;
+        bottom: 10px;
+        right: 12px;
+    }
+    #app::after {
+        display: none;
+    }
+    .nav-tab {
+        flex-direction: row;
+        gap: 12px !important;
+        padding: 16px 20px !important;
+        min-width: unset;
+        justify-content: flex-start;
+    }
+    .nav-tab i {
+        font-size: 20px !important;
+        margin-bottom: 0;
+    }
+    .nav-tab span {
+        font-size: 15px !important;
+        letter-spacing: 0.05em;
+        text-transform: none;
+    }
+    .task-card {
+        border-radius: 4px !important;
+        min-height: 100px !important;
+    }
+    .star-bg {
+        width: 100% !important;
+        height: 28px !important;
+    }
+    .achievement-card {
+        clip-path: none;
+        border-radius: 8px !important;
+    }
+    .achievement-card::before {
+        display: none;
+    }
+    .wp-wallpaper-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        max-height: 180px;
+    }
+}
+
+/* ===== V4 浅色主题适配 ===== */
+body.theme-light .task-card,
+body.theme-light .modal,
+body.theme-light .filter-bar,
+body.theme-light .calendar-container,
+body.theme-light .graph-container {
+    border-color: rgba(100, 90, 75, 0.12) !important;
+}
+body.theme-light .btn-primary {
+    background: linear-gradient(135deg, var(--ak-cyan), #2080c0) !important;
+    border-color: #2080c0 !important;
+}
+body.theme-light .nav-tab.active {
+    color: #1a70a0 !important;
+    background: rgba(0, 150, 220, 0.08) !important;
+}
+body.theme-light .nav-tab.active::after {
+    background: #1a70a0;
+    box-shadow: 0 0 8px rgba(0, 150, 220, 0.2);
+}
+body.theme-light #app::before,
+body.theme-light #app::after {
+    color: rgba(0, 0, 0, 0.025);
+}
+body.theme-light .progress-fill {
+    background:
+        linear-gradient(180deg, rgba(0,0,0,0.08) 0%, transparent 40%),
+        linear-gradient(90deg, #b8a030, var(--ak-gold), #d4b830, #b8a030) !important;
+}
+body.theme-light .tag-chip.active {
+    background: rgba(0, 120, 200, 0.1) !important;
+    border-color: #2080c0 !important;
+    color: #1a70a0 !important;
+}
+
+/* ===== V4 壁纸软件面板补充结构（JS 动态渲染用） ===== */
+.wp-software-block {
+    margin-bottom: 14px;
+}
+.wp-software-block:last-child {
+    margin-bottom: 0;
+}
+.wp-software-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.wp-software-name {
+    font-size: 12px;
+    color: var(--text-primary);
+    letter-spacing: 0.02em;
+}
+.wp-wallpaper-item.no-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background:
+        radial-gradient(circle at 30% 20%, rgba(0,194,255,0.12), transparent 60%),
+        linear-gradient(135deg, rgba(20,20,26,0.95), rgba(10,10,14,0.95));
+}
+.wp-wallpaper-item.no-preview i {
+    font-size: 22px;
+    color: var(--ak-cyan);
+    opacity: 0.85;
+}
+.wp-wallpaper-item .wp-wallpaper-name {
+    pointer-events: none;
+}
+
