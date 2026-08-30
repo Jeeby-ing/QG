@@ -255,6 +255,7 @@ body.focus-mode .bg-particles { opacity:1; }
 }
 .resource-item:hover { transform:translateY(-1px); box-shadow:0 4px 10px rgba(0,0,0,0.4); }
 .resource-icon { width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0; }
+.resource-icon svg, .res-icon svg { width:100%; height:100%; display:block; }
 .stone-icon { color:var(--highlight-gold-1); }
 .lungmen-icon { color:var(--highlight-orange-1); }
 .orundum-icon { color:var(--highlight-purple-1); }
@@ -1126,7 +1127,7 @@ body.focus-mode .bg-particles { opacity:1; }
     padding:14px; background:rgba(255,255,255,0.03); border-radius:12px;
     border:1px solid rgba(255,255,255,0.04);
 }
-.res-icon { font-size:28px; margin-bottom:4px; }
+.res-icon { width:28px; height:28px; font-size:28px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; }
 .res-label { font-size:12px; color:var(--text-muted-1); }
 .res-value { font-size:18px; font-weight:600; }
 .profile-actions { display:flex; gap:10px; margin-top:16px; }
