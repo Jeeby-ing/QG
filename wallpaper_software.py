@@ -105,6 +105,12 @@ def _scan_wallpaper_engine(install_path: str):
                     if hits:
                         preview = hits[0]
                         break
+            video_file = None
+            for vext in ("mp4", "webm", "mov", "mkv", "avi"):
+                vhits = glob.glob(os.path.join(fp, "*." + vext))
+                if vhits:
+                    video_file = vhits[0]
+                    break
             out.append({
                 "id": "we:" + fp,
                 "name": title,
@@ -112,6 +118,8 @@ def _scan_wallpaper_engine(install_path: str):
                 "source": "Wallpaper Engine",
                 "software": "wallpaper_engine",
                 "preview_file": preview,
+                "video_file": video_file,
+                "media": "video" if video_file else "image",
                 "apply_path": fp,
             })
     return out
@@ -190,6 +198,7 @@ def _scan_lively():
                 preview = hits[0]
                 break
         wtype = "video" if (apply_path or "").lower().endswith((".mp4", ".webm", ".mov")) else "web"
+        video_file = apply_path if wtype == "video" else None
         out.append({
             "id": "lively:" + fp,
             "name": title,
@@ -197,6 +206,8 @@ def _scan_lively():
             "source": "Lively Wallpaper",
             "software": "lively",
             "preview_file": preview,
+            "video_file": video_file,
+            "media": "video" if video_file else "image",
             "apply_path": apply_path,
         })
     return out
@@ -217,7 +228,7 @@ def detect_wallpaper_software():
         result["software"].append({
             "id": "wallpaper_engine", "name": "Wallpaper Engine",
             "installed": True, "count": len(wps),
-            "wallpapers": [{"id": w["id"], "name": w["name"], "type": w["type"]} for w in wps],
+            "wallpapers": [{"id": w["id"], "name": w["name"], "type": w["type"], "media": w.get("media", "image"), "has_video": bool(w.get("video_file"))} for w in wps],
         })
     else:
         result["software"].append({
@@ -234,7 +245,7 @@ def detect_wallpaper_software():
         result["software"].append({
             "id": "lively", "name": "Lively Wallpaper",
             "installed": True, "count": len(wps),
-            "wallpapers": [{"id": w["id"], "name": w["name"], "type": w["type"]} for w in wps],
+            "wallpapers": [{"id": w["id"], "name": w["name"], "type": w["type"], "media": w.get("media", "image"), "has_video": bool(w.get("video_file"))} for w in wps],
         })
     else:
         result["software"].append({

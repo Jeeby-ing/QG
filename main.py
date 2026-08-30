@@ -2483,6 +2483,19 @@ class WallpaperApplyRequest(BaseModel):
     software: Optional[str] = None
 
 
+@app.get("/api/wallpaper-software/media")
+async def api_wallpaper_media(id: str):
+    """提供壁纸实际媒体文件（视频 > 预览图 > 应用路径），供前端作为动态背景播放。"""
+    entry = get_wallpaper_entry(id)
+    if not entry:
+        return Response(status_code=404, media_type="text/plain")
+    target = entry.get("video_file") or entry.get("preview_file") or entry.get("apply_path")
+    if not target or not os.path.isfile(target):
+        return Response(status_code=404, media_type="text/plain")
+    media_type = mimetypes.guess_type(target)[0] or "application/octet-stream"
+    return FileResponse(target, media_type=media_type, headers={"Accept-Ranges": "bytes", "Cache-Control": "no-cache"})
+
+
 @app.post("/api/wallpaper-software/apply")
 async def api_wallpaper_apply(req: WallpaperApplyRequest):
     """一键切换系统壁纸到指定条目，并记录当前壁纸到设置以便回显。"""

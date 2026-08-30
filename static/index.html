@@ -9,8 +9,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260830-21">
-    <link rel="stylesheet" href="static/theme-v5.css?v=20260830-21">
+    <link rel="stylesheet" href="static/style.css?v=20260830-23">
 </head>
 <body>
     <svg style="position:absolute;width:0;height:0;pointer-events:none;" aria-hidden="true">
@@ -89,9 +88,9 @@
 
         <!-- 追踪面板：窄条把手 + 展开面板 -->
         <aside class="tracking-panel" id="trackingPanel">
-            <div class="tracking-handle" id="trackingHandle" title="追踪面板">
-                <i class="fa-solid fa-diamond"></i>
-            </div>
+                <div class="tracking-handle" id="trackingHandle" title="追踪面板">
+                    <i class="fa-solid fa-grip-vertical"></i>
+                </div>
             <div class="tracking-expanded" id="trackingExpanded">
                 <div class="drag-indicator" id="dragIndicator"><span></span></div>
                 <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
@@ -110,7 +109,7 @@
                             <span class="progress-num" id="trackingProgressNum">0%</span>
                         </div>
                         <div class="tracking-actions">
-                            <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-diamond"></i><span>停止追踪</span></button>
+                            <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-stop"></i><span>停止追踪</span></button>
                             <button class="btn btn-primary btn-large" id="trackingCompleteBtn"><i class="fa-solid fa-check"></i><span>完成任务</span></button>
                             <button class="btn btn-primary btn-large hidden" id="trackingRewardBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
                             <button class="btn btn-secondary" id="trackingFocusBtn"><i class="fa-solid fa-expand"></i><span>专注模式</span></button>
@@ -403,6 +402,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260830-21"></script>
+    <script src="static/app.js?v=20260830-23"></script>
 </body>
 </html>

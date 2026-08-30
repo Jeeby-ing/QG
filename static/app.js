@@ -1377,13 +1377,15 @@ function renderGraph() {
                 const parentPos = state.graphNodePositions[parent.id] || getDefaultNodePosition(parent, levelMap);
                 const childPos = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
                 const pathId = `edge-${parent.id}-${n.id}`;
-                const d = `M ${parentPos.x} ${parentPos.y} C ${parentPos.x} ${(parentPos.y+childPos.y)/2}, ${childPos.x} ${(parentPos.y+childPos.y)/2}, ${childPos.x} ${childPos.y}`;
+                const px = parentPos.x + 75, py = parentPos.y;
+                const cxp = childPos.x - 75, cyp = childPos.y;
+                const d = `M ${px} ${py} C ${px+45} ${py}, ${cxp-45} ${cyp}, ${cxp} ${cyp}`;
                 const edgeLayers = [
                     { width: 4, opacity: 0.10, dash: '1 9', dur: '3.2s' },
                     { width: 2, opacity: 0.28, dash: '3 7', dur: '2.4s' },
                     { width: 1, opacity: 0.60, dash: '9 5', dur: '1.6s' }
                 ];
-                const basePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                let basePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                 edgeLayers.forEach((cfg, idx) => {
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     path.setAttribute('d', d);
@@ -1416,59 +1418,82 @@ function renderGraph() {
     });
     nodes.forEach(n => {
         const pos = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
-        const cx=pos.x, cy=pos.y, r=50;
-        const numVertices = 6;
-        const points = [];
-        for(let i=0;i<numVertices;i++){ const angle=(Math.PI/3)*i - Math.PI/2; points.push(`${cx+r*Math.cos(angle)},${cy+r*Math.sin(angle)}`); }
-        const outer = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        outer.setAttribute('points',points.join(' '));
-        let fillColor = 'rgba(30,32,42,0.95)';
-        if (n.status==='done') fillColor = 'rgba(24,40,32,0.95)';
-        else if (n.status==='cancelled') fillColor = 'rgba(26,26,30,0.92)';
-        else if (isBlocked(n)) fillColor = 'rgba(42,26,26,0.95)';
-        else if (n.status==='in_progress') fillColor = 'rgba(16,34,48,0.96)';
-        outer.setAttribute('fill', fillColor);
-        outer.setAttribute('stroke', n.status==='in_progress'?'#2AD4FF':(n.status==='done'?'#5FB37A':(n.status==='cancelled'?'#5A5A62':(isBlocked(n)?'#E06050':'rgba(255,255,255,0.4)'))));
-        outer.setAttribute('stroke-width','2'); outer.setAttribute('filter','url(#graphGlow)');
-        outer.classList.add('graph-node', `status-${n.status}`);
-        outer.setAttribute('data-priority', n.priority);
-        outer.style.cursor='grab'; outer.addEventListener('click',()=>openTaskDetail(n.id));
-        outer.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
-        g.appendChild(outer);
-        const innerR=r*0.62; const innerPoints=[]; for(let i=0;i<6;i++){ const angle=(Math.PI/3)*i - Math.PI/2; innerPoints.push(`${cx+innerR*Math.cos(angle)},${cy+innerR*Math.sin(angle)}`); }
-        const inner = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        inner.setAttribute('points',innerPoints.join(' ')); inner.setAttribute('fill','none'); inner.setAttribute('stroke','rgba(0,194,255,0.35)'); inner.setAttribute('stroke-width','1'); inner.classList.add('graph-inner'); g.appendChild(inner);
-        const hit = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-        hit.setAttribute('points', points.join(' '));
-        hit.setAttribute('fill', '#000');
-        hit.setAttribute('fill-opacity', '0');
-        hit.setAttribute('stroke', 'none');
-        hit.style.pointerEvents = 'all';
-        hit.classList.add('graph-hit');
-        hit.style.cursor = 'grab';
+        const cx = pos.x, cy = pos.y;
+        const W = 150, H = 56, rx = 9;
+        let fill = 'rgba(28,32,44,0.96)';
+        let stroke = 'rgba(150,165,185,0.55)';
+        if (n.status === 'done') { fill = 'rgba(22,44,34,0.96)'; stroke = '#5FB37A'; }
+        else if (n.status === 'cancelled') { fill = 'rgba(30,30,34,0.95)'; stroke = '#6A6A74'; }
+        else if (isBlocked(n)) { fill = 'rgba(46,28,28,0.96)'; stroke = '#E06050'; }
+        else if (n.status === 'in_progress') { fill = 'rgba(16,40,58,0.97)'; stroke = '#2AD4FF'; }
+        // 节点主体：圆角矩形（比六边形更干净、可读）
+        const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        rect.setAttribute('x', cx - W/2); rect.setAttribute('y', cy - H/2);
+        rect.setAttribute('width', W); rect.setAttribute('height', H); rect.setAttribute('rx', rx);
+        rect.setAttribute('fill', fill);
+        rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width','2');
+        rect.setAttribute('filter','url(#graphGlow)');
+        rect.classList.add('graph-node', `status-${n.status}`);
+        rect.style.cursor = 'grab';
+        rect.addEventListener('click', () => openTaskDetail(n.id));
+        rect.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
+        g.appendChild(rect);
+        // 左侧状态色条
+        const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        bar.setAttribute('x', cx - W/2); bar.setAttribute('y', cy - H/2);
+        bar.setAttribute('width', 5); bar.setAttribute('height', H); bar.setAttribute('rx', 2);
+        bar.setAttribute('fill', stroke); bar.setAttribute('opacity','0.9');
+        g.appendChild(bar);
+        // 标题
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', cx + 10); text.setAttribute('y', cy - 2);
+        text.setAttribute('text-anchor','start');
+        text.setAttribute('fill','#f2f2ee'); text.setAttribute('font-size','13'); text.setAttribute('font-weight','600');
+        text.classList.add('graph-label');
+        text.textContent = (n.title || '').substring(0, 14);
+        g.appendChild(text);
+        // 状态小字
+        const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
+        sub.setAttribute('x', cx + 10); sub.setAttribute('y', cy + 15);
+        sub.setAttribute('text-anchor','start');
+        sub.setAttribute('fill','rgba(200,210,225,0.7)'); sub.setAttribute('font-size','10');
+        sub.textContent = ({ todo:'待办', in_progress:'进行中', paused:'已暂停', done:'已完成', cancelled:'已取消' })[n.status] || n.status || '';
+        g.appendChild(sub);
+        // 透明命中层（覆盖整块，便于拖拽/点击）
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        hit.setAttribute('x', cx - W/2); hit.setAttribute('y', cy - H/2);
+        hit.setAttribute('width', W); hit.setAttribute('height', H); hit.setAttribute('rx', rx);
+        hit.setAttribute('fill', '#000'); hit.setAttribute('fill-opacity', '0'); hit.setAttribute('stroke', 'none');
+        hit.style.pointerEvents = 'all'; hit.style.cursor = 'grab';
         hit.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
         hit.addEventListener('click', (e) => { e.stopPropagation(); openTaskDetail(n.id); });
         g.appendChild(hit);
-        const text=document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x',cx); text.setAttribute('y',cy+5); text.setAttribute('text-anchor','middle');
-        text.setAttribute('fill','#f0f0e8'); text.setAttribute('font-size','13'); text.setAttribute('font-weight','600');
-        text.classList.add('graph-label');
-        text.textContent=n.title.substring(0,12); g.appendChild(text);
     });
     svg.appendChild(g);
-    // 自动适配 viewBox，保证父子结构再多也不会被裁掉
-    let _gx = 0, _gy = 0;
-    Object.values(state.graphNodePositions).forEach(p => { _gx = Math.max(_gx, p.x + 60); _gy = Math.max(_gy, p.y + 60); });
-    const _vw = Math.max(_gx + 110, 640), _vh = Math.max(_gy + 60, 440);
-    svg.setAttribute('viewBox', `0 0 ${_vw} ${_vh}`);
-    state.graphViewBox = { x: 0, y: 0, width: _vw, height: _vh };
+    // 自动适配 viewBox：基于所有节点真实位置计算，避免节点被裁掉导致“图谱不可见”
+    let _minX = Infinity, _minY = Infinity, _maxX = -Infinity, _maxY = -Infinity;
+    nodes.forEach(n => {
+        const p = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
+        _minX = Math.min(_minX, p.x);
+        _minY = Math.min(_minY, p.y);
+        _maxX = Math.max(_maxX, p.x);
+        _maxY = Math.max(_maxY, p.y);
+    });
+    if (!isFinite(_minX)) { _minX = 0; _minY = 0; _maxX = 640; _maxY = 440; }
+    const _pad = 90;
+    const _vx = Math.max(0, _minX - _pad);
+    const _vy = Math.max(0, _minY - _pad);
+    const _vw = Math.max(_maxX - _minX + _pad * 2, 640);
+    const _vh = Math.max(_maxY - _minY + _pad * 2, 440);
+    svg.setAttribute('viewBox', `${_vx} ${_vy} ${_vw} ${_vh}`);
+    state.graphViewBox = { x: _vx, y: _vy, width: _vw, height: _vh };
 }
 
 function getDefaultNodePosition(n, levelMap) {
     const lvl = n.level||0;
     const arr = levelMap[lvl] || [n];
     const index = Math.max(0, arr.indexOf(n));
-    return { x: 110 + lvl * 220, y: 60 + index * 96 };
+    return { x: 140 + lvl * 250, y: 75 + index * 92 };
 }
 
 let dragNodeId = null;
@@ -2534,11 +2559,18 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
                             state.settings.wp_current_id = wp.id;
                             grid.querySelectorAll('.wp-wallpaper-item').forEach(el => el.classList.remove('active'));
                             item.classList.add('active');
-                            // 同时把该壁纸预览图设为应用内背景，切换即时可见
-                            const previewUrl = `/api/wallpaper-software/preview?id=${encodeURIComponent(wp.id)}`;
-                            state.settings.wallpaper_type = 'image';
-                            state.settings.wallpaper_url = previewUrl;
-                            try { await apiPut('/settings', { wallpaper_type: 'image', wallpaper_url: previewUrl }); } catch (e) {}
+                            // 含真实视频文件的壁纸用 <video> 动态背景；其余用预览图
+                            const isVideo = wp.has_video || wp.media === 'video';
+                            if (isVideo) {
+                                state.settings.wallpaper_type = 'video';
+                                state.settings.wallpaper_url = `/api/wallpaper-software/media?id=${encodeURIComponent(wp.id)}`;
+                            } else {
+                                state.settings.wallpaper_type = 'image';
+                                state.settings.wallpaper_url = `/api/wallpaper-software/preview?id=${encodeURIComponent(wp.id)}`;
+                            }
+                            try {
+                                await apiPut('/settings', { wallpaper_type: state.settings.wallpaper_type, wallpaper_url: state.settings.wallpaper_url });
+                            } catch (e) {}
                             applyWallpaper();
                             showToast(res.message || '已切换壁纸');
                         } else if (res) {
