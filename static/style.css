@@ -2023,7 +2023,7 @@ body.theme-light .count-target {
     .task-list {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: start;
+        align-items: stretch;
     }
     .task-list-empty {
         grid-column: 1 / -1;
@@ -2486,7 +2486,7 @@ body.wallpaper-video .bg-layer {
     .task-list {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: start;
+        align-items: stretch;
         gap: 14px;
     }
     .task-list-empty {
@@ -2499,15 +2499,16 @@ body.wallpaper-video .bg-layer {
     }
 }
 
-/* 任务卡片统一最小高度，避免高矮不一 */
+/* 任务卡片统一最小高度，flex:1 让同行分组内卡片等分高度，顶/底都对齐 */
 .task-card {
-    min-height: 128px;
+    min-height: 104px;
+    flex: 1 1 auto;
 }
 .task-card.child-task {
-    min-height: 110px;
+    min-height: 100px;
 }
 .task-card.parent-task {
-    min-height: 140px;
+    min-height: 112px;
 }
 
 /* 快捷领取按钮与操作按钮不重叠 */
