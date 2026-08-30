@@ -1,0 +1,28 @@
+# ===== 依赖 / 缓存 / 构建产物 =====
+.idea/
+.npm-cache/
+.pnpm/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+
+# ===== 第三方路由套件（非本应用源码） =====
+dsh-routing-suite/
+
+# ===== 大体积媒体（非源码，按需自行管理） =====
+static/wallpapers/*.mp4
+static/wallpapers/*.webm
+static/wallpapers/参考DXS/
+
+# ===== 参考素材（非源码，设计对标用，体积大） =====
+references/
+
+# ===== 本地数据库（运行时数据，非源码） =====
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== 系统 / 编辑器 =====
+.DS_Store
+Thumbs.db

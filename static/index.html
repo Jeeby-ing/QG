@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <title>QUEST LOG</title>
+    <link rel="icon" href="data:,">
+    <!-- 本地 Orbitron 字体 -->
+    <link rel="stylesheet" href="static/fonts/orbitron.css">
+    <!-- Font Awesome 本地资源 -->
+    <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
+    <link rel="stylesheet" href="static/style.css?v=20250830-18">
+</head>
+<body>
+    <svg style="position:absolute;width:0;height:0;pointer-events:none;" aria-hidden="true">
+        <defs>
+            <filter id="rough-edge">
+                <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="4" result="noise"/>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="8" xChannelSelector="R" yChannelSelector="G"/>
+                <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.5"/>
+            </filter>
+            <filter id="rough-edge-subtle">
+                <feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="3" result="noise"/>
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+            </filter>
+            <filter id="star-glow">
+                <feGaussianBlur stdDeviation="2" result="blur"/>
+                <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+            </filter>
+        </defs>
+    </svg>
+
+    <div id="app">
+        <div class="bg-layer bg-gradient"></div>
+        <div class="bg-layer bg-texture-large"></div>
+        <div class="bg-layer bg-texture"></div>
+        <div class="bg-layer bg-particles" id="bgParticles"></div>
+
+        <header class="top-nav" id="topNav">
+            <div class="nav-left">
+                <div class="logo-container">
+                    <div class="logo-icon"><i class="fa-solid fa-diamond"></i><span class="logo-ring"></span><span class="logo-core"></span></div>
+                    <h1 class="logo-text">QUEST LOG</h1>
+                    <span class="logo-version">V1.0</span>
+                </div>
+                <div class="user-info" id="userInfo" title="点击修改用户名">
+                    <span class="user-name" id="userName">博士</span>
+                    <span class="user-level" id="userLevel">Lv.1</span>
+                    <div class="user-exp-bar"><div class="user-exp-fill" id="userExpFill"></div></div>
+                </div>
+            </div>
+            <nav class="nav-center" id="navTabs">
+                <button class="nav-tab active" data-view="tasks"><i class="fa-solid fa-list-check"></i><span>任务</span></button>
+                <button class="nav-tab" data-view="graph"><i class="fa-solid fa-diagram-project"></i><span>图谱</span></button>
+                <button class="nav-tab" data-view="calendar"><i class="fa-solid fa-calendar-days"></i><span>日历</span></button>
+                <button class="nav-tab" data-view="achievements"><i class="fa-solid fa-award"></i><span>勋章</span></button>
+                <button class="nav-tab" data-view="rewards"><i class="fa-solid fa-gift"></i><span>兑换</span></button>
+                <button class="nav-tab" data-view="profile"><i class="fa-solid fa-user"></i><span>主页</span></button>
+            </nav>
+            <div class="nav-right">
+                <div class="resource-display" id="resourceDisplay">
+                    <div class="resource-item" title="龙门币">
+                        <span class="resource-icon lungmen-icon"><i class="fa-solid fa-coins"></i></span>
+                        <span class="resource-value" id="resLungmen">0</span>
+                    </div>
+                    <div class="resource-item" title="合成玉">
+                        <span class="resource-icon orundum-icon">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 20,7 20,17 12,22 4,17 4,7"/></svg>
+                        </span>
+                        <span class="resource-value" id="resOrundum">0</span>
+                    </div>
+                    <div class="resource-item" title="源石">
+                        <span class="resource-icon stone-icon"><i class="fa-solid fa-gem"></i></span>
+                        <span class="resource-value" id="resStone">0</span>
+                    </div>
+                    <div class="resource-item sanity-item" title="理智" id="sanityDisplay">
+                        <span class="resource-icon sanity-icon"><i class="fa-solid fa-brain"></i></span>
+                        <div class="sanity-values">
+                            <span class="sanity-current" id="resSanityCurrent">120</span>
+                            <span class="sanity-max" id="resSanityMax">120</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="icon-btn settings-btn" id="settingsBtn" title="设置"><i class="fa-solid fa-gear"></i></button>
+                <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" title="菜单"><i class="fa-solid fa-bars"></i></button>
+            </div>
+        </header>
+
+        <!-- 追踪面板：窄条把手 + 展开面板 -->
+        <aside class="tracking-panel" id="trackingPanel">
+            <div class="tracking-handle" id="trackingHandle" title="追踪面板">
+                <i class="fa-solid fa-diamond"></i>
+            </div>
+            <div class="tracking-expanded" id="trackingExpanded">
+                <div class="drag-indicator" id="dragIndicator"><span></span></div>
+                <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
+                <div class="tracking-header">
+                    <div class="tracking-parent-chain" id="trackingParentChain"></div>
+                </div>
+                <div class="tracking-body" id="trackingBody">
+                    <div class="tracking-empty" id="trackingEmpty"><div class="empty-diamond"><i class="fa-solid fa-diamond"></i></div><p>暂无追踪任务</p><p class="micro-text">选择任务开始追踪</p></div>
+                    <div class="tracking-content hidden" id="trackingContent">
+                        <div class="tracking-title-row"><div class="star-display" id="trackingStars"></div><span class="task-line-badge" id="trackingTaskLine"></span></div>
+                        <h2 class="tracking-title" id="trackingTitle"></h2>
+                        <p class="tracking-desc" id="trackingDesc"></p>
+                        <div class="tracking-subtasks" id="trackingSubtasks"></div>
+                        <div class="tracking-progress-section">
+                            <div class="progress-bar" id="trackingProgressBar"><div class="progress-fill" id="trackingProgressFill"></div><div class="progress-thumb" id="trackingProgressThumb"></div></div>
+                            <span class="progress-num" id="trackingProgressNum">0%</span>
+                        </div>
+                        <div class="tracking-actions">
+                            <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-diamond"></i><span>停止追踪</span></button>
+                            <button class="btn btn-primary btn-large" id="trackingCompleteBtn"><i class="fa-solid fa-check"></i><span>完成任务</span></button>
+                            <button class="btn btn-primary btn-large hidden" id="trackingRewardBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                            <button class="btn btn-secondary" id="trackingFocusBtn"><i class="fa-solid fa-expand"></i><span>专注模式</span></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="tracking-footer">
+                    <div class="pomodoro-status hidden" id="pomodoroStatus"><span class="pomodoro-kind" id="pomodoroKind">专注</span><span class="pomodoro-countdown" id="pomodoroCountdown">25:00</span><span class="pomodoro-progress"><span id="pomodoroProgressFill"></span></span><button class="icon-btn pomodoro-stop" id="pomodoroStopBtn" title="结束番茄钟"><i class="fa-solid fa-stop"></i></button></div>
+                    <div class="tracking-timer" id="trackingTimer">00:00:00</div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="main-content" id="mainContent">
+            <!-- 任务视图 -->
+            <section class="view active" id="view-tasks">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2 class="view-title">任务列表</h2>
+                        <div class="view-actions">
+                            <button class="btn btn-primary btn-medium" id="newTaskBtn"><i class="fa-solid fa-plus"></i><span>新建任务</span></button>
+                            <button class="btn btn-secondary btn-medium" id="importBtn"><i class="fa-solid fa-file-import"></i><span>导入</span></button>
+                            <button class="btn btn-secondary btn-medium" id="exportBtn"><i class="fa-solid fa-file-export"></i><span>导出</span></button>
+                            <button class="btn btn-secondary btn-medium claim-all-btn hidden-soft" id="claimAllBtn"><i class="fa-solid fa-gift"></i><span>一键领取</span></button>
+                        </div>
+                    </div>
+                    <div class="filter-bar">
+                        <div class="filter-group"><select id="filterStatus" class="filter-select"><option value="">全部状态</option><option value="todo">待办</option><option value="in_progress">进行中</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
+                        <div class="filter-group"><select id="filterPriority" class="filter-select"><option value="">全部优先级</option><option value="1">1星</option><option value="2">2星</option><option value="3">3星</option><option value="4">4星</option><option value="5">5星</option><option value="6">6星</option></select></div>
+                        <div class="filter-group"><select id="filterTaskLine" class="filter-select"><option value="">全部任务线</option><option value="main">主线</option><option value="side">支线</option></select></div>
+                        <div class="filter-group"><select id="filterTracked" class="filter-select"><option value="">全部追踪</option><option value="1">仅追踪中</option><option value="0">未追踪</option></select></div>
+                        <div class="filter-group search-group"><input type="text" id="filterSearch" class="filter-search" placeholder="搜索关键词..."><i class="fa-solid fa-search search-icon"></i></div>
+                        <div class="filter-group tag-filter" id="tagFilterContainer"></div>
+                        <label class="archive-toggle"><input type="checkbox" id="showArchived"> 显示归档</label>
+                        <label class="archive-toggle"><input type="checkbox" id="showDeleted"> 显示已删除</label>
+                    </div>
+                </div>
+                <div class="task-list-container" id="taskListContainer">
+                    <div class="task-list" id="taskList"></div>
+                    <div class="task-list-empty" id="taskListEmpty"><div class="empty-icon"><i class="fa-solid fa-inbox"></i></div><p>暂无任务</p><p class="micro-text">点击"新建任务"开始</p></div>
+                </div>
+            </section>
+
+            <!-- 图谱视图 -->
+            <section class="view" id="view-graph">
+                <div class="view-header"><h2 class="view-title">任务图谱</h2><div class="graph-controls"><button class="icon-btn" id="graphZoomIn"><i class="fa-solid fa-plus"></i></button><button class="icon-btn" id="graphZoomOut"><i class="fa-solid fa-minus"></i></button><button class="icon-btn" id="graphReset"><i class="fa-solid fa-rotate"></i></button></div></div>
+                <div class="graph-container" id="graphContainer"><svg id="graphSvg"></svg><div class="graph-empty" id="graphEmpty"><div class="empty-icon"><i class="fa-solid fa-diagram-project"></i></div><p>暂无任务关系</p></div></div>
+            </section>
+
+            <!-- 日历视图 -->
+            <section class="view" id="view-calendar">
+                <div class="view-header"><div class="calendar-nav"><button class="icon-btn" id="calPrevMonth"><i class="fa-solid fa-chevron-left"></i></button><h2 class="view-title" id="calendarTitle">2026年8月</h2><button class="icon-btn" id="calNextMonth"><i class="fa-solid fa-chevron-right"></i></button></div></div>
+                <div class="calendar-container" id="calendarContainer"></div>
+            </section>
+
+            <!-- 成就视图 -->
+            <section class="view" id="view-achievements">
+                <div class="view-header">
+                    <h2 class="view-title">蚀刻章</h2>
+                    <div class="view-actions">
+                        <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
+                        <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-dice"></i><span>合成玉抽取</span></button>
+                    </div>
+                </div>
+                <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
+            </section>
+
+            <!-- 个人主页 -->
+            <section class="view" id="view-profile">
+                <div class="view-header"><h2 class="view-title">个人主页</h2></div>
+                <div class="profile-container" id="profileContainer">
+                    <div class="profile-card">
+                        <div class="profile-level-section">
+                            <div class="level-display"><span class="level-number" id="profileLevel">1</span><span class="level-label">等级</span></div>
+                            <div class="level-progress"><div class="progress-bar"><div class="progress-fill" id="profileExpFill"></div></div><span class="micro-text" id="profileExpText">0 / 100 EXP</span></div>
+                        </div>
+                        <div class="profile-resources">
+                            <div class="profile-res-item"><span class="res-icon exp-icon"><i class="fa-solid fa-bolt"></i></span><span class="res-label">经验值</span><span class="res-value" id="profileExp">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon stone-icon"><i class="fa-solid fa-gem"></i></span><span class="res-label">源石</span><span class="res-value" id="profileStone">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon lungmen-icon"><i class="fa-solid fa-coins"></i></span><span class="res-label">龙门币</span><span class="res-value" id="profileLungmen">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon orundum-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 20,7 20,17 12,22 4,17 4,7"/></svg></span><span class="res-label">合成玉</span><span class="res-value" id="profileOrundum">0</span></div>
+                            <div class="profile-res-item"><span class="res-icon sanity-icon"><i class="fa-solid fa-brain"></i></span><span class="res-label">理智</span><span class="res-value" id="profileSanity">120/120</span></div>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="btn btn-secondary btn-medium" id="exchangeBtn"><i class="fa-solid fa-exchange-alt"></i><span>龙门币兑换</span></button>
+                        </div>
+                    </div>
+                    <div class="profile-badges"><h3 class="section-subtitle">已解锁蚀刻章</h3><div class="profile-badges-grid" id="profileBadgesGrid"></div></div>
+                    <div class="profile-gift-packs"><h3 class="section-subtitle">本周礼包</h3><div class="gift-packs-grid" id="giftPacksGrid"></div></div>
+                    <div class="profile-transactions"><h3 class="section-subtitle">资源流水</h3><div class="transactions-list" id="transactionsList"></div></div>
+                </div>
+            </section>
+
+            <!-- 现实奖励兑换视图 -->
+            <section class="view" id="view-rewards">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2 class="view-title">现实奖励兑换</h2>
+                        <div class="view-actions">
+                            <button class="btn btn-primary btn-medium" id="newRealityRewardBtn"><i class="fa-solid fa-plus"></i><span>新建奖励</span></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="reality-rewards-list" id="realityRewardsList"></div>
+            </section>
+        </main>
+
+        <!-- 弹窗：任务编辑 -->
+        <div class="modal-overlay" id="modalOverlay"></div>
+        <div class="modal-container hidden" id="taskModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title" id="taskModalTitle">新建任务</h3><button class="icon-btn modal-close" id="taskModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <form id="taskForm">
+                        <input type="hidden" id="taskFormId">
+                        <div class="form-group"><label class="form-label">标题 *</label><input type="text" class="form-input" id="taskFormTitle" required placeholder="输入任务标题..."></div>
+                        <div class="form-group"><label class="form-label">描述</label><textarea class="form-textarea" id="taskFormDesc" rows="3" placeholder="任务描述..."></textarea></div>
+                        <div class="form-group"><label class="form-label">标签</label><div class="tag-input-container"><input type="text" class="form-input tag-input" id="tagInput" placeholder="输入标签后回车"><div class="tag-list" id="tagList"></div></div></div>
+                        <div class="form-group"><label class="form-label">优先级（点击星星选择）</label><div class="star-selector" id="starSelector"><span class="star-select star" data-value="1">★</span><span class="star-select star" data-value="2">★</span><span class="star-select star" data-value="3">★</span><span class="star-select star" data-value="4">★</span><span class="star-select star" data-value="5">★</span><span class="star-select star" data-value="6">★</span><input type="hidden" id="taskFormPriority" value="1"></div></div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">任务线</label><select class="form-select" id="taskFormTaskLine"><option value="side">支线</option><option value="main">主线</option></select></div>
+                            <div class="form-group half"><label class="form-label">状态</label><select class="form-select" id="taskFormStatus"><option value="todo">待办</option><option value="in_progress">进行中</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">父任务</label><select class="form-select" id="taskFormParent"><option value="">无（顶级任务）</option></select></div>
+                            <div class="form-group half"><label class="form-label">目标数值（可计数）</label><input type="number" class="form-input" id="taskFormTarget" min="0" step="any" placeholder="留空则手动"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">当前值</label><input type="number" class="form-input" id="taskFormCurrent" min="0" step="any" placeholder="0"></div>
+                            <div class="form-group half"><label class="form-label">前置任务</label><select class="form-select" id="taskFormPrerequisite"><option value="">无</option></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">计划开始</label><input type="datetime-local" class="form-input" id="taskFormPlannedStart"></div>
+                            <div class="form-group half"><label class="form-label">计划结束</label><input type="datetime-local" class="form-input" id="taskFormPlannedEnd"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">截止时间</label><input type="datetime-local" class="form-input" id="taskFormDueDate"></div>
+                            <div class="form-group half"><label class="form-label">重复类型</label><select class="form-select" id="taskFormRepeatType"><option value="">不重复</option><option value="daily">每日</option><option value="weekly">每周</option><option value="monthly">每月</option><option value="custom">自定义</option></select></div>
+                        </div>
+                        <div class="form-row" id="repeatIntervalGroup" style="display:none;"><div class="form-group half"><label class="form-label">间隔天数</label><input type="number" class="form-input" id="taskFormRepeatInterval" min="1" value="1"></div></div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">奖励经验（自动计算，可修改）</label><input type="number" class="form-input" id="taskFormRewardExp" min="0" step="any" value="0"></div>
+                            <div class="form-group half"><label class="form-label">奖励龙门币（自动计算，可修改）</label><input type="number" class="form-input" id="taskFormRewardLungmen" min="0" step="any" value="0"></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">奖励源石</label><input type="number" class="form-input" id="taskFormRewardStone" min="0" step="any" value="0"></div>
+                            <div class="form-group half"><label class="form-label">奖励合成玉</label><input type="number" class="form-input" id="taskFormRewardOrundum" min="0" step="any" value="0"></div>
+                        </div>
+                        <div class="form-group"><label class="form-label">备注</label><textarea class="form-textarea" id="taskFormNotes" rows="2" placeholder="备注..."></textarea></div>
+                        <div class="form-actions"><button type="button" class="btn btn-secondary" id="taskFormCancel">取消</button><button type="submit" class="btn btn-primary" id="taskFormSubmit">保存</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- 奖励弹窗 -->
+        <div class="modal-container hidden" id="rewardModal">
+            <div class="modal modal-reward reward-settlement-modal">
+                <div class="modal-header"><h3 class="modal-title">任务奖励</h3><button class="icon-btn modal-close" id="rewardModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <div class="reward-settlement-content">
+                        <div class="reward-details" id="rewardDetails"></div>
+                        <div class="random-drop" id="randomDropSection" style="display:none;"><h4>随机掉落</h4><div id="randomDropContent"></div></div>
+                        <button class="btn btn-primary btn-large reward-claim-btn" id="rewardClaimBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 导入弹窗 -->
+        <div class="modal-container hidden" id="importModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title">导入任务</h3><button class="icon-btn modal-close" id="importModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body"><p class="micro-text">粘贴 JSON 格式的任务数据：</p><textarea class="form-textarea import-textarea" id="importTextarea" rows="12" placeholder='{"version":1,"tasks":[...]}'></textarea><div class="form-actions"><button class="btn btn-secondary" id="importCancelBtn">取消</button><button class="btn btn-primary" id="importConfirmBtn">导入</button></div></div>
+            </div>
+        </div>
+        <!-- 导出弹窗 -->
+        <div class="modal-container hidden" id="exportModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title">导出数据</h3><button class="icon-btn modal-close" id="exportModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body"><p class="micro-text">JSON 备份数据：</p><textarea class="form-textarea export-textarea" id="exportTextarea" rows="15" readonly></textarea><div class="form-actions"><button class="btn btn-secondary" id="exportCopyBtn"><i class="fa-solid fa-copy"></i> 复制</button><button class="btn btn-primary" id="exportDownloadBtn"><i class="fa-solid fa-download"></i> 下载</button></div></div>
+            </div>
+        </div>
+        <!-- 设置弹窗 -->
+        <div class="modal-container hidden" id="settingsModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title">全局设置</h3><button class="icon-btn modal-close" id="settingsModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body"><div class="settings-list" id="settingsList"></div></div>
+            </div>
+        </div>
+        <!-- 自定义蚀刻章弹窗 -->
+        <div class="modal-container hidden" id="badgeModal">
+            <div class="modal modal-badge">
+                <div class="modal-header"><h3 class="modal-title">自定义蚀刻章</h3><button class="icon-btn modal-close" id="badgeModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <div class="form-group"><label class="form-label">蚀刻章名称</label><input type="text" class="form-input" id="badgeName" placeholder="输入名称..."></div>
+                    <div class="form-group"><label class="form-label">描述</label><textarea class="form-textarea" id="badgeDesc" rows="2" placeholder="描述..."></textarea></div>
+                    <div class="form-group"><label class="form-label">自定义文字</label><input type="text" class="form-input" id="badgeCustomText" placeholder="输入文字..."></div>
+                    <div class="form-group"><label class="form-label">底色</label><select class="form-select" id="badgeColor"><option value="gold">金色</option><option value="blue">蓝色</option><option value="red">红色</option><option value="green">绿色</option><option value="purple">紫色</option><option value="grey">灰色</option></select></div>
+                    <div class="form-group"><label class="form-label">上传图片（可选，最大5MB，仅图片）</label><input type="file" class="form-input" id="badgeImageUpload" accept="image/*"></div>
+                    <div class="form-group"><label class="form-label">预设底纹</label><select class="form-select" id="badgePattern"><option value="none">无</option><option value="crystal">晶体</option><option value="line">线条</option><option value="dots">点阵</option><option value="hex">六边形</option></select></div>
+                    <div class="form-actions"><button class="btn btn-secondary" id="badgeCancelBtn">取消</button><button class="btn btn-primary" id="badgeConfirmBtn">创建</button></div>
+                </div>
+            </div>
+        </div>
+        <!-- 任务详情弹窗 -->
+        <div class="modal-container hidden" id="taskDetailModal">
+            <div class="modal modal-detail">
+                <div class="modal-header"><h3 class="modal-title" id="taskDetailTitle">任务详情</h3><button class="icon-btn modal-close" id="taskDetailClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body" id="taskDetailBody"></div>
+            </div>
+        </div>
+        <!-- 日期任务弹窗 -->
+        <div class="modal-container hidden" id="dateTasksModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title" id="dateTasksTitle">当天任务</h3><button class="icon-btn modal-close" id="dateTasksClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body" id="dateTasksBody"></div>
+            </div>
+        </div>
+        <!-- 兑换弹窗 -->
+        <div class="modal-container hidden" id="exchangeModal">
+            <div class="modal">
+                <div class="modal-header"><h3 class="modal-title">龙门币兑换</h3><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <p class="micro-text" id="exchangeRateText">使用龙门币兑换其他资源（汇率：1源石=1000龙门币，1合成玉=2龙门币）</p>
+                    <div class="resource-balance-display" id="exchangeLungmenBalance"></div>
+                    <div class="form-group"><label class="form-label">目标资源</label><select class="form-select" id="exchangeTarget"><option value="source_stone">源石</option><option value="orundum">合成玉</option></select></div>
+                    <div class="form-group"><label class="form-label">兑换数量</label><input type="number" class="form-input" id="exchangeAmount" min="0.1" step="0.1" value="1"></div>
+                    <div class="exchange-cost-display" id="exchangeCostDisplay"></div>
+                    <div class="form-actions"><button class="btn btn-secondary" id="exchangeCancel">取消</button><button class="btn btn-primary" id="exchangeConfirm">兑换</button></div>
+                </div>
+            </div>
+        </div>
+        <!-- 抽取弹窗 -->
+        <div class="modal-container hidden" id="gachaModal">
+            <div class="modal modal-gacha">
+                <div class="modal-header"><h3 class="modal-title">合成玉抽取蚀刻章</h3><button class="icon-btn modal-close gacha-close-btn" id="gachaClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body gacha-body">
+                    <p class="micro-text" id="gachaCostText">消耗 300 合成玉进行一次抽取</p>
+                    <div class="resource-balance-display" id="gachaOrundumBalance"></div>
+                    <div class="gacha-animation-container"><div class="gacha-crystal" id="gachaCrystal"><i class="fa-solid fa-diamond"></i></div></div>
+                    <div class="form-actions"><button class="btn btn-secondary" id="gachaCancel">取消</button><button class="btn btn-primary" id="gachaConfirm">抽取</button></div>
+                    <div id="gachaResult" class="gacha-result"></div>
+                    <div class="gacha-close-hint" id="gachaCloseHint">点击右上角关闭或点击此处关闭</div>
+                </div>
+            </div>
+        </div>
+        <!-- 现实奖励弹窗 -->
+        <div class="modal-container hidden" id="realityRewardModal">
+            <div class="modal modal-reward-edit">
+                <div class="modal-header"><h3 class="modal-title" id="realityRewardModalTitle">新建现实奖励</h3><button class="icon-btn modal-close" id="realityRewardClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <form id="realityRewardForm">
+                        <input type="hidden" id="realityRewardId">
+                        <div class="form-group"><label class="form-label">奖励名称 *</label><input type="text" class="form-input" id="realityRewardTitle" required placeholder="例如：喝一杯奶茶"></div>
+                        <div class="form-group"><label class="form-label">描述</label><textarea class="form-textarea" id="realityRewardDesc" rows="2" placeholder="达成条件后的自我奖励说明..."></textarea></div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">目标类型</label><select class="form-select" id="realityRewardType"><option value="level">等级达到</option><option value="exp">累计经验</option><option value="tasks_completed">完成任务数</option><option value="streak_days">连续完成天数</option><option value="tracking_hours">累计专注小时</option><option value="custom">自定义进度</option></select></div>
+                            <div class="form-group half"><label class="form-label">目标值 *</label><input type="number" class="form-input" id="realityRewardTarget" min="0.1" step="any" required placeholder="例如：10"></div>
+                        </div>
+                        <div class="form-group hidden-soft" id="realityRewardCurrentGroup"><label class="form-label">自定义当前进度</label><input type="number" class="form-input" id="realityRewardCurrent" min="0" step="any" value="0"></div>
+                        <div class="form-group"><label class="form-label">奖励内容</label><input type="text" class="form-input" id="realityRewardText" placeholder="例如：奖励自己一杯奶茶 / 半小时游戏"></div>
+                        <div class="form-actions"><button type="button" class="btn btn-secondary" id="realityRewardCancel">取消</button><button type="submit" class="btn btn-primary" id="realityRewardSave">保存</button></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <!-- 确认弹窗 -->
+        <div class="modal-container hidden" id="confirmModal">
+            <div class="modal" style="width:400px">
+                <div class="modal-header"><h3 class="modal-title">确认操作</h3><button class="icon-btn modal-close" id="confirmClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <p id="confirmMessage" style="margin-bottom:16px"></p>
+                    <div class="form-actions"><button class="btn btn-secondary" id="confirmCancel">取消</button><button class="btn btn-primary" id="confirmOk">确定</button></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="badge-notification" id="badgeNotification">
+            <div class="badge-notification-content">
+                <div class="badge-animation" id="badgeAnimIcon"><i class="fa-solid fa-award"></i></div>
+                <div class="badge-notification-text"><h4>蚀刻章解锁！</h4><p id="badgeNotifName"></p></div>
+            </div>
+        </div>
+        <div class="level-up-overlay" id="levelUpOverlay">
+            <div class="level-up-content"><div class="level-up-icon"><i class="fa-solid fa-arrow-up"></i></div><h2>等级提升！</h2><p id="levelUpText">理智已回满</p></div>
+        </div>
+        <div class="particle-container" id="particleContainer"></div>
+    </div>
+
+    <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
+
+    <script src="static/app.js?v=20250830-19"></script>
+</body>
+</html>

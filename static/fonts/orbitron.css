@@ -1,0 +1,21 @@
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('Orbitron-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('Orbitron-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 900;
+  font-display: swap;
+  src: url('Orbitron-Black.ttf') format('truetype');
+}
