@@ -446,6 +446,8 @@ async function initApp() {
     updateGachaCostText();
     setInterval(updateTrackingTimer, 1000);
     setInterval(updatePomodoroTimer, 1000);
+    updateResourceTimestamp();
+    setInterval(updateResourceTimestamp, 30000);
     initBackgroundParticles();
     document.body.dataset.view = state.currentView;
     renderCurrentView();
@@ -1656,6 +1658,14 @@ function renderTransactions(){ const list=DOM.transactionsList; if(!list) return
     });
 }
 
+function updateResourceTimestamp(){
+    const el = DOM.resourceTimestamp;
+    if(!el) return;
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    el.textContent = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
 function updateResourceDisplay(){
     const res=state.resources;
     if(res.lungmen?.current_value!==undefined){ DOM.resLungmen.textContent=res.lungmen.current_value; }
@@ -2215,10 +2225,16 @@ async function openRewardModal(taskId){
     rewardModalOpenTaskId = taskId;
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
     DOM.rewardDetails.innerHTML='';
-    const rewards=[ {name:'经验值',value:task.reward_exp||0,icon:'fa-bolt',color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,icon:'fa-coins',color:'#C87830'}, {name:'源石',value:task.reward_source_stone||0,icon:'fa-gem',color:'#E8B818'}, {name:'合成玉',value:task.reward_orundum||0,icon:'fa-gem',color:'#B0A0D0'} ];
+    const rewardSVGs = {
+        exp: '<svg viewBox="0 0 24 24" width="13" height="13" fill="#6AB0E8"><polygon points="12,2 14,9 21,9 15.5,13.5 17.5,21 12,16 6.5,21 8.5,13.5 3,9 10,9"/></svg>',
+        lungmen: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
+        source_stone: '<svg viewBox="0 0 24 24" width="13" height="13"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
+        orundum: '<svg viewBox="0 0 24 24" width="13" height="13"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
+    };
+    const rewards=[ {name:'经验值',value:task.reward_exp||0,svg:rewardSVGs.exp}, {name:'龙门币',value:task.reward_lungmen||0,svg:rewardSVGs.lungmen}, {name:'源石',value:task.reward_source_stone||0,svg:rewardSVGs.source_stone}, {name:'合成玉',value:task.reward_orundum||0,svg:rewardSVGs.orundum} ];
     let hasReward=false;
     rewards.forEach(r=>{ if(r.value>0){ hasReward=true; const div=document.createElement('div'); div.className='reward-item';
-        const nameSpan=document.createElement('span'); nameSpan.className='reward-item-name'; nameSpan.innerHTML=`<i class="fa-solid ${r.icon}" style="color:${r.color}"></i> ${r.name}`;
+        const nameSpan=document.createElement('span'); nameSpan.className='reward-item-name'; nameSpan.innerHTML=`${r.svg} ${r.name}`;
         const valueSpan=document.createElement('span'); valueSpan.className='reward-item-value'; valueSpan.textContent=`+${r.value}`;
         div.appendChild(nameSpan); div.appendChild(valueSpan); DOM.rewardDetails.appendChild(div); } });
     let hasDrop=false;
@@ -2444,8 +2460,11 @@ async function clearData(scope){
         const res = await apiDelete(`/api/data/clear?scope=${scope}`);
         if(res){
             closeAllModals();
-            await Promise.all([loadTasks(), loadResources(), loadTransactions(), loadAchievements(), loadRealityRewards(), loadGiftPacks()]);
+            try {
+                await Promise.all([loadTasks(), loadResources(), loadTransactions(), loadAchievements(), loadRealityRewards(), loadGiftPacks()]);
+            } catch(e){ console.warn('clear reload:', e); }
             showToast(res.message || '数据已清空');
+            renderTasks();
         }
     });
 }
