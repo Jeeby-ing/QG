@@ -1,7 +1,10 @@
+import asyncio
+import hashlib
 import json
 import random
 import sqlite3
 import os
+import subprocess
 import threading
 import time
 import uuid
@@ -564,6 +567,19 @@ def handle_task_completion(cur, task_id: int):
         update_parent_progress(cur, task["parent_id"])
 
 
+def cascade_complete_descendants(cur, parent_id: int):
+    """递归把某任务下所有未完成、未取消的子任务标为完成（聚合语义：父完成=整体完成）。"""
+    cur.execute(
+        "SELECT id FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'done' AND status != 'cancelled'",
+        (parent_id,))
+    for r in cur.fetchall():
+        cid = r["id"]
+        cascade_complete_descendants(cur, cid)
+        cur.execute("UPDATE tasks SET status='done', progress=100, completed_at=?, updated_at=? WHERE id=?",
+                    (now_iso(), now_iso(), cid))
+        handle_task_completion(cur, cid)
+
+
 def calculate_streak_days(cur):
     cur.execute("""
         SELECT DISTINCT date(completed_at, 'utc') as comp_date 
@@ -756,10 +772,6 @@ def build_task_tree(cur, parent_id=None, include_archived=False, include_deleted
         if task.get("prerequisite_id"):
             prereq = task_dict_by_id.get(task["prerequisite_id"])
             if prereq and prereq["status"] != 'done':
-                dep_ready = False
-        if task.get("parent_id"):
-            parent = task_dict_by_id.get(task["parent_id"])
-            if parent and parent["status"] != 'done':
                 dep_ready = False
         line_order = 0 if task["task_line"] == 'main' else 1
         due_date = task.get("due_date") or "9999-12-31T23:59:59Z"
@@ -1006,21 +1018,24 @@ async def media_file(file_path: str, request: Request):
 @app.middleware("http")
 async def unify_response_format(request, call_next):
     response = await call_next(request)
-    if response.headers.get("content-type", "").startswith("application/json"):
-        body = b""
-        async for chunk in response.body_iterator:
-            body += chunk
-        try:
-            data = json.loads(body)
-        except:
-            return response
-        if isinstance(data, dict):
-            if "code" in data:
-                return response
-            elif "data" in data:
-                wrapped = {"code": 0, "message": "ok", "data": data["data"]}
-                return JSONResponse(content=wrapped, status_code=response.status_code)
-    return response
+    ctype = response.headers.get("content-type", "")
+    if not ctype.startswith("application/json"):
+        return response
+    # Read the full body, then rebuild a fresh Response from the parsed data
+    # so the consumed body_iterator never leaves a stale Content-Length.
+    body = b""
+    async for chunk in response.body_iterator:
+        body += chunk
+    try:
+        data = json.loads(body)
+    except Exception:
+        return Response(content=body, media_type=ctype,
+                        status_code=response.status_code)
+    if isinstance(data, dict) and "code" not in data and "data" in data:
+        data = {"code": 0, "message": "ok", "data": data["data"]}
+    out = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    return Response(content=out, media_type="application/json",
+                    status_code=response.status_code)
 
 
 @app.get("/")
@@ -1168,8 +1183,7 @@ async def create_task(task: TaskCreate):
             parent = cur.fetchone()
             if not parent:
                 raise HTTPException(status_code=400, detail="父任务不存在或已删除")
-            if task.status == 'done' and parent["status"] != 'done':
-                raise HTTPException(status_code=400, detail="父任务未完成，不能直接创建为已完成状态")
+            # 父子为聚合关系，子任务可独立创建为已完成状态，不再因父未完成而拦截
         if task.prerequisite_id is not None:
             cur.execute("SELECT id, status FROM tasks WHERE id = ? AND deleted = 0", (task.prerequisite_id,))
             prereq = cur.fetchone()
@@ -1318,9 +1332,8 @@ async def update_task(task_id: int, updates: TaskUpdate):
                 raise HTTPException(status_code=400, detail="父任务不存在或已删除")
             if check_cycle_parent(cur, task_id, new_parent_id):
                 raise HTTPException(status_code=400, detail="父任务形成循环依赖")
+            # 父子为聚合关系，不再用「父未完成」拦截子任务置为 done
             final_status = update_fields.get('status', existing['status'])
-            if final_status == 'done' and parent['status'] != 'done':
-                raise HTTPException(status_code=400, detail="父任务未完成")
         if new_prerequisite_id is not None:
             cur.execute("SELECT id, status FROM tasks WHERE id = ? AND deleted = 0", (new_prerequisite_id,))
             prereq = cur.fetchone()
@@ -1387,11 +1400,7 @@ async def update_task(task_id: int, updates: TaskUpdate):
                     prereq = cur.fetchone()
                     if prereq and prereq['status'] != 'done':
                         raise HTTPException(status_code=400, detail="前置任务未完成")
-                if updated_task['parent_id']:
-                    cur.execute("SELECT status FROM tasks WHERE id = ?", (updated_task['parent_id'],))
-                    parent = cur.fetchone()
-                    if parent and parent['status'] != 'done':
-                        raise HTTPException(status_code=400, detail="父任务未完成")
+                # 父子为聚合关系，不再用「父未完成」拦截子任务自动置为 done
                 cur.execute("UPDATE tasks SET status='done', progress=100, completed_at=?, updated_at=? WHERE id=?",
                             (now_iso(), now_iso(), task_id))
                 handle_task_completion(cur, task_id)
@@ -1547,13 +1556,9 @@ async def update_count(task_id: int, count_update: CountUpdate):
             if task["prerequisite_id"]:
                 cur.execute("SELECT status FROM tasks WHERE id = ?", (task["prerequisite_id"],))
                 prereq = cur.fetchone()
-                if prereq and prereq["status"] != 'done':
-                    raise HTTPException(status_code=400, detail="前置任务未完成")
-            if task["parent_id"]:
-                cur.execute("SELECT status FROM tasks WHERE id = ?", (task["parent_id"],))
-                parent = cur.fetchone()
-                if parent and parent["status"] != 'done':
-                    raise HTTPException(status_code=400, detail="父任务未完成")
+            if prereq and prereq["status"] != 'done':
+                raise HTTPException(status_code=400, detail="前置任务未完成")
+            # 父子为聚合关系，不再用「父未完成」拦截子任务自动置为 done
         progress = (current / target * 100) if target else 0
         cur.execute("UPDATE tasks SET current_value = ?, progress = ?, updated_at = ? WHERE id = ?",
                     (current, progress, now_iso(), task_id))
@@ -1679,18 +1684,9 @@ async def complete_task(task_id: int):
             prereq = cur.fetchone()
             if prereq and prereq["status"] != 'done':
                 raise HTTPException(status_code=400, detail="前置任务未完成")
-        if task["parent_id"]:
-            cur.execute("SELECT status FROM tasks WHERE id = ?", (task["parent_id"],))
-            parent = cur.fetchone()
-            if parent and parent["status"] != 'done':
-                raise HTTPException(status_code=400, detail="父任务未完成")
-        cur.execute("""
-            SELECT COUNT(*) FROM tasks 
-            WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled' AND status != 'done'
-        """, (task_id,))
-        unfinished_children = cur.fetchone()[0]
-        if unfinished_children > 0:
-            raise HTTPException(status_code=400, detail="存在未完成的子任务，不能直接完成该任务")
+        # 父子是聚合关系，不再互相当门禁（避免双向死锁）。
+        # 父任务完成：级联完成其下所有未完成子任务（递归），使聚合语义成立。
+        cascade_complete_descendants(cur, task_id)
         if task["progress_mode"] == 'count' and (
                 task["current_value"] is None or task["current_value"] < task["target_value"]):
             raise HTTPException(status_code=400, detail="计数任务未达到目标值")
@@ -2309,18 +2305,8 @@ async def import_data(data: ImportData):
             if check_cycle_prerequisite(cur, row["id"], row["prerequisite_id"]):
                 raise HTTPException(status_code=400, detail="导入数据中存在循环前置依赖")
 
-        cur.execute("SELECT id, parent_id, prerequisite_id FROM tasks WHERE status = 'done' AND deleted = 0")
-        for row in cur.fetchall():
-            if row["parent_id"]:
-                cur.execute("SELECT status FROM tasks WHERE id = ?", (row["parent_id"],))
-                parent = cur.fetchone()
-                if parent and parent["status"] != 'done':
-                    raise HTTPException(status_code=400, detail=f"任务 {row['id']} 已完成但父任务未完成")
-            if row["prerequisite_id"]:
-                cur.execute("SELECT status FROM tasks WHERE id = ?", (row["prerequisite_id"],))
-                prereq = cur.fetchone()
-                if prereq and prereq["status"] != 'done':
-                    raise HTTPException(status_code=400, detail=f"任务 {row['id']} 已完成但前置任务未完成")
+        # 导入后不再强制校验「已完成但父/前置未完成」，避免导入失败；聚合进度会自行修正
+        pass
 
         cur.execute("""
             SELECT id FROM tasks 
@@ -2528,13 +2514,90 @@ class WallpaperApplyRequest(BaseModel):
     software: Optional[str] = None
 
 
+# ---------- 移动端壁纸转码：懒生成 + 缓存 ----------
+# 背景：WE 壁纸多是 1080p/10Mbps 的巨片（篝火 303MB）。经 cpolar 内网穿透在手机上
+# 根本喂不动，会一直缓冲 -> 表现就是「壁纸不会动」。这里按需转出 720p/约 700kbps
+# 的轻量版（实测 303MB -> 21MB，-93%），首次访问时转一次并缓存。
+MOBILE_WP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "wallpaper_mobile")
+_MOBILE_ENCODE_LOCK = threading.Lock()
+
+
+def _find_ffmpeg():
+    """优先系统 ffmpeg，其次 imageio_ffmpeg 自带的二进制。找不到返回 None。"""
+    import shutil
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def get_mobile_video(entry, wallpaper_id):
+    """生成/复用视频壁纸的移动端轻量版。失败返回 None（调用方回退原始视频）。"""
+    src = entry.get("video_file")
+    if not src or not os.path.isfile(src):
+        return None
+    try:
+        os.makedirs(MOBILE_WP_DIR, exist_ok=True)
+    except Exception:
+        return None
+    digest = hashlib.md5(wallpaper_id.encode("utf-8")).hexdigest()
+    dst = os.path.join(MOBILE_WP_DIR, digest + ".mp4")
+    if os.path.isfile(dst) and os.path.getsize(dst) > 0:
+        return dst
+
+    ffmpeg = _find_ffmpeg()
+    if not ffmpeg:
+        return None
+    with _MOBILE_ENCODE_LOCK:
+        # 双重检查：等待锁期间可能已被其他请求转好
+        if os.path.isfile(dst) and os.path.getsize(dst) > 0:
+            return dst
+        tmp = dst + ".encoding.mp4"
+        cmd = [
+            ffmpeg, "-y", "-i", src,
+            "-vf", "scale=1280:-2",              # 720p
+            "-c:v", "libx264", "-preset", "fast", "-crf", "28",
+            "-profile:v", "main", "-pix_fmt", "yuv420p",  # iOS 兼容性
+            "-an",                                # 去音轨：壁纸无需声音，省带宽
+            "-movflags", "+faststart",            # 边下边播
+            tmp,
+        ]
+        try:
+            subprocess.run(cmd, stdout=subprocess.DEVNULL,
+                           stderr=subprocess.DEVNULL, timeout=1800)
+            if os.path.isfile(tmp) and os.path.getsize(tmp) > 0:
+                os.replace(tmp, dst)
+                return dst
+        except Exception:
+            pass
+        finally:
+            if os.path.isfile(tmp):
+                try:
+                    os.remove(tmp)
+                except Exception:
+                    pass
+    return None
+
+
 @app.get("/api/wallpaper-software/media")
-async def api_wallpaper_media(id: str):
-    """提供壁纸实际媒体文件（视频 > 预览图 > 应用路径），供前端作为动态背景播放。"""
+async def api_wallpaper_media(id: str, mobile: bool = False):
+    """提供壁纸实际媒体文件（视频 > 预览图 > 应用路径），供前端作为动态背景播放。
+
+    mobile=1 时返回转码后的轻量版（仅对视频壁纸生效），供手机/弱网使用。
+    """
     entry = get_wallpaper_entry(id)
     if not entry:
         return Response(status_code=404, media_type="text/plain")
-    target = entry.get("video_file") or entry.get("preview_file") or entry.get("apply_path")
+    target = entry.get("video_file") or entry.get("image_file") or entry.get("preview_file") or entry.get("apply_path")
+    # 移动端优先用低码率版本；转码在线程里跑，避免阻塞事件循环
+    if mobile and entry.get("video_file"):
+        mob = await asyncio.to_thread(get_mobile_video, entry, id)
+        if mob:
+            target = mob
     if not target or not os.path.isfile(target):
         return Response(status_code=404, media_type="text/plain")
     media_type = mimetypes.guess_type(target)[0] or "application/octet-stream"
@@ -2556,6 +2619,28 @@ async def api_wallpaper_apply(req: WallpaperApplyRequest):
         except Exception:
             pass
     return {"data": result}
+
+
+@app.get("/api/remote-url")
+async def api_remote_url():
+    """返回当前 cpolar 远程访问地址（由启动器写入 REMOTE_URL.txt）。"""
+    url_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "REMOTE_URL.txt")
+    try:
+        if os.path.exists(url_file):
+            content = open(url_file, "r", encoding="utf-8").read()
+            for line in content.strip().splitlines():
+                line = line.strip()
+                if line.startswith("http"):
+                    return {"url": line, "status": "ok"}
+        return {"url": None, "status": "no_url_file"}
+    except Exception as e:
+        return {"url": None, "status": "error", "detail": str(e)}
+
+
+@app.get("/api/health")
+async def api_health():
+    """启动器健康检查：确认这是带完整 API 的本项目服务。"""
+    return {"status": "ok", "app": "quest-log", "remote_url_api": True}
 
 
 if __name__ == "__main__":

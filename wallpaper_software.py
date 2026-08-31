@@ -111,6 +111,19 @@ def _scan_wallpaper_engine(install_path: str):
                 if vhits:
                     video_file = vhits[0]
                     break
+            # Best full-resolution still image (largest by size). For "picture"
+            # type wallpapers this is the real wallpaper; for scene/video types
+            # it falls back to the same preview thumbnail, so nothing regresses.
+            image_file = None
+            imgs = []
+            for iext in ("jpg", "jpeg", "png", "bmp", "webp", "gif"):
+                imgs.extend(glob.glob(os.path.join(fp, "*." + iext)))
+            if imgs:
+                try:
+                    imgs.sort(key=lambda p: os.path.getsize(p), reverse=True)
+                    image_file = imgs[0]
+                except Exception:
+                    image_file = imgs[0]
             out.append({
                 "id": "we:" + fp,
                 "name": title,
@@ -119,6 +132,7 @@ def _scan_wallpaper_engine(install_path: str):
                 "software": "wallpaper_engine",
                 "preview_file": preview,
                 "video_file": video_file,
+                "image_file": image_file,
                 "media": "video" if video_file else "image",
                 "apply_path": fp,
             })
@@ -199,6 +213,18 @@ def _scan_lively():
                 break
         wtype = "video" if (apply_path or "").lower().endswith((".mp4", ".webm", ".mov")) else "web"
         video_file = apply_path if wtype == "video" else None
+        # Best full-resolution still image (largest by size). For image-type
+        # walls this is the real wallpaper; falls back to preview if none larger.
+        image_file = None
+        imgs = []
+        for ext in ("jpg", "jpeg", "png", "bmp", "webp", "gif"):
+            imgs.extend(glob.glob(os.path.join(wfolder, "*." + ext)))
+        if imgs:
+            try:
+                imgs.sort(key=lambda p: os.path.getsize(p), reverse=True)
+                image_file = imgs[0]
+            except Exception:
+                image_file = imgs[0]
         out.append({
             "id": "lively:" + fp,
             "name": title,
@@ -207,6 +233,7 @@ def _scan_lively():
             "software": "lively",
             "preview_file": preview,
             "video_file": video_file,
+            "image_file": image_file,
             "media": "video" if video_file else "image",
             "apply_path": apply_path,
         })

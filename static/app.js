@@ -29,9 +29,10 @@ const state = {
     graphBaseWidth: 800,
     graphBaseHeight: 500,
     graphNodePositions: {},
+    graphUserPanned: false,  // 用户手动拖拽/缩放后为true，阻止auto-fit覆盖
     calendarMonth: new Date(),
     selectedTags: [],
-    trackingPanelWidth: 520,
+    trackingPanelWidth: 504,
     lastLevel: 0,
     isDraggingGraph: false,
     graphDragStart: { x: 0, y: 0 },
@@ -407,7 +408,7 @@ function bindEvents() {
                 DOM.trackingPanel.style.width = `${state.trackingPanelWidth}px`;
                 DOM.mainContent.style.marginLeft = `${state.trackingPanelWidth}px`;
             } else {
-                DOM.mainContent.style.marginLeft = '72px';
+                DOM.mainContent.style.marginLeft = '56px';
             }
         } else {
             DOM.trackingPanel.style.width = '';
@@ -449,8 +450,53 @@ async function initApp() {
     updateResourceTimestamp();
     setInterval(updateResourceTimestamp, 30000);
     initBackgroundParticles();
+    initRemoteUrl();  // 远程地址轮询
     document.body.dataset.view = state.currentView;
     renderCurrentView();
+}
+
+/* ===== 远程地址（cpolar 隧道） ===== */
+function initRemoteUrl() {
+    const btn = document.getElementById('remoteUrlBtn');
+    const textEl = document.getElementById('remoteUrlText');
+    const iconEl = document.getElementById('remoteUrlIcon');
+    if (!btn || !textEl) return;
+
+    let currentUrl = '';
+
+    btn.addEventListener('click', async () => {
+        if (!currentUrl) return;
+        try {
+            await navigator.clipboard.writeText(currentUrl);
+            btn.classList.add('copied');
+            const prev = textEl.textContent;
+            textEl.textContent = 'COPIED!';
+            setTimeout(() => { btn.classList.remove('copied'); textEl.textContent = prev; }, 1500);
+        } catch { /* fallback */ }
+    });
+
+    async function poll() {
+        try {
+            const res = await fetch('/api/remote-url');
+            if (res.ok) {
+                const data = await res.json();
+                if (data.url) {
+                    currentUrl = data.url;
+                    textEl.textContent = data.url.replace('https://', '').replace('http://', '');
+                    btn.title = 'Click to copy: ' + data.url;
+                    btn.classList.add('connected');
+                    return;
+                }
+            }
+        } catch {}
+        // No URL yet - show connecting state
+        currentUrl = '';
+        textEl.textContent = 'connecting...';
+        btn.title = 'Waiting for tunnel...';
+        btn.classList.remove('connected', 'copied');
+    }
+    poll();
+    setInterval(poll, 3000);
 }
 
 function renderCurrentView() {
@@ -1060,15 +1106,11 @@ function filterTasks(tasks) {
 }
 
 function getBlockReason(task) {
+    // 仅当「显式前置依赖」未完成时才锁定。父子是聚合关系，父任务没完成不应把子任务当门禁锁死
     if (task.prerequisite_id) {
         const pre = state.flatTasks.find(t => t.id === task.prerequisite_id);
         if (pre && pre.status !== 'done') return `前置任务「${pre.title}」未完成`;
         if (!pre) return '前置任务不存在或已删除';
-    }
-    if (task.parent_id) {
-        const parent = state.flatTasks.find(t => t.id === task.parent_id);
-        if (parent && parent.status !== 'done') return `父任务「${parent.title}」未完成`;
-        if (!parent) return '父任务不存在或已删除';
     }
     return null;
 }
@@ -1091,7 +1133,7 @@ function createStarElement() {
 
 function createTaskCard(task) {
     const card = document.createElement('div');
-    card.className = `task-card status-${task.status} ${task.children && task.children.length ? 'parent-task' : 'child-task'}`;
+    card.className = `task-card status-${task.status} ${task.children && task.children.length ? 'parent-task' : 'child-task'} task-level-${task.level || 0}`;
     card.dataset.taskId = task.id;
     card.dataset.priority = task.priority;
     card.dataset.status = task.status;
@@ -1106,6 +1148,14 @@ function createTaskCard(task) {
         card.draggable = false;
     }
     if (task.status === 'done') card.draggable = false;
+
+    // 已完成装饰角标（低调）
+    if (task.status === 'done') {
+        const completedBadge = document.createElement('div');
+        completedBadge.className = 'task-completed-badge';
+        completedBadge.textContent = 'completed';
+        card.appendChild(completedBadge);
+    }
 
     const indent = document.createElement('div');
     indent.className = `task-indent task-indent-level-${task.level || 0}`;
@@ -1426,74 +1476,98 @@ function renderGraph() {
     nodes.forEach(n => {
         const pos = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
         const cx = pos.x, cy = pos.y;
-        const W = 150, H = 56, rx = 9;
-        let fill = 'rgba(28,32,44,0.96)';
-        let stroke = 'rgba(150,165,185,0.55)';
-        if (n.status === 'done') { fill = 'rgba(22,44,34,0.96)'; stroke = '#5FB37A'; }
-        else if (n.status === 'cancelled') { fill = 'rgba(30,30,34,0.95)'; stroke = '#6A6A74'; }
-        else if (isBlocked(n)) { fill = 'rgba(46,28,28,0.96)'; stroke = '#E06050'; }
-        else if (n.status === 'in_progress') { fill = 'rgba(16,40,58,0.97)'; stroke = '#2AD4FF'; }
-        // 节点主体：圆角矩形（比六边形更干净、可读）
+        const W = 170, H = 60, rx = 10;
+        // 状态色（复用任务卡片同款色条）
+        const statusColors = {
+            todo:     { fill: 'rgba(28,32,44,0.94)',  stroke: 'rgba(255,255,255,0.14)', bar: 'rgba(255,255,255,0.10)' },
+            in_progress: { fill: 'rgba(16,40,58,0.94)',   stroke: '#3A80D0',          bar: 'rgba(58,128,208,0.65)' },
+            paused:   { fill: 'rgba(50,45,28,0.94)',   stroke: '#D4A520',          bar: 'rgba(212,165,32,0.55)' },
+            done:     { fill: 'rgba(22,44,34,0.93)',   stroke: '#5FB37A',           bar: 'rgba(95,179,122,0.5)' },
+            cancelled:{ fill: 'rgba(30,30,34,0.92)',   stroke: '#6A6A74',           bar: 'rgba(106,106,116,0.35)' },
+            blocked:  { fill: 'rgba(46,28,28,0.95)',   stroke: '#D43028',           bar: 'rgba(212,48,40,0.5)' }
+        };
+        const sc = isBlocked(n) ? statusColors.blocked : (statusColors[n.status] || statusColors.todo);
+        // 节点主体
         const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
         rect.setAttribute('x', cx - W/2); rect.setAttribute('y', cy - H/2);
         rect.setAttribute('width', W); rect.setAttribute('height', H); rect.setAttribute('rx', rx);
-        rect.setAttribute('fill', fill);
-        rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width','2');
+        rect.setAttribute('fill', sc.fill);
+        rect.setAttribute('stroke', sc.stroke); rect.setAttribute('stroke-width','1.5');
         rect.setAttribute('filter','url(#graphGlow)');
         rect.classList.add('graph-node', `status-${n.status}`);
+        rect.dataset.priority = n.priority;
+        rect.dataset.taskId = n.id;  // 拖拽时用于DOM查找
         rect.style.cursor = 'grab';
         rect.addEventListener('click', () => openTaskDetail(n.id));
         rect.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
         g.appendChild(rect);
-        // 左侧状态色条
+        // 左侧状态色条（同任务卡片 border-left 风格）
         const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
         bar.setAttribute('x', cx - W/2); bar.setAttribute('y', cy - H/2);
-        bar.setAttribute('width', 5); bar.setAttribute('height', H); bar.setAttribute('rx', 2);
-        bar.setAttribute('fill', stroke); bar.setAttribute('opacity','0.9');
+        bar.setAttribute('width', 4); bar.setAttribute('height', H); bar.setAttribute('rx', 1);
+        bar.setAttribute('fill', sc.bar); bar.setAttribute('opacity','1');
+        bar.dataset.taskId = n.id;
         g.appendChild(bar);
-        // 标题
+        // 标题——从色条右侧开始，不再从卡片中间开始
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-        text.setAttribute('x', cx + 10); text.setAttribute('y', cy - 2);
+        text.setAttribute('x', cx - W/2 + 14); text.setAttribute('y', cy - 3);
         text.setAttribute('text-anchor','start');
-        text.setAttribute('fill','#f2f2ee'); text.setAttribute('font-size','13'); text.setAttribute('font-weight','600');
+        text.setAttribute('fill','#eeece8'); text.setAttribute('font-size','12.5'); text.setAttribute('font-weight','600');
         text.classList.add('graph-label');
-        text.textContent = (n.title || '').substring(0, 14);
+        text.dataset.taskId = n.id;
+        text.textContent = (n.title || '').substring(0, 16);
         g.appendChild(text);
         // 状态小字
         const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
-        sub.setAttribute('x', cx + 10); sub.setAttribute('y', cy + 15);
+        sub.setAttribute('x', cx - W/2 + 14); sub.setAttribute('y', cy + 15);
         sub.setAttribute('text-anchor','start');
-        sub.setAttribute('fill','rgba(200,210,225,0.7)'); sub.setAttribute('font-size','10');
+        sub.setAttribute('fill','rgba(190,200,215,0.65)'); sub.setAttribute('font-size','10');
+        sub.dataset.taskId = n.id;
         sub.textContent = ({ todo:'待办', in_progress:'进行中', paused:'已暂停', done:'已完成', cancelled:'已取消' })[n.status] || n.status || '';
         g.appendChild(sub);
+        // 星级小标识（右侧）
+        if (n.priority > 0) {
+            const starText = document.createElementNS('http://www.w3.org/2000/svg','text');
+            starText.setAttribute('x', cx + W/2 - 10); starText.setAttribute('y', cy + 5);
+            starText.setAttribute('text-anchor','end');
+            starText.setAttribute('fill','rgba(232,184,24,0.55)'); starText.setAttribute('font-size','10');
+            starText.dataset.taskId = n.id;
+            starText.textContent = '★'.repeat(Math.min(n.priority, 6));
+            g.appendChild(starText);
+        }
         // 透明命中层（覆盖整块，便于拖拽/点击）
         const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
         hit.setAttribute('x', cx - W/2); hit.setAttribute('y', cy - H/2);
         hit.setAttribute('width', W); hit.setAttribute('height', H); hit.setAttribute('rx', rx);
         hit.setAttribute('fill', '#000'); hit.setAttribute('fill-opacity', '0'); hit.setAttribute('stroke', 'none');
         hit.style.pointerEvents = 'all'; hit.style.cursor = 'grab';
+        hit.dataset.taskId = n.id;
         hit.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
         hit.addEventListener('click', (e) => { e.stopPropagation(); openTaskDetail(n.id); });
         g.appendChild(hit);
     });
     svg.appendChild(g);
-    // 自动适配 viewBox：基于所有节点真实位置计算，避免节点被裁掉导致“图谱不可见”
-    let _minX = Infinity, _minY = Infinity, _maxX = -Infinity, _maxY = -Infinity;
-    nodes.forEach(n => {
-        const p = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
-        _minX = Math.min(_minX, p.x);
-        _minY = Math.min(_minY, p.y);
-        _maxX = Math.max(_maxX, p.x);
-        _maxY = Math.max(_maxY, p.y);
-    });
-    if (!isFinite(_minX)) { _minX = 0; _minY = 0; _maxX = 640; _maxY = 440; }
-    const _pad = 90;
-    const _vx = Math.max(0, _minX - _pad);
-    const _vy = Math.max(0, _minY - _pad);
-    const _vw = Math.max(_maxX - _minX + _pad * 2, 640);
-    const _vh = Math.max(_maxY - _minY + _pad * 2, 440);
-    svg.setAttribute('viewBox', `${_vx} ${_vy} ${_vw} ${_vh}`);
-    state.graphViewBox = { x: _vx, y: _vy, width: _vw, height: _vh };
+    // 自动适配 viewBox：仅当用户未手动拖拽/缩放时执行，避免覆盖用户操作
+    if (!state.graphUserPanned) {
+        let _minX = Infinity, _minY = Infinity, _maxX = -Infinity, _maxY = -Infinity;
+        nodes.forEach(n => {
+            const p = state.graphNodePositions[n.id] || getDefaultNodePosition(n, levelMap);
+            _minX = Math.min(_minX, p.x);
+            _minY = Math.min(_minY, p.y);
+            _maxX = Math.max(_maxX, p.x);
+            _maxY = Math.max(_maxY, p.y);
+        });
+        if (!isFinite(_minX)) { _minX = 0; _minY = 0; _maxX = 640; _maxY = 440; }
+        const _pad = 100;
+        const _vx = Math.max(0, _minX - _pad);
+        const _vy = Math.max(0, _minY - _pad);
+        const _vw = Math.max(_maxX - _minX + _pad * 2, 640);
+        const _vh = Math.max(_maxY - _minY + _pad * 2, 440);
+        state.graphViewBox = { x: _vx, y: _vy, width: _vw, height: _vh };
+        state.graphScale = 1;
+    }
+    // 始终用当前 viewBox 渲染（不管是 auto-fit 还是用户手动设定的）
+    svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.width} ${view.height}`);
 }
 
 function getDefaultNodePosition(n, levelMap) {
@@ -1537,15 +1611,42 @@ function onNodeDrag(e) {
     const scaleY = viewBox.height / svgRect.height;
     const mouseX = (e.clientX - svgRect.left) * scaleX + viewBox.x;
     const mouseY = (e.clientY - svgRect.top) * scaleY + viewBox.y;
-    state.graphNodePositions[dragNodeId] = { x: mouseX - dragOffsetX, y: mouseY - dragOffsetY };
-    renderGraph();
+    const newX = mouseX - dragOffsetX;
+    const newY = mouseY - dragOffsetY;
+    state.graphNodePositions[dragNodeId] = { x: newX, y: newY };
+    // 直接移动DOM元素（通过 data-task-id 查找），不调用renderGraph避免重算viewBox
+    const W = 170, H = 60;
+    const g = DOM.graphSvg.querySelector('g');
+    if (g) {
+        g.querySelectorAll(`[data-task-id="${dragNodeId}"]`).forEach(el => {
+            if (el.tagName === 'rect') {
+                el.setAttribute('x', newX - W/2);
+                el.setAttribute('y', newY - H/2);
+            } else if (el.tagName === 'text') {
+                const isLabel = el.classList.contains('graph-label');
+                const isStar = el.textContent && el.textContent.startsWith('★') && !isLabel;
+                el.setAttribute('x', isStar ? newX + W/2 - 10 : newX - W/2 + 14);
+                el.setAttribute('y', isLabel ? newY - 3 : (isStar ? newY + 5 : newY + 15));
+            }
+        });
+    }
 }
 function endNodeDrag() {
+    if (dragNodeId) {
+        // 拖拽结束后标记用户操作，并刷新连线（边的起点/终点坐标需要更新）
+        state.graphUserPanned = true;
+        renderGraph();  // 只在结束时重绘一次，更新边的位置
+    }
     dragNodeId = null;
     document.removeEventListener('mousemove', onNodeDrag);
-    document.removeEventListener('mouseup', endNodeDrag);
 }
-function startGraphDrag(e) { if(e.target.closest('polygon')||e.target.closest('text')) return; state.isDraggingGraph=true; state.graphDragStart={x:e.clientX,y:e.clientY}; e.preventDefault(); }
+function startGraphDrag(e) {
+    // 排除节点上的操作（让节点拖拽优先）
+    if(e.target.closest('.graph-node')||e.target.closest('.graph-hit')||e.target.closest('text')||e.target.closest('rect')) return;
+    state.isDraggingGraph=true;
+    state.graphDragStart={x:e.clientX,y:e.clientY};
+    e.preventDefault();
+}
 function moveGraphDrag(e) {
     if(!state.isDraggingGraph) return;
     const dx=e.clientX-state.graphDragStart.x, dy=e.clientY-state.graphDragStart.y;
@@ -1554,6 +1655,7 @@ function moveGraphDrag(e) {
     view.x -= dx * scaleFactor;
     view.y -= dy * scaleFactor;
     state.graphDragStart={x:e.clientX,y:e.clientY};
+    state.graphUserPanned = true;  // 标记用户手动操作
     DOM.graphSvg.setAttribute('viewBox',`${view.x} ${view.y} ${view.width} ${view.height}`);
 }
 function endGraphDrag(){ state.isDraggingGraph=false; }
@@ -1817,7 +1919,7 @@ async function handleTaskFormSubmit(e){
     if(DOM.taskFormStatus.value==='done'){
         const prerequisiteId=DOM.taskFormPrerequisite.value; const parentId=DOM.taskFormParent.value;
         if(prerequisiteId){ const pre=state.flatTasks.find(t=>t.id===parseInt(prerequisiteId)); if(pre&&pre.status!=='done'){ showToast('前置任务未完成，不能设为已完成状态'); return; } }
-        if(parentId){ const parent=state.flatTasks.find(t=>t.id===parseInt(parentId)); if(parent&&parent.status!=='done'){ showToast('父任务未完成，子任务不能设为已完成'); return; } }
+        // 父子为聚合关系，子任务可独立完成，不再因父未完成而拦截
     }
     const priority=parseInt(DOM.taskFormPriority.value); const taskLine=DOM.taskFormTaskLine.value;
     const currentId=DOM.taskFormId.value?parseInt(DOM.taskFormId.value):null;
@@ -1860,11 +1962,7 @@ async function completeTaskAndHandleReward(taskId) {
     if (!task) return;
     const blockReason = getBlockReason(task);
     if (blockReason) { showToast(`依赖未满足：${blockReason}`); return; }
-    const children = state.flatTasks.filter(t => t.parent_id === taskId && !t.deleted && !t.archived && t.status !== 'cancelled');
-    if (children.length > 0 && children.some(c => c.status !== 'done')) {
-        showToast('存在未完成的子任务，不能完成父任务');
-        return;
-    }
+    // 父子为聚合关系：子任务可独立完成；父任务完成时由后端级联完成其未完成子任务，不再互相拦截
 
     const result = await apiPost(`/tasks/${taskId}/complete`);
     if (!result) {
@@ -2129,8 +2227,29 @@ function updateTrackingPanel(){
     DOM.trackingTitle.textContent=task.title; DOM.trackingDesc.textContent=task.description||'';
     DOM.trackingTitle.onclick = () => openTaskDetail(task.id);
     DOM.trackingSubtasks.innerHTML=''; const children=state.flatTasks.filter(t=>t.parent_id===task.id);
-    children.forEach(child=>{ const div=document.createElement('div'); div.className='tracking-subtask-item'; div.textContent=child.title;
-        div.addEventListener('click',()=>openTaskDetail(child.id)); DOM.trackingSubtasks.appendChild(div); });
+    children.forEach(child=>{
+        const div=document.createElement('div');
+        const isDone = child.status === 'done';
+        div.className=`tracking-subtask-item${isDone ? ' completed' : ''}`;
+        // 左侧状态图标 + 标题
+        const icon = document.createElement('span');
+        icon.className = 'subtask-status-icon';
+        if (isDone) { icon.textContent = '✓'; icon.style.color = 'var(--highlight-green-1)'; }
+        else { icon.textContent = '○'; icon.style.color = 'rgba(200,210,225,0.35)'; }
+        const title = document.createElement('span');
+        title.className = 'subtask-title';
+        title.textContent = child.title;
+        if (isDone) title.style.textDecoration = 'line-through';
+        title.style.opacity = isDone ? '0.5' : '1';
+        // 右侧状态标签
+        const badge = document.createElement('span');
+        badge.className = 'subtask-status-badge';
+        const statusMap = { todo:'待办', in_progress:'进行中', paused:'已暂停', done:'✓ 已完成', cancelled:'已取消' };
+        badge.textContent = statusMap[child.status] || child.status || '';
+        div.appendChild(icon); div.appendChild(title); div.appendChild(badge);
+        div.addEventListener('click',()=>openTaskDetail(child.id));
+        DOM.trackingSubtasks.appendChild(div);
+    });
     let progress=0;
     if(task.progress_mode==='count'&&task.target_value){ progress=Math.min(100,(task.current_value/task.target_value)*100); DOM.trackingProgressFill.className='progress-fill count'; }
     else if(task.progress_mode==='manual'){ progress=task.progress||0; DOM.trackingProgressFill.className='progress-fill manual'; }
@@ -2200,7 +2319,7 @@ function collapseTrackingPanel(){
     DOM.mainContent.classList.remove('panel-expanded');
     DOM.trackingPanel.style.width='';
     if(window.innerWidth > 768){
-        DOM.mainContent.style.marginLeft='72px';
+        DOM.mainContent.style.marginLeft='56px';
         DOM.trackingExpanded.style.transform = '';
     } else {
         DOM.mainContent.style.marginLeft='0';
@@ -2224,32 +2343,89 @@ function updateTrackingTimer(){ if(state.trackingTaskId&&state.trackingStartTime
 async function openRewardModal(taskId){
     rewardModalOpenTaskId = taskId;
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
+    // 防御性拦截：已领取的任务不再打开弹窗
+    if(task.reward_claimed){ showToast('奖励已领取'); rewardModalOpenTaskId=null; return; }
     DOM.rewardDetails.innerHTML='';
     const rewardSVGs = {
-        exp: '<svg viewBox="0 0 24 24" width="13" height="13" fill="#6AB0E8"><polygon points="12,2 14,9 21,9 15.5,13.5 17.5,21 12,16 6.5,21 8.5,13.5 3,9 10,9"/></svg>',
-        lungmen: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
-        source_stone: '<svg viewBox="0 0 24 24" width="13" height="13"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
-        orundum: '<svg viewBox="0 0 24 24" width="13" height="13"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
+        exp: '<svg viewBox="0 0 24 24" width="28" height="28"><rect x="3" y="7" width="18" height="12" rx="2.5" fill="#1a3a5c" stroke="#6AB0E8" stroke-width="1.2"/><text x="12" y="16.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="#6AB0E8" letter-spacing="0.5">EXP</text></svg>',
+        lungmen: '<svg viewBox="0 0 24 24" width="28" height="28"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
+        source_stone: '<svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
+        orundum: '<svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
     };
-    const rewards=[ {name:'经验值',value:task.reward_exp||0,svg:rewardSVGs.exp}, {name:'龙门币',value:task.reward_lungmen||0,svg:rewardSVGs.lungmen}, {name:'源石',value:task.reward_source_stone||0,svg:rewardSVGs.source_stone}, {name:'合成玉',value:task.reward_orundum||0,svg:rewardSVGs.orundum} ];
+    const rewards=[ {name:'经验值',value:task.reward_exp||0,svg:rewardSVGs.exp,color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,svg:rewardSVGs.lungmen,color:'#2989D9'}, {name:'源石',value:task.reward_source_stone||0,svg:rewardSVGs.source_stone,color:'#FFD700'}, {name:'合成玉',value:task.reward_orundum||0,svg:rewardSVGs.orundum,color:'#D42027'} ];
     let hasReward=false;
-    rewards.forEach(r=>{ if(r.value>0){ hasReward=true; const div=document.createElement('div'); div.className='reward-item';
-        const nameSpan=document.createElement('span'); nameSpan.className='reward-item-name'; nameSpan.innerHTML=`${r.svg} ${r.name}`;
-        const valueSpan=document.createElement('span'); valueSpan.className='reward-item-value'; valueSpan.textContent=`+${r.value}`;
-        div.appendChild(nameSpan); div.appendChild(valueSpan); DOM.rewardDetails.appendChild(div); } });
+    // 圆形资源卡片网格
+    const grid = document.createElement('div'); grid.className='reward-grid';
+    rewards.forEach(r=>{ if(r.value>0){ hasReward=true;
+        const card=document.createElement('div'); card.className='reward-circle-card';
+        // 圆形容器（光环 + 内圈 + 数量角标 叠在一起）
+        const circle = document.createElement('div'); circle.className='reward-circle';
+        // 外圈光环
+        const ring = document.createElement('div'); ring.className='reward-ring';
+        ring.style.setProperty('--ring-color', r.color);
+        // 内圈（放图标）
+        const iconWrap = document.createElement('div'); iconWrap.className='reward-icon-wrap';
+        iconWrap.innerHTML = r.svg;
+        // 数量角标（右下角，游戏风格）
+        const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `+${r.value}`;
+        circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
+        card.appendChild(circle);
+        // 名称标签
+        const label = document.createElement('div'); label.className='reward-label'; label.textContent = r.name;
+        card.appendChild(label);
+        grid.appendChild(card);
+    } });
+    if(hasReward) DOM.rewardDetails.appendChild(grid);
+
     let hasDrop=false;
     if(task.drop_config){ try{ const config=JSON.parse(task.drop_config); let drops=[];
         if(Array.isArray(config)) drops=config; else if(config.random_drops&&Array.isArray(config.random_drops)) drops=config.random_drops;
         if(drops.length){ hasDrop=true; DOM.randomDropSection.style.display='block'; DOM.randomDropContent.innerHTML='';
-            drops.forEach(drop=>{ const div=document.createElement('div'); div.className='reward-item';
-                if(typeof drop==='string'){ const parts=drop.split(':'); if(parts.length>=2){ const resourceType=parts[0]; const quantity=parts[1];
-                    const resourceMap={'source_stone':'源石','orundum':'合成玉','lungmen':'龙门币','exp':'经验值'}; const displayName=resourceMap[resourceType]||resourceType; div.textContent=`${displayName} x${quantity}`; } else div.textContent=drop; }
-                else if(drop.name&&drop.quantity) div.textContent=`${drop.name} x${drop.quantity}`;
-                DOM.randomDropContent.appendChild(div); });
+            const dropGrid = document.createElement('div'); dropGrid.className='reward-grid reward-grid-small';
+            drops.forEach(drop=>{ const card=document.createElement('div'); card.className='reward-circle-card drop-card';
+                const circle = document.createElement('div'); circle.className='reward-circle';
+                const ring = document.createElement('div'); ring.className='reward-ring'; ring.style.setProperty('--ring-color', 'var(--highlight-gold-1)');
+                const iconWrap = document.createElement('div'); iconWrap.className='reward-icon-wrap';
+                iconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="rgba(232,184,24,0.6)" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M12 7v10M7 12h10" stroke="rgba(232,184,24,0.8)" stroke-width="1.5"/></svg>';
+                let dName='?', dVal=1, dColor='var(--highlight-gold-1)';
+                if(typeof drop==='string'){ const parts=drop.split(':'); if(parts.length>=2){ const rt=parts[0]; dVal=parseInt(parts[1])||1;
+                    const rm={'source_stone':['源石','#FFD700'],'orundum':['合成玉','#D42027'],'lungmen':['龙门币','#2989D9'],'exp':['经验值','#6AB0E8']}; const entry=rm[rt]||[rt,dColor]; dName=entry[0]; dColor=entry[1]; } else dName=drop; }
+                else if(drop.name&&drop.quantity){ dName=drop.name; dVal=drop.quantity; }
+                const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `x${dVal}`;
+                circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
+                card.appendChild(circle);
+                const label = document.createElement('div'); label.className='reward-label'; label.textContent = dName;
+                card.appendChild(label);
+                dropGrid.appendChild(card);
+            });
+            DOM.randomDropContent.appendChild(dropGrid);
         } else DOM.randomDropSection.style.display='none';
     } catch{ DOM.randomDropSection.style.display='none'; } } else DOM.randomDropSection.style.display='none';
-    if(!hasReward&&!hasDrop){ DOM.rewardClaimBtn.style.display='none'; const emptyMsg=document.createElement('p'); emptyMsg.style.textAlign='center'; emptyMsg.style.color='var(--text-muted-1)'; emptyMsg.textContent='该任务没有可领取的奖励'; DOM.rewardDetails.appendChild(emptyMsg); }
-    else DOM.rewardClaimBtn.style.display='';
+
+    // 底部装饰性对勾圆圈（不可点，仅视觉）
+    const checkWrap = document.createElement('div'); checkWrap.className='reward-confirm-check';
+    checkWrap.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+    if(!hasReward&&!hasDrop){
+        DOM.rewardClaimBtn.style.display='none';
+        const emptyMsg=document.createElement('p'); emptyMsg.className='reward-empty-msg';
+        emptyMsg.textContent='该任务没有可领取的奖励'; DOM.rewardDetails.appendChild(emptyMsg);
+    } else if(task.reward_claimed){
+        // 已领取：禁用领取按钮，仅展示奖励 + 已领取提示
+        DOM.rewardClaimBtn.style.display='none';
+        const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
+        bottomArea.appendChild(checkWrap);
+        const claimedNote=document.createElement('p'); claimedNote.className='reward-claimed-note';
+        claimedNote.textContent='✦ 奖励已领取';
+        bottomArea.appendChild(claimedNote);
+        DOM.rewardDetails.appendChild(bottomArea);
+    } else {
+        DOM.rewardClaimBtn.style.display='';
+        // 有奖励时，底部放对勾 + 领取按钮
+        const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
+        bottomArea.appendChild(checkWrap);
+        DOM.rewardDetails.appendChild(bottomArea);
+    }
     DOM.rewardClaimBtn.dataset.taskId=taskId;
     openModal('rewardModal');
 }
@@ -2267,7 +2443,7 @@ async function claimReward(){
             closeAllModals();
             if(modalContainer){ modalContainer.style.transition='none'; modalContainer.style.transform=''; modalContainer.style.opacity=''; }
             state.rewardModalAnimating=false;
-            loadResources(); loadTransactions(); loadTasks();
+            loadResources(); loadTransactions(); loadTasks(); updateTrackingPanel();
             const sorted=filterTasks(state.flatTasks); const currentIndex=sorted.findIndex(t=>t.id==taskId);
             if(currentIndex!==-1&&currentIndex+1<sorted.length){ const nextTaskId=sorted[currentIndex+1].id;
                 const nextCard=document.querySelector(`.task-card[data-task-id="${nextTaskId}"]`);
@@ -2457,7 +2633,9 @@ const CLEAR_SCOPE_TEXT = {
 };
 async function clearData(scope){
     showConfirm(`确定要清空「${CLEAR_SCOPE_TEXT[scope]}」吗？此操作不可恢复。建议先导出备份。`, async () => {
-        const res = await apiDelete(`/api/data/clear?scope=${scope}`);
+        // 注意：API_BASE 已是 '/api'，此处 endpoint 不能再带 /api 前缀，
+        // 否则拼成 /api/api/data/clear -> 404（清空全部/任务/资源都失败的元凶）
+        const res = await apiDelete(`/data/clear?scope=${scope}`);
         if(res){
             closeAllModals();
             try {
@@ -2599,14 +2777,14 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
                             state.settings.wp_current_id = wp.id;
                             grid.querySelectorAll('.wp-wallpaper-item').forEach(el => el.classList.remove('active'));
                             item.classList.add('active');
-                            // 含真实视频文件的壁纸用 <video> 动态背景；其余用预览图
+                            // 含真实视频文件的壁纸用 <video> 动态背景；图片型用原图(media 端点优先返回 image_file 全分辨率)
                             const isVideo = wp.has_video || wp.media === 'video';
                             if (isVideo) {
                                 state.settings.wallpaper_type = 'video';
                                 state.settings.wallpaper_url = `/api/wallpaper-software/media?id=${encodeURIComponent(wp.id)}`;
                             } else {
                                 state.settings.wallpaper_type = 'image';
-                                state.settings.wallpaper_url = `/api/wallpaper-software/preview?id=${encodeURIComponent(wp.id)}`;
+                                state.settings.wallpaper_url = `/api/wallpaper-software/media?id=${encodeURIComponent(wp.id)}`;
                             }
                             try {
                                 await apiPut('/settings', { wallpaper_type: state.settings.wallpaper_type, wallpaper_url: state.settings.wallpaper_url });
@@ -2678,65 +2856,126 @@ async function applyWallpaper() {
         const url = (state.settings.wallpaper_url || '').trim();
         const type = state.settings.wallpaper_type || 'none';
 
-        // 清理旧的壁纸元素
+        // 复用/创建壁纸底层：挂在 #app 最底层(z-index:0)，位于内容之下、
+        // 装饰渐变之上（渐变在壁纸激活时透明化），不会被 #app(z-index:10) 整层盖住。
+        let layer = document.getElementById('wallpaperLayer');
+        if (!layer) {
+            layer = document.createElement('div');
+            layer.id = 'wallpaperLayer';
+            layer.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;';
+            const appEl = document.getElementById('app');
+            if (appEl) appEl.insertBefore(layer, appEl.firstChild);
+            else document.body.prepend(layer);
+        }
+        // 清理旧元素
         const oldCanvas = document.getElementById('wallpaperCanvas');
         if (oldCanvas) oldCanvas.remove();
         const oldVideo = document.getElementById('wallpaperVideo');
         if (oldVideo) oldVideo.remove();
+        layer.style.backgroundImage = '';
+        layer.innerHTML = '';
 
         document.body.classList.remove('wallpaper-image', 'wallpaper-video');
-        document.body.style.backgroundImage = '';
 
         if (type === 'image' && url) {
             document.body.classList.add('wallpaper-image');
-            document.body.style.backgroundImage = `url("${url}")`;
-            document.body.style.backgroundSize = 'cover';
-            document.body.style.backgroundPosition = 'center';
-            document.body.style.backgroundAttachment = 'fixed';
+            layer.style.backgroundImage = `url("${url}")`;
+            layer.style.backgroundSize = 'cover';
+            layer.style.backgroundPosition = 'center';
+            layer.style.backgroundAttachment = 'fixed';
             return;
         }
 
         if (type === 'video' && url) {
-            // 直接用 <video> 作为背景层：比 canvas 中转更省 CPU，移动端解码更稳
+            document.body.classList.add('wallpaper-video');
             const video = document.createElement('video');
             video.id = 'wallpaperVideo';
-            video.src = url;
+            // iOS 关键：muted 必须在 src 之前就存在于标签上，否则自动播放被直接拒绝（静止/黑屏）
             video.muted = true;
+            video.defaultMuted = true;
+            video.setAttribute('muted', '');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('loop', '');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
             video.loop = true;
             video.autoplay = true;
             video.playsInline = true;
-            video.crossOrigin = 'anonymous';
-            // 只加载元数据，不预加载整段视频，避免阻塞首屏
-            video.preload = 'metadata';
-            // 背景层样式：铺满视口、裁切覆盖、置于内容之下、永不拦截交互
-            video.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:0;pointer-events:none;';
-            document.body.prepend(video);
+            video.preload = 'auto';
+            // 图层 CSS 背景兜底（不依赖 video.poster：iOS 在 play 被拒时会清空 poster 变黑屏）
+            const previewUrl = url.replace('/media?', '/preview?');
+            if (previewUrl !== url) {
+                layer.style.backgroundImage = `url("${previewUrl}")`;
+                layer.style.backgroundSize = 'cover';
+                layer.style.backgroundPosition = 'center';
+                video.poster = previewUrl;
+            }
+            // 手机/窄屏改用服务端转码的轻量版：原片 1080p/10Mbps 经内网穿透根本喂不动，
+            // 会一直缓冲（表现就是「壁纸不会动」）。轻量版约 700kbps，实测 303MB -> 21MB。
+            const isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(navigator.userAgent)
+                             || window.innerWidth < 820;
+            // 注意：src 必须晚于 muted/autoplay/playsinline 属性（iOS 自动播放硬要求）
+            video.src = (isMobile && previewUrl !== url) ? (url + '&mobile=1') : url;
+            // ★ 关键设计：预览图背景「永不移除」，视频默认完全透明叠在它上面。
+            //   只有确认视频真的在推进时间轴，才把视频淡入。
+            //   这样即使 iOS 拒绝自动播放 / 清空 poster / 首帧尚未解码，
+            //   画面也只会停在预览图，绝不会黑屏。
+            video.style.cssText =
+                'width:100%;height:100%;object-fit:cover;display:block;' +
+                'opacity:0;background:transparent;transition:opacity .8s ease;';
+            layer.appendChild(video);
 
-            function cleanup() {
-                if (video.parentNode) video.remove();
+            // 尝试播放：被拒时静默失败，保留图层预览图兜底（不黑屏、不删视频）
+            function startPlay() {
+                const p = video.play();
+                if (p && typeof p.catch === 'function') p.catch(() => {});
             }
 
-            // 元数据就绪后再显式 play()，确保自动播放策略下也能启动（异步、不阻塞）
-            video.addEventListener('loadedmetadata', function() {
-                video.play().then(() => {
-                    document.body.classList.add('wallpaper-video');
-                }).catch(() => {
-                    // 自动播放被拦截，降级为静态封面图
-                    cleanup();
-                    const fallback = url.replace(/\.(mp4|webm|mov)$/i, '.jpg');
-                    document.body.style.backgroundImage = `url("${fallback}")`;
-                    document.body.classList.add('wallpaper-image');
-                });
-            });
+            let revealed = false;
+            function reveal() {          // 视频确实出画面 -> 淡入覆盖预览图
+                if (revealed) return;
+                revealed = true;
+                video.style.opacity = '1';
+            }
+            function conceal() {         // 视频无画面 -> 透明，露出预览图
+                revealed = false;
+                video.style.opacity = '0';
+            }
 
-            video.addEventListener('error', function() {
-                cleanup();
-                const fallback = url.replace(/\.(mp4|webm|mov)$/i, '.jpg');
-                document.body.style.backgroundImage = `url("${fallback}")`;
-                document.body.classList.add('wallpaper-image');
+            // 唯一可信的「真的在播」信号：时间轴持续推进
+            video.addEventListener('timeupdate', function() {
+                if (!video.paused && !video.ended && video.currentTime > 0.05) reveal();
             });
+            // 辅助判定：数据充足且非暂停态（iOS 会误发 playing 但仍无画面，故不单独信任）
+            video.addEventListener('playing', function() {
+                if (!video.paused && video.readyState >= 3) reveal();
+            });
+            // 暂停 / 缓冲中断 / 播放结束 -> 立刻透明回预览图，并尝试续播
+            video.addEventListener('pause', function() {
+                conceal();
+                if (!video.ended) startPlay();
+            });
+            video.addEventListener('ended', conceal);
+            video.addEventListener('stalled', conceal);
+            video.addEventListener('waiting', conceal);
 
-            window._wallpaperCleanup = cleanup;
+            video.addEventListener('loadedmetadata', startPlay);
+            video.addEventListener('canplay', startPlay);
+
+            // iOS 自动播放策略兜底：首次用户交互（滑动/点击）后立即补播
+            function onFirstInteract() {
+                startPlay();
+                window.removeEventListener('touchstart', onFirstInteract);
+                window.removeEventListener('click', onFirstInteract);
+                document.removeEventListener('pointerdown', onFirstInteract);
+            }
+            window.addEventListener('touchstart', onFirstInteract, { passive: true });
+            window.addEventListener('click', onFirstInteract);
+            document.addEventListener('pointerdown', onFirstInteract);
+
+            // 加载失败：视频保持透明，预览图背景仍在，不空白
+            video.addEventListener('error', conceal);
+
             window._wallpaperVideo = video;
         }
     } catch (err) {
@@ -2773,19 +3012,26 @@ async function createCustomBadge(){ const name=DOM.badgeName.value.trim(); const
     const result=await apiPost('/achievements/custom',formData,true); if(result){ closeAllModals(); loadAchievements(); } }
 
 function setGraphZoom(delta){
-    const newScale=Math.max(0.5,Math.min(2,state.graphScale+delta));
+    const newScale=Math.max(0.3,Math.min(3,state.graphScale+delta));
     if(newScale===state.graphScale) return;
     const view=state.graphViewBox;
+    // 以当前视口中心为锚点缩放
     const cx=view.x+view.width/2, cy=view.y+view.height/2;
     const newWidth=state.graphBaseWidth/newScale;
     const newHeight=state.graphBaseHeight/newScale;
-    view.width=newWidth; view.height=newHeight;
     view.x=cx-newWidth/2; view.y=cy-newHeight/2;
+    view.width=newWidth; view.height=newHeight;
     state.graphScale=newScale;
+    state.graphUserPanned = true;  // 标记用户手动操作，阻止auto-fit
     DOM.graphSvg.setAttribute('viewBox',`${view.x} ${view.y} ${view.width} ${view.height}`);
 }
-function resetGraph(){ state.graphScale=1; state.graphViewBox={x:0,y:0,width:state.graphBaseWidth,height:state.graphBaseHeight};
-    DOM.graphSvg.setAttribute('viewBox',`0 0 ${state.graphBaseWidth} ${state.graphBaseHeight}`); renderGraph(); }
+function resetGraph(){
+    state.graphScale=1;
+    state.graphUserPanned=false;  // 重置标志，让下次renderGraph重新auto-fit
+    // 清除缓存的位置让节点回到默认布局（可选：保留用户拖拽过的位置）
+    // state.graphNodePositions = {};  // 如需完全重置节点位置可取消注释
+    renderGraph();  // renderGraph会因 graphUserPanned=false 而执行auto-fit
+}
 
 function changeMonth(delta){ state.calendarMonth.setMonth(state.calendarMonth.getMonth()+delta); renderCalendar(); }
 

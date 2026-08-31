@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "tasks": [
+    {
+      "title": "主线：罗德岛重建计划",
+      "description": "整合博士的每日行动，建立可持续的任务循环。",
+      "priority": 6,
+      "task_line": "main",
+      "status": "in_progress",
+      "progress_mode": "auto",
+      "progress": 35,
+      "tags": ["主线", "周常"],
+      "reward_exp": 500,
+      "reward_source_stone": 10,
+      "children": [
+        {
+          "title": "整理作战记录",
+          "description": "归档本周所有作战数据。",
+          "priority": 3,
+          "task_line": "main",
+          "status": "in_progress",
+          "progress_mode": "auto",
+          "progress": 60,
+          "tags": ["归档"]
+        },
+        {
+          "title": "招募新干员",
+          "description": "完成公开招募并录入档案。",
+          "priority": 4,
+          "task_line": "main",
+          "status": "todo",
+          "progress_mode": "count",
+          "target_value": 3,
+          "current_value": 1,
+          "reward_exp": 200,
+          "reward_orundum": 300,
+          "tags": ["招募"]
+        }
+      ]
+    },
+    {
+      "title": "支线：每日自律打卡",
+      "description": "保持连续完成，积累专注时长。",
+      "priority": 2,
+      "task_line": "side",
+      "status": "todo",
+      "progress_mode": "auto",
+      "progress": 0,
+      "repeat_type": "daily",
+      "repeat_interval": 1,
+      "tags": ["习惯", "日常"],
+      "reward_exp": 30,
+      "children": [
+        {
+          "title": "阅读 30 分钟",
+          "priority": 2,
+          "task_line": "side",
+          "status": "todo",
+          "progress_mode": "auto",
+          "progress": 0
+        },
+        {
+          "title": "健身打卡",
+          "priority": 2,
+          "task_line": "side",
+          "status": "todo",
+          "progress_mode": "count",
+          "target_value": 4,
+          "current_value": 0,
+          "reward_exp": 40
+        }
+      ]
+    },
+    {
+      "title": "一次性：备份数据库",
+      "description": "导出 JSON 备份，防止测试数据丢失。",
+      "priority": 1,
+      "task_line": "side",
+      "status": "done",
+      "progress_mode": "auto",
+      "progress": 100,
+      "completed_at": "2026-08-30T10:00:00Z",
+      "due_date": "2026-09-30T23:59:00Z",
+      "notes": "测试清空按钮前务必先导出。",
+      "tags": ["运维"]
+    }
+  ],
+  "tags": [
+    { "name": "主线", "color": "blue" },
+    { "name": "周常", "color": "purple" },
+    { "name": "归档", "color": "grey" },
+    { "name": "招募", "color": "gold" },
+    { "name": "习惯", "color": "green" },
+    { "name": "日常", "color": "green" },
+    { "name": "运维", "color": "red" }
+  ]
+}

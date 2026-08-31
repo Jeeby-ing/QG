@@ -31,6 +31,12 @@ Thumbs.db
 cloudflared.exe
 *.bak
 
+# ===== 启动器运行时生成的远程地址（每次不同，不入库） =====
+REMOTE_URL.txt
+cpolar_debug.log
+.webview2_data/
+launcher_error.log
+
 # ===== 桌面运行虚拟环境（若有） =====
 venv/
 .venv/

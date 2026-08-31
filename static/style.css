@@ -186,6 +186,20 @@ body.focus-mode .bg-texture { filter:none; opacity:1; }
 body.focus-mode .bg-gradient { filter:none; }
 body.focus-mode .bg-particles { opacity:1; }
 
+/* ===== 壁纸底层（视频/图片）===== */
+/* 壁纸激活时，隐藏不透明的装饰渐变层，露出底层壁纸；纹理仅保留极淡叠加。
+   注意：必须用 .bg-layer.bg-gradient 三类名形式 —— 文件后段存在
+   `body.wallpaper-video .bg-layer { opacity:.18 }`（特异性 0,2,1），
+   若此处只写两层类名(0,2,0)会被其反压，深黑径向渐变残留 -> 壁纸发暗发糊。 */
+body.wallpaper-video .bg-layer.bg-gradient,
+body.wallpaper-image .bg-layer.bg-gradient { opacity: 0; }
+body.wallpaper-video .bg-layer.bg-texture-large,
+body.wallpaper-image .bg-layer.bg-texture-large { opacity: 0.10; }
+body.wallpaper-video .bg-layer.bg-texture,
+body.wallpaper-image .bg-layer.bg-texture { opacity: 0.06; }
+body.wallpaper-video .bg-layer.bg-particles,
+body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
+
 /* ===== #app 容器 ===== */
 #app { position:relative; z-index:10; display:flex; flex-direction:column; height:100vh; width:100vw; overflow:hidden; }
 
@@ -299,6 +313,28 @@ body.focus-mode .bg-particles { opacity:1; }
 .icon-btn:hover { background:rgba(255,255,255,0.15); color:var(--text-primary); transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
 .icon-btn:active { transform:translateY(0) scale(0.95); }
 
+/* ===== 远程地址按钮（内嵌顶栏） ===== */
+.remote-url-btn {
+    display:flex; align-items:center; gap:6px;
+    background:var(--glass-2); border:1px solid rgba(100,200,255,0.15);
+    color:#64c8ff; padding:4px 10px; border-radius:20px;
+    cursor:pointer; font-size:11px; max-width:220px;
+    backdrop-filter:blur(6px); transition:all 0.2s ease;
+    flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
+    opacity:0.5;
+}
+.remote-url-btn.connected { opacity:1; border-color:rgba(100,200,255,0.4); }
+.remote-url-btn:hover { background:rgba(100,200,255,0.12); border-color:rgba(100,200,255,0.4); opacity:1 !important; }
+.remote-url-btn:active { transform:scale(0.96); }
+.remote-url-btn .remote-url-text { font-family:'Consolas','Courier New',monospace; letter-spacing:0.3px; opacity:0.9; }
+.remote-url-btn.copied { border-color:#4ade80; color:#4ade80; }
+.remote-url-btn.copied .remote-url-text::after { content:' \2713'; margin-left:3px; }
+
+/* 移动端不显示远程地址按钮（桌面端才有隧道） */
+@media (max-width: 768px) {
+    .remote-url-btn { display: none !important; }
+}
+
 /* ===== 通用按钮 ===== */
 .btn {
     padding:8px 16px;
@@ -388,13 +424,13 @@ body.focus-mode .bg-particles { opacity:1; }
     height: calc(100vh - 70px);
     z-index: 90;
     display: flex;
-    width: 72px;
+    width: 56px;
     transition: width 0.2s ease;
 }
 
 .tracking-handle {
-    width: 72px;
-    flex: 0 0 72px;
+    width: 56px;
+    flex: 0 0 56px;
     height: 100%;
     background: var(--glass-1);
     backdrop-filter: blur(8px);
@@ -438,7 +474,7 @@ body.focus-mode .bg-particles { opacity:1; }
     transition: width 0.2s ease;
     position: relative;
 }
-.tracking-panel.expanded { width: 520px; }
+.tracking-panel.expanded { width: 504px; }
 .tracking-panel.expanded .tracking-expanded { width: 320px; }
 
 .tracking-resize-handle { position:absolute; right:-5px; top:0; width:10px; height:100%; cursor:ew-resize; z-index:95; }
@@ -469,6 +505,43 @@ body.focus-mode .bg-particles { opacity:1; }
 .tracking-subtasks { margin:12px 0; }
 .tracking-subtask-item { padding:8px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); border-radius:6px; margin-bottom:6px; cursor:pointer; display:flex; align-items:center; gap:8px; transition:all var(--transition-fast); }
 .tracking-subtask-item:hover { background:rgba(255,255,255,0.08); transform:translateX(4px); }
+/* 已完成子任务：暗色 + 删除线 */
+.tracking-subtask-item.completed {
+    background: rgba(22,44,34,0.25);
+    border-color: rgba(95,179,122,0.15);
+    opacity: 0.7;
+}
+.tracking-subtask-item.completed:hover {
+    background: rgba(22,44,34,0.35);
+}
+.subtask-status-icon {
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+}
+.subtask-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+.subtask-status-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(200,210,225,0.5);
+    flex-shrink: 0;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+.tracking-subtask-item.completed .subtask-status-badge {
+    background: rgba(95,179,122,0.12);
+    color: var(--highlight-green-1);
+}
 
 .tracking-progress-section { display:flex; align-items:center; gap:12px; margin:16px 0; }
 .tracking-progress-section .progress-bar { flex:1; height:22px; }
@@ -530,7 +603,7 @@ body.focus-mode .bg-particles { opacity:1; }
    主内容
    ============================================= */
 .main-content { flex:1; overflow-y:auto; padding:20px; margin-left:72px; transition:margin-left 0.2s ease; }
-.main-content.panel-expanded { margin-left:520px; }
+.main-content.panel-expanded { margin-left:504px; }
 
 .view { display:none; }
 .view.active { display:block; animation: viewFadeIn 0.25s ease forwards; }
@@ -597,7 +670,7 @@ body.focus-mode .bg-particles { opacity:1; }
 /* =============================================
    任务列表
    ============================================= */
-.task-list-container { position:relative; min-height:300px; }
+.task-list-container { position:relative; min-height:300px; container-type: inline-size; }
 .task-list { display:flex; flex-direction:column; gap:10px; }
 .task-list-empty {
     position: absolute; top: 50%; left: 50%;
@@ -700,10 +773,33 @@ body.focus-mode .bg-particles { opacity:1; }
     opacity:0.85;
 }
 .task-card.status-done .task-title { text-decoration:line-through; color:var(--text-muted-1); }
+
+/* 已完成装饰角标（低调，右上角） */
+.task-completed-badge {
+    position:absolute;
+    top:8px; right:10px;
+    font-family: var(--font-mono);
+    font-size:9px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:rgba(120,200,150,0.35);
+    border:1px solid rgba(95,179,122,0.18);
+    border-radius:4px;
+    padding:1px 6px;
+    pointer-events:none;
+    user-select:none;
+    z-index:2;
+}
 .task-card.status-cancelled { opacity:0.4; }
 .task-card.status-cancelled .task-title { text-decoration:line-through; }
 
-/* ===== 树状缩进 ===== */
+/* ===== 树状缩进（卡片级 + 内部连接点） ===== */
+/* 卡片整体左移——让层级一目了然 */
+.task-card.task-level-1 { margin-left: 36px; }
+.task-card.task-level-2 { margin-left: 72px; }
+.task-card.task-level-3 { margin-left: 108px; }
+
+/* 卡片内部左侧树形连接点列（缩进后仍保留，用于画竖线+圆点） */
 .task-indent { min-width:20px; display:flex; align-items:center; justify-content:flex-end; padding-left:8px; position:relative; z-index:2; }
 .tree-connector { width:2px; height:100%; background:linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.05)); position:absolute; right:4px; top:0; border-radius:1px; }
 .task-indent::before {
@@ -723,9 +819,9 @@ body.focus-mode .bg-particles { opacity:1; }
     z-index:1;
     border-radius:1px;
 }
-.task-indent-level-1 { min-width:40px; }
-.task-indent-level-2 { min-width:60px; }
-.task-indent-level-3 { min-width:80px; }
+.task-indent-level-1 { min-width:28px; }
+.task-indent-level-2 { min-width:48px; }
+.task-indent-level-3 { min-width:68px; }
 
 /* ===== 星级装饰区 (核心重构) ===== */
 .task-stars { display:flex; align-items:center; padding:0 10px; min-width:50px; position:relative; z-index:2; }
@@ -818,19 +914,21 @@ body.focus-mode .bg-particles { opacity:1; }
     pointer-events:none;
     z-index:0;
 }
-/* 6星晶体点状装饰 (多层) */
+/* 6星晶体点状装饰 (多层) —— 放大且更亮，与窄条比例协调 */
 .star-bg.priority-6::after {
     content:'';
     position:absolute; top:0; left:0; right:0; bottom:0;
     background-image:
-        radial-gradient(circle at 15% 20%, rgba(255,255,255,0.20) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 65% 30%, rgba(255,255,255,0.15) 2px, transparent 2px),
-        radial-gradient(circle at 35% 65%, rgba(232,184,24,0.20) 1.5px, transparent 1.5px),
-        radial-gradient(circle at 80% 75%, rgba(255,255,255,0.12) 2.5px, transparent 2.5px),
-        radial-gradient(circle at 10% 80%, rgba(200,120,48,0.15) 1px, transparent 1px),
-        radial-gradient(circle at 50% 45%, rgba(255,215,0,0.10) 3px, transparent 3px),
-        radial-gradient(circle at 90% 20%, rgba(64,160,104,0.15) 2px, transparent 2px),
-        radial-gradient(circle at 70% 60%, rgba(212,48,40,0.10) 1.5px, transparent 1.5px);
+        radial-gradient(circle at 15% 20%, rgba(255,255,255,0.32) 2.8px, transparent 2.8px),
+        radial-gradient(circle at 65% 30%, rgba(255,255,255,0.24) 3.6px, transparent 3.6px),
+        radial-gradient(circle at 35% 65%, rgba(232,184,24,0.34) 2.8px, transparent 2.8px),
+        radial-gradient(circle at 80% 75%, rgba(255,255,255,0.20) 4.5px, transparent 4.5px),
+        radial-gradient(circle at 10% 80%, rgba(200,120,48,0.28) 2px, transparent 2px),
+        radial-gradient(circle at 50% 45%, rgba(255,215,0,0.20) 5.5px, transparent 5.5px),
+        radial-gradient(circle at 90% 20%, rgba(64,160,104,0.28) 3.6px, transparent 3.6px),
+        radial-gradient(circle at 70% 60%, rgba(212,48,40,0.18) 2.8px, transparent 2.8px),
+        radial-gradient(circle at 25% 45%, rgba(255,240,180,0.22) 2.4px, transparent 2.4px),
+        radial-gradient(circle at 85% 55%, rgba(255,215,0,0.16) 3px, transparent 3px);
     background-size:100% 100%;
     pointer-events:none;
     z-index:0;
@@ -838,7 +936,7 @@ body.focus-mode .bg-particles { opacity:1; }
 .star-bg.priority-6 .star { position:relative; z-index:1; }
 
 /* ===== 任务主内容 ===== */
-.task-main { flex:1; display:flex; flex-direction:column; padding:12px 18px; gap:4px; position:relative; z-index:2; }
+.task-main { flex:1; display:flex; flex-direction:column; padding:12px 18px; gap:4px; position:relative; z-index:2; min-width:0; }
 .task-top-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .task-title { font-size:20px; font-weight:600; letter-spacing:0.01em; text-shadow:0 2px 4px rgba(0,0,0,0.3); }
 .task-line-tag { font-size:12px; padding:2px 10px; border-radius:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.05); }
@@ -875,6 +973,7 @@ body.focus-mode .bg-particles { opacity:1; }
     display:flex; align-items:center; gap:4px; padding-right:10px;
     opacity:0; transition:opacity var(--transition-fast);
     position:relative; z-index:2;
+    flex-shrink: 0; /* 防止按钮区被内容挤压 */
 }
 .task-card:hover .task-actions { opacity:1; }
 
@@ -981,7 +1080,6 @@ body.focus-mode .bg-particles { opacity:1; }
     display:flex; flex-direction:column;
     width: 100%; max-width: 100%; box-sizing: border-box;
 }
-.modal-reward { width:480px; }
 .modal-detail { width:520px; }
 .modal-badge { width:400px !important; }
 #importModal .modal, #exportModal .modal { width:600px; }
@@ -1028,15 +1126,198 @@ body.focus-mode .bg-particles { opacity:1; }
 .tag-item { background:rgba(58,128,208,0.15); border:1px solid rgba(58,128,208,0.2); color:var(--highlight-blue-4); padding:2px 8px; border-radius:12px; font-size:12px; display:inline-flex; align-items:center; gap:4px; }
 .tag-item i { cursor:pointer; }
 
-/* ===== 奖励弹窗 ===== */
-.reward-details { display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
-.reward-item { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid rgba(255,255,255,0.05); }
-.reward-item-name { display:flex; align-items:center; gap:8px; }
-.reward-item-value { font-family:var(--font-mono); font-weight:600; font-size:18px; }
-.reward-claim-btn { width:100%; justify-content:center; margin-top:8px; }
+/* ===== 奖励弹窗（方舟风格圆形资源卡片）===== */
+.modal-reward { width:420px; }
+.reward-settlement-modal { transition:transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease; }
+.reward-details { margin-bottom:16px; position:relative; }
 
-.random-drop { margin-top:10px; padding:10px; background:rgba(232,184,24,0.08); border-radius:8px; border:1px solid rgba(232,184,24,0.1); }
-.random-drop h4 { color:var(--highlight-gold-1); font-size:14px; margin-bottom:6px; }
+/* 圆形资源卡片网格 */
+.reward-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 24px;
+    padding: 8px 0 4px;
+}
+.reward-grid-small {
+    gap: 14px;
+}
+.reward-grid-small .reward-circle-card {
+    transform: scale(0.78);
+}
+
+/* 单个圆形卡片 */
+.reward-circle-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 88px;
+    position: relative;
+    animation: rewardCardIn 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.reward-circle-card:nth-child(1) { animation-delay: 0.05s; }
+.reward-circle-card:nth-child(2) { animation-delay: 0.12s; }
+.reward-circle-card:nth-child(3) { animation-delay: 0.19s; }
+.reward-circle-card:nth-child(4) { animation-delay: 0.26s; }
+
+@keyframes rewardCardIn {
+    from { opacity: 0; transform: scale(0.5) translateY(16px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 圆形容器：光环 + 内圈 + 角标 共用同一个定位基准 */
+.reward-circle {
+    position: relative;
+    width: 68px;
+    height: 68px;
+}
+
+/* 外圈光环（旋转渐变边框，与 reward-circle 同尺寸居中） */
+.reward-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--ring-color, rgba(255,255,255,0.15)), transparent 60%, var(--ring-color, rgba(255,255,255,0.15)));
+    opacity: 0.55;
+    animation: ringSpin 4s linear infinite;
+    z-index: 0;
+}
+@keyframes ringSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* 内圈：放图标（在圆心） */
+.reward-icon-wrap {
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: rgba(20,24,32,0.92);
+    border: 2px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    box-shadow:
+        0 0 18px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        0 0 30px color-mix(in srgb, var(--ring-color, rgba(106,176,232,0.3)) 40%, transparent);
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.reward-circle-card:hover .reward-icon-wrap {
+    border-color: rgba(255,255,255,0.2);
+    box-shadow:
+        0 0 22px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.08),
+        0 0 40px color-mix(in srgb, var(--ring-color, rgba(106,176,232,0.45)) 55%, transparent);
+}
+
+/* 数量角标（右下角，游戏内风格） */
+.reward-num-badge {
+    position: absolute;
+    bottom: -2px;
+    right: -4px;
+    min-width: 22px;
+    height: 18px;
+    padding: 0 5px;
+    background: linear-gradient(135deg, #2a2a18, #1a1a10);
+    border: 1px solid rgba(232,184,24,0.45);
+    border-radius: 9px;
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 11px;
+    color: #f0e6a0;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    letter-spacing: -0.3px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* 标签文字（更醒目） */
+.reward-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(210,220,235,0.8);
+    white-space: nowrap;
+    z-index: 1;
+    letter-spacing: 0.8px;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* 底部区域：对勾（视觉上在窗口下方） */
+.reward-bottom-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 16px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+}
+
+/* 装饰性对勾圆圈（更大更显眼，在窗口下方区域） */
+.reward-confirm-check {
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(34,80,58,0.4);
+    border: 1.5px solid rgba(95,179,122,0.35);
+    animation: checkPulse 2s ease-in-out infinite;
+    cursor: default;
+    box-shadow: 0 0 12px rgba(95,179,122,0.15);
+}
+@keyframes checkPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(95,179,122,0.18); transform: scale(1); }
+    50%      { box-shadow: 0 0 24px rgba(95,179,122,0.4); transform: scale(1.06); }
+}
+
+/* 空状态 */
+.reward-empty-msg {
+    text-align: center;
+    color: var(--text-muted-1);
+    padding: 28px 0 8px;
+    font-size: 14px;
+}
+
+/* 已领取提示 */
+.reward-claimed-note {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(95,179,122,0.75);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* 领取按钮 */
+.reward-claim-btn {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+    letter-spacing: 2px;
+}
+
+/* 随机掉落区 */
+.random-drop {
+    margin-top: 8px;
+    padding: 10px 12px;
+    background: rgba(232,184,24,0.06);
+    border-radius: 10px;
+    border: 1px solid rgba(232,184,24,0.08);
+}
+.random-drop h4 {
+    color: var(--highlight-gold-1);
+    font-size: 13px;
+    margin-bottom: 8px;
+    text-align: center;
+}
 
 .resource-balance-display { font-size:13px; color:var(--text-secondary-1); margin-bottom:10px; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px; }
 .exchange-cost-display { font-size:14px; color:var(--text-secondary-1); margin-bottom:12px; background:rgba(0,0,0,0.2); padding:8px 12px; border-radius:6px; }
@@ -1051,6 +1332,240 @@ body.focus-mode .bg-particles { opacity:1; }
 .gacha-animation-container { height:120px; display:flex; align-items:center; justify-content:center; }
 .gacha-crystal { font-size:64px; color:var(--highlight-gold-1); text-shadow:0 0 30px rgba(232,184,24,0.8); animation:gachaFloat 2s ease-in-out infinite; }
 @keyframes gachaFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+
+/* =============================================
+   紧凑模式（容器变窄时自动切换，如追踪面板打开）
+   ============================================= */
+@container (max-width: 540px) {
+    .task-card {
+        min-height: 56px !important;
+        flex-wrap: nowrap;
+    }
+    .task-card.parent-task { min-height:56px !important; padding:2px 0; }
+    .task-card.child-task { min-height:46px !important; }
+
+    /* 缩进减半 */
+    .task-card.task-level-1 { margin-left: 18px !important; }
+    .task-card.task-level-2 { margin-left: 36px !important; }
+    .task-card.task-level-3 { margin-left: 54px !important; }
+
+    /* 星星行内化：和标题同一行 */
+    .task-stars {
+        width: auto !important;
+        min-width: 0;
+        padding: 0 4px 0 6px;
+        flex-shrink: 0;
+    }
+    .star-bg {
+        width: auto !important;
+        height: 26px !important;
+        padding: 0 2px !important;
+        gap: 1px !important;
+    }
+    .star-bg .star {
+        font-size: 14px !important;
+    }
+    /* 紧凑窄条里的 6 星点阵——单独放大，避免被 26px 高度压成小点 */
+    .star-bg.priority-6::after {
+        background-image:
+            radial-gradient(circle at 15% 20%, rgba(255,255,255,0.34) 2.6px, transparent 2.6px),
+            radial-gradient(circle at 65% 30%, rgba(255,255,255,0.26) 3.4px, transparent 3.4px),
+            radial-gradient(circle at 35% 65%, rgba(232,184,24,0.36) 2.6px, transparent 2.6px),
+            radial-gradient(circle at 80% 75%, rgba(255,255,255,0.22) 4px, transparent 4px),
+            radial-gradient(circle at 10% 80%, rgba(200,120,48,0.30) 2px, transparent 2px),
+            radial-gradient(circle at 50% 45%, rgba(255,215,0,0.22) 5px, transparent 5px),
+            radial-gradient(circle at 90% 20%, rgba(64,160,104,0.30) 3.4px, transparent 3.4px),
+            radial-gradient(circle at 70% 60%, rgba(212,48,40,0.20) 2.6px, transparent 2.6px),
+            radial-gradient(circle at 25% 45%, rgba(255,240,180,0.24) 2.2px, transparent 2.2px),
+            radial-gradient(circle at 85% 55%, rgba(255,215,0,0.18) 2.8px, transparent 2.8px);
+    }
+
+    /* 主内容区：横向排列星星+标题+标签 */
+    .task-main {
+        flex: 1;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        flex-wrap: wrap;
+        padding: 6px 8px 6px 0;
+        gap: 6px 10px;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    /* 标题+标签横排 */
+    .task-top-row {
+        flex: 1;
+        min-width: 0;
+        gap: 6px;
+    }
+    .task-title {
+        font-size: 14px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .task-line-tag {
+        font-size: 9px !important;
+        padding: 1px 5px !important;
+        flex-shrink: 0;
+    }
+
+    /* 描述隐藏（太窄放不下） */
+    .task-desc { display: none; }
+
+    /* 标签隐藏 */
+    .task-tags { display: none; }
+
+    /* 计数控件缩小 */
+    .count-controls {
+        font-size: 11px;
+        gap: 2px;
+    }
+    .count-btn { width:20px; height:20px; font-size:10px; }
+    .count-input { width:32px; font-size:11px; padding:1px 2px; }
+    .count-target { font-size:10px; }
+
+    /* 进度条保留但更紧凑 */
+    .task-progress {
+        min-width: 80px !important;
+        max-width: 140px;
+        padding: 0 6px !important;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    .task-progress .progress-bar { height: 10px !important; }
+    .progress-text { font-size: 10px !important; min-width: 30px; }
+
+    /* 操作按钮始终可见、更小 */
+    .task-actions {
+        opacity: 1 !important;
+        padding-right: 6px !important;
+        gap: 1px;
+        flex-shrink: 0;
+    }
+    .action-btn {
+        width: 26px !important;
+        height: 26px !important;
+        font-size: 12px !important;
+    }
+    .task-card .claim-btn {
+        padding: 5px 8px !important;
+        font-size: 11px !important;
+        min-height: auto !important;
+    }
+
+    /* completed 角标缩小 */
+    .task-completed-badge {
+        font-size: 7px !important;
+        top: 3px !important;
+        right: 4px !important;
+        padding: 0 4px !important;
+    }
+
+    /* 隐藏装饰性填充（横向模式下会遮挡内容） */
+    .task-main::after { display: none; }
+}
+
+/* =============================================
+   追踪面板展开时的紧凑卡片布局（桌面+移动端通用）
+   用 .panel-expanded class 触发（JS 在展开时加到 main-content）
+   ============================================= */
+.panel-expanded .task-card {
+    min-height: 58px !important;
+    flex-wrap: nowrap;
+}
+.panel-expanded .task-card.parent-task { min-height:58px !important; padding:3px 0; }
+.panel-expanded .task-card.child-task { min-height:48px !important; }
+
+/* 缩进减半 */
+.panel-expanded .task-card.task-level-1 { margin-left: 18px !important; }
+.panel-expanded .task-card.task-level-2 { margin-left: 36px !important; }
+.panel-expanded .task-card.task-level-3 { margin-left: 54px !important; }
+
+/* 星星行内化 */
+.panel-expanded .task-stars {
+    width: auto !important;
+    min-width: 0;
+    padding: 0 5px 0 6px;
+    flex-shrink: 0;
+}
+.panel-expanded .star-bg {
+    height: 24px !important;
+    padding: 0 2px !important;
+    gap: 1px !important;
+}
+.panel-expanded .star-bg .star {
+    font-size: 13px !important;
+}
+
+/* 主内容横向排列 */
+.panel-expanded .task-main {
+    flex: 1;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-wrap: wrap;
+    padding: 5px 8px 5px 0;
+    gap: 4px 10px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* 标题+标签横排 */
+.panel-expanded .task-top-row {
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+}
+.panel-expanded .task-title {
+    font-size: 14px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.panel-expanded .task-line-tag {
+    font-size: 9px !important;
+    padding: 1px 5px !important;
+    flex-shrink: 0;
+}
+
+/* 描述和标签隐藏 */
+.panel-expanded .task-desc { display: none !important; }
+.panel-expanded .task-tags { display: none !important; }
+
+/* 计数控件缩小 */
+.panel-expanded .count-controls { font-size: 11px; gap: 2px; }
+.panel-expanded .count-btn { width:20px; height:20px; font-size:10px; }
+.panel-expanded .count-input { width:32px; font-size:11px; padding:1px 2px; }
+.panel-expanded .count-target { font-size:10px; }
+
+/* 进度条保留但紧凑 */
+.panel-expanded .task-progress {
+    min-width: 80px !important;
+    max-width: 150px;
+    padding: 0 6px !important;
+    gap: 4px;
+    flex-shrink: 0;
+}
+.panel-expanded .task-progress .progress-bar { height: 10px !important; }
+.panel-expanded .progress-text { font-size: 10px !important; min-width: 30px; }
+
+/* 操作按钮始终可见 */
+.panel-expanded .task-actions {
+    opacity: 1 !important;
+    padding-right: 6px !important;
+    gap: 1px;
+    flex-shrink: 0;
+}
+.panel-expanded .action-btn { width: 26px !important; height: 26px !important; font-size: 12px !important; }
+.panel-expanded .task-card .claim-btn { padding: 5px 8px !important; font-size: 11px !important; min-height: auto !important; }
+
+/* completed 角标缩小 */
+.panel-expanded .task-completed-badge { font-size: 7px !important; top: 3px !important; right: 4px !important; padding: 0 4px !important; }
+
+/* 隐藏装饰性填充 */
+.panel-expanded .task-main::after { display: none !important; }
 
 /* =============================================
    图谱
@@ -1761,7 +2276,7 @@ body.focus-mode .tracking-timer {
 .tracking-handle::after {
     content:'';
     position:absolute;
-    right:12px;
+    right:8px;
     top:50%;
     width:6px;
     height:6px;
@@ -1774,6 +2289,52 @@ body.focus-mode .tracking-timer {
 .tracking-panel.expanded .tracking-handle::after {
     transform:translateY(-50%) rotate(135deg);
     opacity:0.8;
+}
+
+/* ===== 追踪面板星级装饰（点阵放大，与窄条协调）===== */
+/* 收起状态：把手内的星级显示 */
+.tracking-handle .fa-grip-vertical {
+    font-size: 16px;
+}
+
+/* 追踪面板内的 star-bg 统一放大 */
+.tracking-panel .star-bg {
+    width: auto !important;
+    height: 28px !important;
+    padding: 4px 10px !important;
+    gap: 4px !important;
+}
+.tracking-panel .star-bg .star {
+    font-size: 16px !important;
+}
+
+/* 追踪面板内 6 星点阵晶体——放大且更亮 */
+.tracking-panel .star-bg.priority-6::after {
+    background-image:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,0.35) 2.5px, transparent 2.5px),
+        radial-gradient(circle at 62% 22%, rgba(255,255,255,0.28) 3px, transparent 3px),
+        radial-gradient(circle at 32% 62%, rgba(232,184,24,0.38) 2.5px, transparent 2.5px),
+        radial-gradient(circle at 78% 72%, rgba(255,255,255,0.22) 3.5px, transparent 3.5px),
+        radial-gradient(circle at 8% 78%, rgba(200,120,48,0.28) 2px, transparent 2px),
+        radial-gradient(circle at 48% 42%, rgba(255,215,0,0.20) 5px, transparent 5px),
+        radial-gradient(circle at 88% 18%, rgba(64,160,104,0.25) 3px, transparent 3px),
+        radial-gradient(circle at 68% 58%, rgba(212,48,40,0.18) 2.5px, transparent 2.5px),
+        /* 额外点缀：让阵列更饱满 */
+        radial-gradient(circle at 25% 40%, rgba(255,240,180,0.18) 1.8px, transparent 1.8px),
+        radial-gradient(circle at 55% 75%, rgba(180,220,255,0.15) 2px, transparent 2px),
+        radial-gradient(circle at 82% 42%, rgba(255,215,0,0.15) 2.2px, transparent 2.2px);
+    background-size:100% 100%;
+}
+
+/* 展开状态下追踪面板的星级行 */
+.tracking-title-row {
+    display:flex; align-items:center; gap:8px;
+}
+.tracking-panel .tracking-title-row .star-display {
+    gap: 4px;
+}
+.tracking-panel .tracking-title-row .star-display .star {
+    font-size: 16px;
 }
 
 /* 星级色条：装饰性区分，但低星也精致 */
@@ -2213,11 +2774,12 @@ body.wallpaper-video .bg-layer {
     cursor: grabbing;
 }
 .graph-node:hover {
-    filter: drop-shadow(0 0 12px rgba(120,180,255,0.22)) brightness(1.1);
+    filter: drop-shadow(0 0 10px rgba(120,180,255,0.18)) brightness(1.08);
 }
+/* 状态填充色（JS inline 设置优先，此处作为 fallback 和覆盖强化） */
 .graph-node.status-todo {
     fill: rgba(35,38,44,0.88) !important;
-    stroke: rgba(255,255,255,0.16) !important;
+    stroke: rgba(255,255,255,0.13) !important;
 }
 .graph-node.status-done {
     fill: rgba(70,95,80,0.72) !important;
@@ -2235,6 +2797,13 @@ body.wallpaper-video .bg-layer {
     fill: rgba(40,40,44,0.6) !important;
     stroke: var(--text-muted-2) !important;
 }
+/* 优先级描边（在 status stroke 基础上叠加视觉区分）——仅当节点有 data-priority 时生效 */
+.graph-node[data-priority="1"] { stroke: #b8c2d0 !important; }
+.graph-node[data-priority="2"] { stroke: #8fbf6a !important; }
+.graph-node[data-priority="3"] { stroke: #4a90d0 !important; }
+.graph-node[data-priority="4"] { stroke: #a080c8 !important; }
+.graph-node[data-priority="5"] { stroke: #e8b818 !important; }
+.graph-node[data-priority="6"] { stroke: #e06a3a !important; }
 .graph-hit {
     pointer-events: all;
 }
@@ -2357,6 +2926,9 @@ body.wallpaper-video .bg-layer {
     .task-card { flex-wrap:wrap; min-height:60px; padding:6px; }
     .task-card.parent-task { min-height:80px; }
     .task-card.child-task { min-height:50px; }
+    .task-card.task-level-1 { margin-left: 18px; }
+    .task-card.task-level-2 { margin-left: 36px; }
+    .task-card.task-level-3 { margin-left: 54px; }
     .task-indent { min-width:16px; padding-left:4px; }
     .task-indent-level-1 { min-width:28px; }
     .task-indent-level-2 { min-width:40px; }
@@ -2385,6 +2957,10 @@ body.wallpaper-video .bg-layer {
     .modal-title { font-size:18px; }
     .modal-body { padding:14px; }
     .modal-reward { width:100%; }
+    .reward-grid { gap: 14px; }
+    .reward-circle-card { width: 76px; }
+    .reward-icon-wrap { width: 54px; height: 54px; }
+    .reward-ring { width: 60px; height: 60px; }
     .modal-detail { width:100%; }
     .modal-badge { width:100% !important; }
     .modal-gacha { width:100%; }
@@ -2551,26 +3127,6 @@ body.wallpaper-video .bg-layer {
     padding: 8px 14px;
     font-size: 13px;
     min-height: 38px;
-}
-
-/* 图谱节点按星级区分 */
-.graph-node[data-priority="1"] {
-    stroke: #b8c2d0 !important;
-}
-.graph-node[data-priority="2"] {
-    stroke: #8fbf6a !important;
-}
-.graph-node[data-priority="3"] {
-    stroke: #4a90d0 !important;
-}
-.graph-node[data-priority="4"] {
-    stroke: #a080c8 !important;
-}
-.graph-node[data-priority="5"] {
-    stroke: #e8b818 !important;
-}
-.graph-node[data-priority="6"] {
-    stroke: #e06a3a !important;
 }
 
 /* 浅色主题对比度修正 */
