@@ -1169,8 +1169,8 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
 /* 圆形容器：光环 + 内圈 + 角标 共用同一个定位基准 */
 .reward-circle {
     position: relative;
-    width: 68px;
-    height: 68px;
+    width: 76px;
+    height: 76px;
 }
 
 /* 外圈光环（旋转渐变边框，与 reward-circle 同尺寸居中） */
@@ -1204,6 +1204,10 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
         0 0 30px color-mix(in srgb, var(--ring-color, rgba(106,176,232,0.3)) 40%, transparent);
     transition: box-shadow 0.3s ease, border-color 0.3s ease;
 }
+.reward-icon-wrap svg {
+    width: 36px !important;
+    height: 36px !important;
+}
 .reward-circle-card:hover .reward-icon-wrap {
     border-color: rgba(255,255,255,0.2);
     box-shadow:
@@ -1215,24 +1219,24 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
 /* 数量角标（右下角，游戏内风格） */
 .reward-num-badge {
     position: absolute;
-    bottom: -2px;
-    right: -4px;
-    min-width: 22px;
-    height: 18px;
-    padding: 0 5px;
+    bottom: -3px;
+    right: -5px;
+    min-width: 26px;
+    height: 22px;
+    padding: 0 6px;
     background: linear-gradient(135deg, #2a2a18, #1a1a10);
-    border: 1px solid rgba(232,184,24,0.45);
-    border-radius: 9px;
+    border: 1.5px solid rgba(232,184,24,0.50);
+    border-radius: 10px;
     font-family: var(--font-mono);
     font-weight: 800;
-    font-size: 11px;
+    font-size: 14px;
     color: #f0e6a0;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 2;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.5px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
@@ -1247,7 +1251,7 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
     text-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
-/* 底部区域：对勾（视觉上在窗口下方） */
+/* 底部区域：内部迷你对勾（仅视觉引导） */
 .reward-bottom-area {
     display: flex;
     flex-direction: column;
@@ -1259,23 +1263,58 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
     position: relative;
 }
 
-/* 装饰性对勾圆圈（更大更显眼，在窗口下方区域） */
-.reward-confirm-check {
-    width: 42px;
-    height: 42px;
+/* 窗口内的迷你对勾（装饰用，引导用户看下方） */
+.reward-inner-check {
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(34,80,58,0.4);
-    border: 1.5px solid rgba(95,179,122,0.35);
-    animation: checkPulse 2s ease-in-out infinite;
-    cursor: default;
-    box-shadow: 0 0 12px rgba(95,179,122,0.15);
+    background: rgba(34,80,58,0.25);
+    border: 1px solid rgba(95,179,122,0.20);
+    opacity: 0.6;
+    animation: innerCheckPulse 2s ease-in-out infinite;
 }
-@keyframes checkPulse {
-    0%, 100% { box-shadow: 0 0 10px rgba(95,179,122,0.18); transform: scale(1); }
-    50%      { box-shadow: 0 0 24px rgba(95,179,122,0.4); transform: scale(1.06); }
+@keyframes innerCheckPulse {
+    0%, 100% { opacity: 0.4; }
+    50%      { opacity: 0.7; }
+}
+
+/* ===== 外部对勾（窗口下方，可点击领取）===== */
+.reward-external-check {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(34,80,58,0.50);
+    border: 2px solid rgba(95,179,122,0.45);
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(95,179,122,0.20), 0 4px 12px rgba(0,0,0,0.4);
+    animation: extCheckPulse 1.8s ease-in-out infinite;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.reward-external-check:hover {
+    transform: scale(1.12);
+    background: rgba(34,80,58,0.65);
+    box-shadow: 0 0 24px rgba(95,179,122,0.35), 0 6px 16px rgba(0,0,0,0.5);
+}
+.reward-external-check:active {
+    transform: scale(0.95);
+}
+.reward-external-check.claimed {
+    cursor: default;
+    background: rgba(34,80,58,0.25);
+    border-color: rgba(95,179,122,0.20);
+    animation: none;
+    box-shadow: none;
+    opacity: 0.5;
+}
+@keyframes extCheckPulse {
+    0%, 100% { box-shadow: 0 0 14px rgba(95,179,122,0.18); transform: scale(1); }
+    50%      { box-shadow: 0 0 28px rgba(95,179,122,0.40); transform: scale(1.05); }
 }
 
 /* 空状态 */
@@ -1956,10 +1995,10 @@ body.focus-mode .tracking-timer {
     margin-bottom: 8px;
 }
 .star-bg {
-    width: 140px;
-    min-width: 140px;
+    width: 95px;
+    min-width: 95px;
     height: 36px;
-    padding: 0 12px;
+    padding: 0 10px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -2739,9 +2778,11 @@ body.wallpaper-video .bg-layer {
     .modal-body { padding:14px; }
     .modal-reward { width:100%; }
     .reward-grid { gap: 14px; }
-    .reward-circle-card { width: 76px; }
-    .reward-icon-wrap { width: 54px; height: 54px; }
-    .reward-ring { width: 60px; height: 60px; }
+    .reward-circle-card { width: 80px; }
+    .reward-circle { width: 70px; height: 70px; }
+    .reward-icon-wrap { width: 64px; height: 64px; }
+    .reward-icon-wrap svg { width: 32px !important; height: 32px !important; }
+    .reward-ring { width: 70px; height: 70px; }
     .modal-detail { width:100%; }
     .modal-badge { width:100% !important; }
     .modal-gacha { width:100%; }

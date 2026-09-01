@@ -2347,10 +2347,10 @@ async function openRewardModal(taskId){
     if(task.reward_claimed){ showToast('奖励已领取'); rewardModalOpenTaskId=null; return; }
     DOM.rewardDetails.innerHTML='';
     const rewardSVGs = {
-        exp: '<svg viewBox="0 0 24 24" width="28" height="28"><rect x="3" y="7" width="18" height="12" rx="2.5" fill="#1a3a5c" stroke="#6AB0E8" stroke-width="1.2"/><text x="12" y="16.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="#6AB0E8" letter-spacing="0.5">EXP</text></svg>',
-        lungmen: '<svg viewBox="0 0 24 24" width="28" height="28"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
-        source_stone: '<svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
-        orundum: '<svg viewBox="0 0 24 24" width="28" height="28"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
+        exp: '<svg viewBox="0 0 24 24" width="36" height="36"><rect x="3" y="7" width="18" height="12" rx="2.5" fill="#1a3a5c" stroke="#6AB0E8" stroke-width="1.2"/><text x="12" y="16.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="#6AB0E8" letter-spacing="0.5">EXP</text></svg>',
+        lungmen: '<svg viewBox="0 0 24 24" width="36" height="36"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
+        source_stone: '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
+        orundum: '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
     };
     const rewards=[ {name:'经验值',value:task.reward_exp||0,svg:rewardSVGs.exp,color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,svg:rewardSVGs.lungmen,color:'#2989D9'}, {name:'源石',value:task.reward_source_stone||0,svg:rewardSVGs.source_stone,color:'#FFD700'}, {name:'合成玉',value:task.reward_orundum||0,svg:rewardSVGs.orundum,color:'#D42027'} ];
     let hasReward=false;
@@ -2367,7 +2367,7 @@ async function openRewardModal(taskId){
         const iconWrap = document.createElement('div'); iconWrap.className='reward-icon-wrap';
         iconWrap.innerHTML = r.svg;
         // 数量角标（右下角，游戏风格）
-        const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `+${r.value}`;
+        const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `${r.value}`;
         circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
         card.appendChild(circle);
         // 名称标签
@@ -2402,17 +2402,20 @@ async function openRewardModal(taskId){
         } else DOM.randomDropSection.style.display='none';
     } catch{ DOM.randomDropSection.style.display='none'; } } else DOM.randomDropSection.style.display='none';
 
-    // 底部装饰性对勾圆圈（不可点，仅视觉）
-    const checkWrap = document.createElement('div'); checkWrap.className='reward-confirm-check';
-    checkWrap.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // 底部对勾（放在窗口下方外部，可点击领取）
+    const checkWrap = document.createElement('div'); checkWrap.className='reward-external-check';
+    checkWrap.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // 点击对勾 = 领取奖励
+    checkWrap.addEventListener('click', () => { if(!task.reward_claimed) claimReward(); });
 
     if(!hasReward&&!hasDrop){
         DOM.rewardClaimBtn.style.display='none';
         const emptyMsg=document.createElement('p'); emptyMsg.className='reward-empty-msg';
         emptyMsg.textContent='该任务没有可领取的奖励'; DOM.rewardDetails.appendChild(emptyMsg);
     } else if(task.reward_claimed){
-        // 已领取：禁用领取按钮，仅展示奖励 + 已领取提示
+        // 已领取：禁用按钮，对勾变已领态
         DOM.rewardClaimBtn.style.display='none';
+        checkWrap.classList.add('claimed');
         const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
         bottomArea.appendChild(checkWrap);
         const claimedNote=document.createElement('p'); claimedNote.className='reward-claimed-note';
@@ -2421,13 +2424,27 @@ async function openRewardModal(taskId){
         DOM.rewardDetails.appendChild(bottomArea);
     } else {
         DOM.rewardClaimBtn.style.display='';
-        // 有奖励时，底部放对勾 + 领取按钮
+        // 有奖励：底部放对勾（在窗口内作为引导）+ 领取按钮
         const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
-        bottomArea.appendChild(checkWrap);
+        // 窗口内的迷你对勾（仅装饰，引导用户）
+        const innerCheck = document.createElement('div'); innerCheck.className='reward-inner-check';
+        innerCheck.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5" opacity="0.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2" opacity="0.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        bottomArea.appendChild(innerCheck);
         DOM.rewardDetails.appendChild(bottomArea);
     }
     DOM.rewardClaimBtn.dataset.taskId=taskId;
     openModal('rewardModal');
+    // 把外部对勾挂到窗口下方（仅未领取时显示可点击的对勾）
+    if(!task.reward_claimed && hasReward){
+        const oldCheck = document.querySelector('.reward-external-check'); if(oldCheck) oldCheck.remove();
+        document.body.appendChild(checkWrap);
+        requestAnimationFrame(() => {
+            const modalEl = document.querySelector('#rewardModal .modal');
+            if(modalEl){ const r = modalEl.getBoundingClientRect();
+                checkWrap.style.cssText = 'position:fixed;top:'+(r.bottom+8)+'px;left:'+(r.left+r.width/2-26)+'px;z-index:100;';
+            }
+        });
+    }
 }
 
 async function claimReward(){
@@ -3183,12 +3200,11 @@ async function handleGacha(){ const result=await apiPost('/achievements/draw'); 
 
 function openModal(id){ const modal = document.getElementById(id); if(modal){ modal.classList.add('show'); modal.classList.remove('hidden'); } DOM.modalOverlay.classList.add('show'); }
 function closeAllModals(){
-    if (rewardModalTimer) {
-        clearTimeout(rewardModalTimer);
-        rewardModalTimer = null;
-    }
+    if (rewardModalTimer) { clearTimeout(rewardModalTimer); rewardModalTimer = null; }
     rewardModalOpenTaskId = null;
     document.querySelectorAll('.modal-container').forEach(m=>{ m.classList.remove('show'); m.classList.add('hidden'); m.style.transform=''; m.style.opacity=''; }); DOM.modalOverlay.classList.remove('show');
+    // 清理外部对勾
+    const extCheck = document.querySelector('.reward-external-check'); if(extCheck) extCheck.remove();
 }
 
 let touchStartX=0, touchStartY=0, touchMoved=false, swipedCard=null, swipeTimeout=null;
