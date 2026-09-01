@@ -1334,238 +1334,17 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
 @keyframes gachaFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
 
 /* =============================================
-   紧凑模式（容器变窄时自动切换，如追踪面板打开）
+   窄容器保护：星星和色条不被挤压（轻量，不改变布局结构）
    ============================================= */
-@container (max-width: 540px) {
-    .task-card {
-        min-height: 56px !important;
-        flex-wrap: nowrap;
-    }
-    .task-card.parent-task { min-height:56px !important; padding:2px 0; }
-    .task-card.child-task { min-height:46px !important; }
-
-    /* 缩进减半 */
-    .task-card.task-level-1 { margin-left: 18px !important; }
-    .task-card.task-level-2 { margin-left: 36px !important; }
-    .task-card.task-level-3 { margin-left: 54px !important; }
-
-    /* 星星行内化：和标题同一行 */
-    .task-stars {
-        width: auto !important;
-        min-width: 0;
-        padding: 0 4px 0 6px;
-        flex-shrink: 0;
-    }
-    .star-bg {
-        width: auto !important;
-        height: 26px !important;
-        padding: 0 2px !important;
-        gap: 1px !important;
-    }
-    .star-bg .star {
-        font-size: 14px !important;
-    }
-    /* 紧凑窄条里的 6 星点阵——单独放大，避免被 26px 高度压成小点 */
-    .star-bg.priority-6::after {
-        background-image:
-            radial-gradient(circle at 15% 20%, rgba(255,255,255,0.34) 2.6px, transparent 2.6px),
-            radial-gradient(circle at 65% 30%, rgba(255,255,255,0.26) 3.4px, transparent 3.4px),
-            radial-gradient(circle at 35% 65%, rgba(232,184,24,0.36) 2.6px, transparent 2.6px),
-            radial-gradient(circle at 80% 75%, rgba(255,255,255,0.22) 4px, transparent 4px),
-            radial-gradient(circle at 10% 80%, rgba(200,120,48,0.30) 2px, transparent 2px),
-            radial-gradient(circle at 50% 45%, rgba(255,215,0,0.22) 5px, transparent 5px),
-            radial-gradient(circle at 90% 20%, rgba(64,160,104,0.30) 3.4px, transparent 3.4px),
-            radial-gradient(circle at 70% 60%, rgba(212,48,40,0.20) 2.6px, transparent 2.6px),
-            radial-gradient(circle at 25% 45%, rgba(255,240,180,0.24) 2.2px, transparent 2.2px),
-            radial-gradient(circle at 85% 55%, rgba(255,215,0,0.18) 2.8px, transparent 2.8px);
-    }
-
-    /* 主内容区：横向排列星星+标题+标签 */
-    .task-main {
-        flex: 1;
-        display: flex !important;
-        flex-direction: row !important;
-        align-items: center !important;
-        flex-wrap: wrap;
-        padding: 6px 8px 6px 0;
-        gap: 6px 10px;
-        min-width: 0;
-        overflow: hidden;
-    }
-
-    /* 标题+标签横排 */
-    .task-top-row {
-        flex: 1;
-        min-width: 0;
-        gap: 6px;
-    }
-    .task-title {
-        font-size: 14px !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .task-line-tag {
-        font-size: 9px !important;
-        padding: 1px 5px !important;
-        flex-shrink: 0;
-    }
-
-    /* 描述隐藏（太窄放不下） */
-    .task-desc { display: none; }
-
-    /* 标签隐藏 */
-    .task-tags { display: none; }
-
-    /* 计数控件缩小 */
-    .count-controls {
-        font-size: 11px;
-        gap: 2px;
-    }
-    .count-btn { width:20px; height:20px; font-size:10px; }
-    .count-input { width:32px; font-size:11px; padding:1px 2px; }
-    .count-target { font-size:10px; }
-
-    /* 进度条保留但更紧凑 */
-    .task-progress {
-        min-width: 80px !important;
-        max-width: 140px;
-        padding: 0 6px !important;
-        gap: 4px;
-        flex-shrink: 0;
-    }
-    .task-progress .progress-bar { height: 10px !important; }
-    .progress-text { font-size: 10px !important; min-width: 30px; }
-
-    /* 操作按钮始终可见、更小 */
-    .task-actions {
-        opacity: 1 !important;
-        padding-right: 6px !important;
-        gap: 1px;
-        flex-shrink: 0;
-    }
-    .action-btn {
-        width: 26px !important;
-        height: 26px !important;
-        font-size: 12px !important;
-    }
-    .task-card .claim-btn {
-        padding: 5px 8px !important;
-        font-size: 11px !important;
-        min-height: auto !important;
-    }
-
-    /* completed 角标缩小 */
-    .task-completed-badge {
-        font-size: 7px !important;
-        top: 3px !important;
-        right: 4px !important;
-        padding: 0 4px !important;
-    }
-
-    /* 隐藏装饰性填充（横向模式下会遮挡内容） */
-    .task-main::after { display: none; }
-}
-
-/* =============================================
-   追踪面板展开时的紧凑卡片布局（桌面+移动端通用）
-   用 .panel-expanded class 触发（JS 在展开时加到 main-content）
-   ============================================= */
-.panel-expanded .task-card {
-    min-height: 58px !important;
-    flex-wrap: nowrap;
-}
-.panel-expanded .task-card.parent-task { min-height:58px !important; padding:3px 0; }
-.panel-expanded .task-card.child-task { min-height:48px !important; }
-
-/* 缩进减半 */
-.panel-expanded .task-card.task-level-1 { margin-left: 18px !important; }
-.panel-expanded .task-card.task-level-2 { margin-left: 36px !important; }
-.panel-expanded .task-card.task-level-3 { margin-left: 54px !important; }
-
-/* 星星行内化 */
-.panel-expanded .task-stars {
-    width: auto !important;
-    min-width: 0;
-    padding: 0 5px 0 6px;
+.task-stars {
     flex-shrink: 0;
+    min-width: fit-content;
 }
-.panel-expanded .star-bg {
-    height: 24px !important;
-    padding: 0 2px !important;
-    gap: 1px !important;
-}
-.panel-expanded .star-bg .star {
-    font-size: 13px !important;
-}
-
-/* 主内容横向排列 */
-.panel-expanded .task-main {
-    flex: 1;
-    display: flex !important;
-    flex-direction: row !important;
-    align-items: center !important;
-    flex-wrap: wrap;
-    padding: 5px 8px 5px 0;
-    gap: 4px 10px;
-    min-width: 0;
-    overflow: hidden;
-}
-
-/* 标题+标签横排 */
-.panel-expanded .task-top-row {
-    flex: 1;
-    min-width: 0;
-    gap: 6px;
-}
-.panel-expanded .task-title {
-    font-size: 14px !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.panel-expanded .task-line-tag {
-    font-size: 9px !important;
-    padding: 1px 5px !important;
+.star-bg {
     flex-shrink: 0;
+    min-width: fit-content;
+    overflow: visible;
 }
-
-/* 描述和标签隐藏 */
-.panel-expanded .task-desc { display: none !important; }
-.panel-expanded .task-tags { display: none !important; }
-
-/* 计数控件缩小 */
-.panel-expanded .count-controls { font-size: 11px; gap: 2px; }
-.panel-expanded .count-btn { width:20px; height:20px; font-size:10px; }
-.panel-expanded .count-input { width:32px; font-size:11px; padding:1px 2px; }
-.panel-expanded .count-target { font-size:10px; }
-
-/* 进度条保留但紧凑 */
-.panel-expanded .task-progress {
-    min-width: 80px !important;
-    max-width: 150px;
-    padding: 0 6px !important;
-    gap: 4px;
-    flex-shrink: 0;
-}
-.panel-expanded .task-progress .progress-bar { height: 10px !important; }
-.panel-expanded .progress-text { font-size: 10px !important; min-width: 30px; }
-
-/* 操作按钮始终可见 */
-.panel-expanded .task-actions {
-    opacity: 1 !important;
-    padding-right: 6px !important;
-    gap: 1px;
-    flex-shrink: 0;
-}
-.panel-expanded .action-btn { width: 26px !important; height: 26px !important; font-size: 12px !important; }
-.panel-expanded .task-card .claim-btn { padding: 5px 8px !important; font-size: 11px !important; min-height: auto !important; }
-
-/* completed 角标缩小 */
-.panel-expanded .task-completed-badge { font-size: 7px !important; top: 3px !important; right: 4px !important; padding: 0 4px !important; }
-
-/* 隐藏装饰性填充 */
-.panel-expanded .task-main::after { display: none !important; }
 
 /* =============================================
    图谱
@@ -2170,13 +1949,15 @@ body.focus-mode .tracking-timer {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    min-width: 0;
-    width: 100%;
+    flex-shrink: 0;
+    min-width: fit-content;
+    width: auto;
     padding: 0;
     margin-bottom: 8px;
 }
 .star-bg {
     width: 140px;
+    min-width: 140px;
     height: 36px;
     padding: 0 12px;
     display: flex;
