@@ -19,9 +19,16 @@ const state = {
     pomodoroEndAt: null,
     pomodoroTimer: null,
     filter: {
-        status: '', priority: '', taskLine: '', tracked: '', search: '', tags: [],
+        status: '', priority: '', taskLine: '', tracked: '', search: '', tags: [], track: 'daily', category: '',
         showArchived: false, showDeleted: false
     },
+    collapsedTasks: new Set(),
+    /* 批量选择模式 */
+    selectionMode: false,
+    selectedIds: new Set(),   // 已勾选的任务 id
+    visibleIds: new Set(),    // 当前筛选下可见的任务 id（供全选用）
+    collapsedCampaigns: new Set(),
+    expandedCampaigns: new Set(),  // 战役子任务层级默认收起，展开过的记在这里
     trackingTaskId: null,
     trackingStartTime: null,
     graphScale: 1,
@@ -60,11 +67,110 @@ const DOM = {};
 const API_BASE = '/api';
 const EXCHANGE_RATES = { source_stone: 1000, orundum: 2 };
 const GACHA_COST_ORUNDUM = 300;
+
+// ── 共享资源图标 SVG（唯一真实来源，三处复用：顶部栏 / 奖励弹窗 / 主页面板）──
+// 渐变 ID 用 rs 前缀（resource-shared），避免与页面其他 SVG 冲突
+
+// 素材图标统一模板：圆角方底 + 内嵌符号
+function matBadge(bg, symbol) {
+    return `<svg viewBox="0 0 24 24" width="36" height="36"><rect x="2.5" y="2.5" width="19" height="19" rx="4.5" fill="${bg}" stroke="rgba(255,255,255,0.18)" stroke-width="0.6"/><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="0.5"/>${symbol}</svg>`;
+}
+
+const RESOURCE_SVGS = {
+    exp: '<svg viewBox="0 0 24 24" width="36" height="36"><rect x="3.5" y="6" width="17" height="12" rx="2.4" fill="#16324F"/><rect x="3.5" y="6" width="17" height="12" rx="2.4" fill="none" stroke="#6AB0E8" stroke-width="1"/><rect x="3.5" y="6" width="4.5" height="12" rx="2.4" fill="#0E2238"/><text x="14.2" y="15.4" text-anchor="middle" font-size="8" font-weight="800" fill="#9FD0F5" font-family="sans-serif" letter-spacing="0.5">EXP</text></svg>',
+    lungmen: '<svg viewBox="0 0 24 24" width="36" height="36"><defs><linearGradient id="rsLm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3FA0FF"/><stop offset="1" stop-color="#154C8A"/></linearGradient></defs><rect x="4" y="11" width="15" height="8.5" rx="1.6" fill="#154C8A"/><rect x="5.5" y="7.5" width="15" height="8.5" rx="1.6" fill="#1E6BC4"/><rect x="7" y="4" width="15" height="8.5" rx="1.6" fill="url(#rsLm)"/><rect x="7" y="4" width="15" height="8.5" rx="1.6" fill="none" stroke="#7FC4FF" stroke-width="0.5" opacity="0.6"/><circle cx="17.2" cy="8" r="3" fill="none" stroke="#E8F4FF" stroke-width="0.8"/><path d="M17.2 5.6 V10.4 M15.1 8 H19.3" stroke="#E8F4FF" stroke-width="0.7"/><text x="13.8" y="13.6" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF" font-family="sans-serif">龙</text></svg>',
+    source_stone: '<svg viewBox="0 0 24 24" width="36" height="36"><defs><radialGradient id="rsSs" cx="50%" cy="38%" r="60%"><stop offset="0" stop-color="#FFF6C8"/><stop offset="60%" stop-color="#F6D743" stop-opacity="0.25"/><stop offset="100%" stop-color="#F6D743" stop-opacity="0"/></radialGradient></defs><polygon points="12,1 22,12 12,23 2,12" fill="url(#rsSs)"/><polygon points="12,2.5 20,12 12,21.5 4,12" fill="#C9971B"/><polygon points="12,2.5 20,12 12,12 4,12" fill="#FFD700"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#9C7614"/><polygon points="12,2.5 16,12 12,12 8,12" fill="#FFE98A" opacity="0.7"/><polygon points="12,12 16,12 12,17.5 8,12" fill="#6E5410" opacity="0.5"/></svg>',
+    orundum: '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="12,1.5 21,12 12,22.5 3,12" fill="#5C0E16"/><polygon points="12,1.5 21,12 12,12 3,12" fill="#D42027"/><polygon points="12,12 21,12 12,22.5 3,22.5" fill="#160407"/><polygon points="12,4.5 17,12 12,19.5 7,12" fill="none" stroke="#FF7A82" stroke-width="0.5" opacity="0.6"/><polygon points="12,7 15,12 12,17 9,12" fill="#FF5560" opacity="0.25"/></svg>',
+    sanity: '<svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#7FE3C8" stroke-width="1" stroke-linejoin="round"><path d="M12 3 L19 7 V15 L12 21 L5 15 V7 Z" fill="rgba(70,200,170,0.12)"/><path d="M12 3 V21 M5 7 L19 15 M19 7 L5 15" stroke="#9FF0D8" stroke-width="0.5" opacity="0.5"/><polygon points="12.6,6.5 9.5,12 12,12 11,17.5 14.5,11 12,11" fill="#CFFCEF" stroke="none"/></svg>',
+
+    // ── 随机掉落素材图标 ──
+    // 赤金系列
+    MTL_GOLD1: matBadge('#6A5428', `<rect x="7.5" y="8" width="9" height="7" rx="1" fill="#E8C030"/><rect x="8.5" y="9.2" width="7" height="1.2" fill="#B8860B"/>`),
+    MTL_GOLD2: matBadge('#6A5428', `<rect x="6.5" y="10" width="11" height="5.5" rx="1" fill="#E8C030"/><rect x="7" y="7" width="10" height="5" rx="1" fill="#F0D040"/><rect x="8" y="8.2" width="8" height="0.8" fill="#B8860B"/>`),
+    MTL_GOLD3: matBadge('#6A5428', `<rect x="6" y="11" width="12" height="5" rx="1" fill="#E8C030"/><rect x="6.5" y="8" width="11" height="5" rx="1" fill="#F5D850"/><rect x="7.5" y="5.5" width="9" height="4.5" rx="1" fill="#FFE870"/><rect x="8.5" y="9.5" width="7" height="0.8" fill="#B8860B"/>`),
+    // 技巧概要
+    MTL_SKILL1: matBadge('#2F5A3A', `<rect x="6" y="5" width="12" height="14" rx="1" fill="#4CAF50"/><rect x="7" y="6" width="10" height="12" fill="none" stroke="#81C784" stroke-width="0.5"/><text x="12" y="15" text-anchor="middle" font-size="7" fill="#E8F5E9" font-family="sans-serif" font-weight="700">技</text>`),
+    MTL_SKILL2: matBadge('#1E3A5F', `<rect x="6" y="5" width="12" height="14" rx="1" fill="#42A5F5"/><rect x="7" y="6" width="10" height="12" fill="none" stroke="#90CAF9" stroke-width="0.5"/><text x="12" y="15" text-anchor="middle" font-size="7" fill="#E3F2FD" font-family="sans-serif" font-weight="700">技</text>`),
+    MTL_SKILL3: matBadge('#5A2A2A', `<rect x="6" y="5" width="12" height="14" rx="1" fill="#EF5350"/><rect x="7" y="6" width="10" height="12" fill="none" stroke="#FFCDD2" stroke-width="0.5"/><text x="12" y="15" text-anchor="middle" font-size="7" fill="#FFEBEE" font-family="sans-serif" font-weight="700">技</text>`),
+    // 作战记录
+    sprite_exp_card_t1: matBadge('#3A4A5A', `<rect x="5" y="6" width="14" height="11" rx="1.5" fill="#607D8B"/><rect x="7" y="8" width="10" height="7" fill="none" stroke="#B0BEC5" stroke-width="0.5"/><text x="12" y="14.5" text-anchor="middle" font-size="5" fill="#ECEFF1" font-family="sans-serif" font-weight="700">EXP</text>`),
+    sprite_exp_card_t2: matBadge('#1A3A6A', `<rect x="5" y="6" width="14" height="11" rx="1.5" fill="#1976D2"/><rect x="7" y="8" width="10" height="7" fill="none" stroke="#90CAF9" stroke-width="0.5"/><text x="12" y="14.5" text-anchor="middle" font-size="5" fill="#E3F2FD" font-family="sans-serif" font-weight="700">EXP</text>`),
+    sprite_exp_card_t3: matBadge('#3A1A5A', `<rect x="5" y="6" width="14" height="11" rx="1.5" fill="#7B1FA2"/><rect x="7" y="8" width="10" height="7" fill="none" stroke="#CE93D8" stroke-width="0.5"/><text x="12" y="14.5" text-anchor="middle" font-size="5" fill="#F3E5F5" font-family="sans-serif" font-weight="700">EXP</text>`),
+    sprite_exp_card_t4: matBadge('#5A4A1A', `<rect x="5" y="6" width="14" height="11" rx="1.5" fill="#F9A825"/><rect x="7" y="8" width="10" height="7" fill="none" stroke="#FFF59D" stroke-width="0.5"/><text x="12" y="14.5" text-anchor="middle" font-size="5" fill="#FFFDE7" font-family="sans-serif" font-weight="700">EXP</text>`),
+    // 常规素材
+    MTL_ROCK: matBadge('#4A3A2A', `<polygon points="12,5 17,9 16,17 8,17 7,9" fill="#8D6E63" stroke="#A1887F" stroke-width="0.6"/>`),
+    MTL_DEVICE: matBadge('#3A3A3A', `<circle cx="12" cy="12" r="6" fill="none" stroke="#90A4AE" stroke-width="1.5"/><circle cx="12" cy="12" r="2.5" fill="#90A4AE"/><path d="M12 3.5 v3 M12 17.5 v3 M3.5 12 h3 M17.5 12 h3" stroke="#90A4AE" stroke-width="1"/>`),
+    MTL_POLYESTER: matBadge('#5A2A4A', `<path d="M12 5 L17 9 L15 17 L9 17 L7 9 Z" fill="#F06292" stroke="#F8BBD0" stroke-width="0.5"/>`),
+    MTL_SUGAR: matBadge('#5A5A5A', `<rect x="7" y="8" width="10" height="9" rx="1.5" fill="#E0E0E0"/><rect x="8" y="9" width="3" height="3" fill="#BDBDBD" opacity="0.5"/><rect x="13" y="9" width="3" height="3" fill="#BDBDBD" opacity="0.5"/><rect x="10.5" y="13" width="3" height="3" fill="#BDBDBD" opacity="0.5"/>`),
+    MTL_ORE: matBadge('#2A2A2A', `<path d="M8 6 L16 6 L18 12 L12 19 L6 12 Z" fill="#455A64" stroke="#78909C" stroke-width="0.6"/>`),
+    MTL_GEL: matBadge('#1A3A1A', `<ellipse cx="12" cy="13" rx="6" ry="5" fill="#66BB6A" stroke="#A5D6A7" stroke-width="0.5"/><circle cx="10" cy="10" r="1.5" fill="#C8E6C9"/>`),
+    MTL_CRYSTAL: matBadge('#1A3A4A', `<path d="M12 5 L17 10 L12 19 L7 10 Z" fill="#4FC3F7" stroke="#B3E5FC" stroke-width="0.5"/>`),
+    MTL_CHIP: matBadge('#4A3A1A', `<rect x="5.5" y="5.5" width="13" height="13" rx="1" fill="#FFA726" stroke="#FFE0B2" stroke-width="0.5"/><rect x="7.5" y="7.5" width="9" height="9" fill="none" stroke="#FFF3E0" stroke-width="0.5"/><circle cx="12" cy="12" r="2" fill="#FFF3E0"/>`),
+
+    // ── 第二轮扩充素材 ──
+    MTL_SOURCE_ROCK: matBadge('#3A4A5A', `<polygon points="12,5 17,9 16,17 8,17 7,9" fill="#78909C" stroke="#90A4AE" stroke-width="0.6"/>`),
+    MTL_IRON: matBadge('#2A2A30', `<path d="M8 6 L16 7 L17 13 L12 18 L7 13 Z" fill="#455A64" stroke="#78909C" stroke-width="0.6"/><path d="M10 9 L14 10" stroke="#B0BEC5" stroke-width="0.5"/>`),
+    MTL_IRON_BLOCK: matBadge('#1E1E24', `<rect x="6.5" y="7" width="11" height="10" rx="1.2" fill="#37474F" stroke="#607D8B" stroke-width="0.6"/><rect x="8.5" y="9" width="7" height="6" rx="0.8" fill="none" stroke="#90A4AE" stroke-width="0.5"/>`),
+    MTL_SUGAR_GROUP: matBadge('#5A5A5A', `<rect x="6" y="9" width="5" height="5" rx="1" fill="#E0E0E0"/><rect x="13" y="7" width="5" height="5" rx="1" fill="#ECEFF1"/><rect x="10" y="13" width="5" height="5" rx="1" fill="#CFD8DC"/>`),
+    MTL_PGEL_AGG: matBadge('#1A3A1A', `<ellipse cx="10" cy="13" rx="4" ry="3.5" fill="#66BB6A" stroke="#A5D6A7" stroke-width="0.5"/><ellipse cx="14.5" cy="11" rx="3" ry="2.6" fill="#81C784" stroke="#A5D6A7" stroke-width="0.4"/>`),
+    MTL_RUSH: matBadge('#5A2A4A', `<path d="M12 5 L17 9 L15 17 L9 17 L7 9 Z" fill="#F06292" stroke="#F8BBD0" stroke-width="0.5"/><circle cx="12" cy="12" r="1.6" fill="#FCE4EC"/>`),
+    MTL_OC_CIRCUIT: matBadge('#1A3A4A', `<path d="M12 5 L17 10 L12 19 L7 10 Z" fill="#4FC3F7" stroke="#B3E5FC" stroke-width="0.5"/><path d="M12 8 V16 M9.5 11 H14.5" stroke="#E1F5FE" stroke-width="0.4"/>`),
+    MTL_GRIND: matBadge('#4A4A4A', `<polygon points="12,6 16,9 15,15 9,15 8,9" fill="#9E9E9E" stroke="#BDBDBD" stroke-width="0.6"/><circle cx="12" cy="11" r="1.5" fill="#757575"/>`),
+    MTL_MANGANESE3: matBadge('#3A2A4A', `<polygon points="12,5 17,10 13,18 8,13" fill="#9575CD" stroke="#D1C4E9" stroke-width="0.6"/>`),
+    MTL_PURIFIED_ROCK: matBadge('#4A5A6A', `<polygon points="12,5 17,9 16,17 8,17 7,9" fill="#B0BEC5" stroke="#CFD8DC" stroke-width="0.6"/><path d="M10 8 L14 10" stroke="#ECEFF1" stroke-width="0.5"/>`),
+    MTL_ALCOHOL_T: matBadge('#4A3A1A', `<path d="M12 6 C9 11 9 15 12 17 C15 15 15 11 12 6 Z" fill="#FFB300" stroke="#FFE082" stroke-width="0.5"/>`),
+    MTL_ALCOHOL_W: matBadge('#4A4A5A', `<path d="M12 6 C9 11 9 15 12 17 C15 15 15 11 12 6 Z" fill="#ECEFF1" stroke="#FFFFFF" stroke-width="0.5"/>`),
+    MTL_DEVICE_MOD: matBadge('#3A3A3A', `<circle cx="12" cy="12" r="6" fill="none" stroke="#90A4AE" stroke-width="1.5"/><circle cx="12" cy="12" r="2.2" fill="#90A4AE"/><path d="M12 4.5 v2 M12 17.5 v2 M4.5 12 h2 M17.5 12 h2" stroke="#90A4AE" stroke-width="1"/>`),
+    MTL_MANGANESE1: matBadge('#4A3A5A', `<polygon points="12,5 16,10 12,18 8,10" fill="#B39DDB" stroke="#E1D5F5" stroke-width="0.6"/>`),
+    MTL_DEVICE_PIECE: matBadge('#3A3A3A', `<circle cx="12" cy="12" r="6.5" fill="none" stroke="#90A4AE" stroke-width="1.4"/><circle cx="12" cy="12" r="2.4" fill="none" stroke="#B0BEC5" stroke-width="0.8"/>`)
+};
+
+// 未知掉落类型的占位宝箱图标（仓库与奖励弹窗共用）
+const DROP_CHEST_SVG = '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="4" y="10" width="16" height="10" rx="1.5" fill="#7A4B12" stroke="#E8B818" stroke-width="1"/><path d="M4 10 Q12 4 20 10" fill="#9A5C16" stroke="#E8B818" stroke-width="1"/><rect x="10.5" y="8.5" width="3" height="4" rx="0.6" fill="#E8B818"/><rect x="3.4" y="9" width="17.2" height="2.2" rx="1" fill="#E8B818"/></svg>';
+
 window._suppressClick = false;
 let rewardModalTimer = null;
 let rewardModalOpenTaskId = null;
 
+/* ===== 方舟风格加载动画控制器 ===== */
+const ArkLoader = (function() {
+    const el = document.getElementById('arkLoader');
+    const fill = document.getElementById('arkLoaderFill');
+    const pct = document.getElementById('arkLoaderPct');
+    if (!el || !fill || !pct) return { progress: function(){}, hide: function(){} };
+    let current = 0;
+    let target = 0;
+    const messages = [
+        'INITIALIZING...', 'LOADING RESOURCES...', 'LOADING TASKS...',
+        'LOADING ACHIEVEMENTS...', 'RENDERING UI...', 'READY.'
+    ];
+    let msgIdx = 0;
+    const timer = setInterval(function() {
+        if (current < target) {
+            current = Math.min(current + Math.random() * 8 + 2, target);
+            fill.style.width = current + '%';
+            const mi = Math.min(msgIdx, messages.length - 1);
+            pct.textContent = 'LOADING + ' + Math.floor(current) + '% ... ' + messages[mi];
+            if (current > (mi + 1) * 18) msgIdx++;
+        }
+    }, 50);
+    return {
+        progress: function(p, msg) { target = p; if (msg) { pct.textContent = msg; msgIdx++; } },
+        hide: function() {
+            target = 100;
+            setTimeout(function() {
+                clearInterval(timer);
+                fill.style.width = '100%';
+                pct.textContent = 'LOADING + 100% ... READY.';
+                setTimeout(function() { el.classList.add('fade-out'); }, 200);
+                setTimeout(function() { el.style.display = 'none'; }, 900);
+            }, 300);
+        }
+    };
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
+    ArkLoader.progress(5, 'INITIALIZING...');
     cacheDOM();
     bindEvents();
     initApp();
@@ -101,9 +207,10 @@ function cacheDOM() {
     DOM.filterStatus = document.getElementById('filterStatus');
     DOM.filterPriority = document.getElementById('filterPriority');
     DOM.filterTaskLine = document.getElementById('filterTaskLine');
+    DOM.filterTrack = document.getElementById('filterTrack');
+    DOM.filterCategory = document.getElementById('filterCategory');
     DOM.filterTracked = document.getElementById('filterTracked');
     DOM.filterSearch = document.getElementById('filterSearch');
-    DOM.tagFilterContainer = document.getElementById('tagFilterContainer');
     DOM.showArchived = document.getElementById('showArchived');
     DOM.showDeleted = document.getElementById('showDeleted');
     DOM.graphSvg = document.getElementById('graphSvg');
@@ -151,11 +258,13 @@ function cacheDOM() {
     DOM.trackingRewardBtn = document.getElementById('trackingRewardBtn');
     DOM.trackingFocusBtn = document.getElementById('trackingFocusBtn');
     DOM.trackingTimer = document.getElementById('trackingTimer');
+    DOM.warehouseBtn = document.getElementById('warehouseBtn');
     DOM.resStone = document.getElementById('resStone');
     DOM.resLungmen = document.getElementById('resLungmen');
     DOM.resOrundum = document.getElementById('resOrundum');
     DOM.resSanityCurrent = document.getElementById('resSanityCurrent');
     DOM.resSanityMax = document.getElementById('resSanityMax');
+    DOM.resourceTimestamp = document.getElementById('resourceTimestamp');
     DOM.mobileMenuBtn = document.getElementById('mobileMenuBtn');
     DOM.dateTasksModal = document.getElementById('dateTasksModal');
     DOM.dateTasksTitle = document.getElementById('dateTasksTitle');
@@ -191,7 +300,6 @@ function cacheDOM() {
     DOM.userInfo = document.getElementById('userInfo');
     DOM.userName = document.getElementById('userName');
     DOM.userLevel = document.getElementById('userLevel');
-    DOM.userExpFill = document.getElementById('userExpFill');
     DOM.bgParticles = document.getElementById('bgParticles');
     DOM.sanityDisplay = document.getElementById('sanityDisplay');
     DOM.trackingEmpty = document.getElementById('trackingEmpty');
@@ -211,6 +319,8 @@ function cacheDOM() {
     DOM.taskFormTitle = document.getElementById('taskFormTitle');
     DOM.taskFormDesc = document.getElementById('taskFormDesc');
     DOM.taskFormTaskLine = document.getElementById('taskFormTaskLine');
+    DOM.taskFormTrack = document.getElementById('taskFormTrack');
+    DOM.taskFormCategory = document.getElementById('taskFormCategory');
     DOM.taskFormPlannedStart = document.getElementById('taskFormPlannedStart');
     DOM.taskFormPlannedEnd = document.getElementById('taskFormPlannedEnd');
     DOM.taskFormDueDate = document.getElementById('taskFormDueDate');
@@ -218,6 +328,7 @@ function cacheDOM() {
     DOM.taskFormRewardStone = document.getElementById('taskFormRewardStone');
     DOM.taskFormRewardOrundum = document.getElementById('taskFormRewardOrundum');
     DOM.taskFormNotes = document.getElementById('taskFormNotes');
+    DOM.pomodoroSound = document.getElementById('pomodoroSound');
 }
 
 function bindEvents() {
@@ -259,10 +370,28 @@ function bindEvents() {
     document.getElementById('clearAllBtn').addEventListener('click', () => clearData('all'));
 
     DOM.claimAllBtn.addEventListener('click', handleClaimAll);
+    initBatchSelection();
+    // 预加载仓库素材目录（奖励弹窗与仓库都要用官方中文名/配色）
+    loadWarehouseCatalog();
     DOM.settingsBtn.addEventListener('click', openSettingsModal);
+    // 专注提醒设置（提示音开关，本地生成无需联网）
+    if (DOM.pomodoroSound) DOM.pomodoroSound.addEventListener('change', async (e) => {
+        const val = e.target.value;
+        await apiPut('/settings', { pomodoro_sound: val });
+        state.settings.pomodoro_sound = val;
+        showToast('提示音设置已更新');
+    });
 
     DOM.trackingHandle.addEventListener('click', () => {
-        if (DOM.trackingPanel.classList.contains('expanded')) {
+        const wasExpanded = DOM.trackingPanel.classList.contains('expanded');
+        // 展开与收起使用完全一致的反馈：:active 按压 + 同一段图标柔光脉冲。
+        // 不再挂 transitionend（过渡被打断时一边有一边没有，导致两向反馈不一致），
+        // 点击瞬间立即播放，两个方向强度相同。
+        DOM.trackingHandle.classList.remove('pop-right', 'shake-icon', 'locked');
+        void DOM.trackingHandle.offsetWidth;
+        DOM.trackingHandle.classList.add('locked');
+        DOM.trackingHandle.addEventListener('animationend', () => DOM.trackingHandle.classList.remove('locked'), { once: true });
+        if (wasExpanded) {
             collapseTrackingPanel();
         } else {
             expandTrackingPanel();
@@ -277,10 +406,25 @@ function bindEvents() {
     DOM.filterStatus.addEventListener('change', applyFilters);
     DOM.filterPriority.addEventListener('change', applyFilters);
     DOM.filterTaskLine.addEventListener('change', applyFilters);
+    DOM.filterTrack.addEventListener('change', applyFilters);
     DOM.filterTracked.addEventListener('change', applyFilters);
+    DOM.filterCategory.addEventListener('change', onCategoryFilterChange);
     DOM.filterSearch.addEventListener('input', debounce(applyFilters, 300));
     DOM.showArchived.addEventListener('change', applyFilters);
     DOM.showDeleted.addEventListener('change', applyFilters);
+
+    // 初始化自定义下拉（替换原生 select，避免浏览器下拉闪白 + 支持动画）
+    initCustomDropdowns();
+
+    // 物理反馈：切换瞬间给滑块打上 .toggle-pop 播放"咔哒"发光脉冲，动画结束后移除
+    [DOM.showArchived, DOM.showDeleted].forEach(el => {
+        el.addEventListener('change', () => {
+            el.classList.remove('toggle-pop');
+            void el.offsetWidth;  // 强制回流，确保重复切换也能重播动画
+            el.classList.add('toggle-pop');
+            el.addEventListener('animationend', () => el.classList.remove('toggle-pop'), { once: true });
+        });
+    });
 
     DOM.rewardClaimBtn.addEventListener('click', claimReward);
 
@@ -333,6 +477,8 @@ function bindEvents() {
     DOM.exchangeAmount.addEventListener('input', updateExchangeCost);
 
     DOM.gachaBtn.addEventListener('click', () => { openModal('gachaModal'); updateGachaBalance(); updateGachaCostText(); });
+    if (DOM.warehouseBtn) DOM.warehouseBtn.addEventListener('click', openWarehouse);
+
     DOM.gachaCancel.addEventListener('click', closeAllModals);
     DOM.gachaClose.addEventListener('click', closeAllModals);
     DOM.gachaConfirm.addEventListener('click', handleGacha);
@@ -383,8 +529,11 @@ function bindEvents() {
     });
 
     DOM.graphSvg.addEventListener('mousedown', startGraphDrag);
+    DOM.graphSvg.addEventListener('touchstart', startGraphDrag, { passive: false });
     document.addEventListener('mousemove', moveGraphDrag);
+    document.addEventListener('touchmove', moveGraphDrag, { passive: false });
     document.addEventListener('mouseup', endGraphDrag);
+    document.addEventListener('touchend', endGraphDrag);
 
     DOM.userInfo.addEventListener('click', () => {
         const newName = prompt('输入新的用户名：', state.settings.username || '博士');
@@ -408,7 +557,7 @@ function bindEvents() {
                 DOM.trackingPanel.style.width = `${state.trackingPanelWidth}px`;
                 DOM.mainContent.style.marginLeft = `${state.trackingPanelWidth}px`;
             } else {
-                DOM.mainContent.style.marginLeft = '56px';
+                DOM.mainContent.style.marginLeft = '64px';
             }
         } else {
             DOM.trackingPanel.style.width = '';
@@ -427,13 +576,55 @@ function toggleMobileMenu() {
     DOM.navCenter.classList.toggle('mobile-show');
 }
 
+/* ===== 资源图标：本地 PNG 真图自动替换（把对应 PNG 放进 static/icons/ 即自动生效）===== */
+function tryUpgradeResIcon(span, name){
+    if(!span || span.dataset.resUpgraded) return;
+    span.dataset.resUpgraded = '1';
+    const img = new Image();
+    img.alt = name;
+    img.onload = () => { span.innerHTML = ''; span.appendChild(img); };
+    img.onerror = () => {};
+    img.src = `static/icons/${name}.png`;
+}
+function upgradeAllResIcons(){
+    // 顶部栏（data-res-icon）
+    document.querySelectorAll('[data-res-icon]').forEach(s => tryUpgradeResIcon(s, s.dataset.resIcon));
+    // 主页面板（data-res-icon-profile）—— 之前漏选导致主页图标永远不升级
+    document.querySelectorAll('[data-res-icon-profile]').forEach(s => tryUpgradeResIcon(s, s.dataset.resIconProfile));
+}
+// 用共享 RESOURCE_SVGS 填充顶部栏和主页面板的资源图标（替代原先各处内联的旧版 SVG）
+function renderResourceIcons(){
+    // 顶部栏资源图标（data-res-icon）
+    document.querySelectorAll('.resource-icon[data-res-icon]').forEach(span => {
+        const key = span.dataset.resIcon;
+        if(RESOURCE_SVGS[key] && !span.dataset.resRendered){
+            span.innerHTML = RESOURCE_SVGS[key];
+            span.dataset.resRendered = '1';
+        }
+    });
+    // 主页面板资源图标（data-res-icon-profile）
+    document.querySelectorAll('.res-icon[data-res-icon-profile]').forEach(span => {
+        const key = span.dataset.resIconProfile;
+        if(RESOURCE_SVGS[key] && !span.dataset.resRendered){
+            span.innerHTML = RESOURCE_SVGS[key];
+            span.dataset.resRendered = '1';
+        }
+    });
+}
+
 async function initApp() {
     await loadSettings();
+    await loadVoiceManifest();
+    ArkLoader.progress(15, 'LOADING SETTINGS...');
     applyTheme();
     applyWallpaper();
     await loadResources();
+    ArkLoader.progress(30, 'LOADING RESOURCES...');
     await loadTasks();
+    ArkLoader.progress(50, 'LOADING TASKS...');
+    renderCategoryFilter();
     await loadAchievements();
+    ArkLoader.progress(65, 'LOADING ACHIEVEMENTS...');
     await loadGiftPacks();
     await loadTransactions();
     await loadRealityRewards();
@@ -441,10 +632,13 @@ async function initApp() {
     await loadPomodoroCurrent();
     renderCalendar();
     updateResourceDisplay();
+    renderResourceIcons();
+    upgradeAllResIcons();
     updateUserInfo();
     updateClaimAllButton();
     applySettingsFromState();
     updateGachaCostText();
+    ArkLoader.progress(85, 'RENDERING UI...');
     setInterval(updateTrackingTimer, 1000);
     setInterval(updatePomodoroTimer, 1000);
     updateResourceTimestamp();
@@ -453,6 +647,7 @@ async function initApp() {
     initRemoteUrl();  // 远程地址轮询
     document.body.dataset.view = state.currentView;
     renderCurrentView();
+    ArkLoader.hide();
 }
 
 /* ===== 远程地址（cpolar 隧道） ===== */
@@ -511,7 +706,7 @@ function renderCurrentView() {
 
 async function apiGet(endpoint) {
     try {
-        const res = await fetch(`${API_BASE}${endpoint}`);
+        const res = await fetch(`${API_BASE}${endpoint}`, { cache: 'no-store' });
         if (!res.ok) {
             let message = `API ${endpoint} failed`;
             try { const errData = await res.json(); message = errData?.message || message; } catch {}
@@ -954,6 +1149,9 @@ async function handlePomodoroFinished() {
     state.pomodoro = null;
     state.pomodoroEndAt = null;
     updatePomodoroUI();
+    // 到点提醒：随机干员语音（无语音文件时回退本地提示音）+ 屏幕高亮
+    playEndAlert();
+    flashAlarm();
     if (finishedKind === 'focus') {
         showToast('专注结束，进入休息时间');
         const breakMinutes = parseInt(state.settings.pomodoro_break_minutes || 5);
@@ -1002,6 +1200,73 @@ async function stopPomodoro() {
     if (hadPomodoro) showToast('已退出专注模式');
 }
 
+// ===== 专注到点提醒（本地生成提示音，无需联网） =====
+let alarmAudioCtx = null;
+function getAlarmAudioCtx(){
+    if (!alarmAudioCtx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        alarmAudioCtx = new AC();
+    }
+    if (alarmAudioCtx.state === 'suspended') alarmAudioCtx.resume();
+    return alarmAudioCtx;
+}
+// 三声「叮咚」闹钟音：高音量、双频，确保够「响」又不刺耳
+function playAlarmSound(){
+    if ((state.settings.pomodoro_sound || 'on') === 'off') return;
+    const ctx = getAlarmAudioCtx();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const notes = [ {f:880, t:0}, {f:1175, t:0.45}, {f:880, t:0.9} ];
+    notes.forEach(({f, t}) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(f, now + t);
+        gain.gain.setValueAtTime(0.0001, now + t);
+        gain.gain.exponentialRampToValueAtTime(0.5, now + t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.4);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + t);
+        osc.stop(now + t + 0.42);
+    });
+}
+// 屏幕金色高亮闪动，强化「到点了」的视觉提醒
+function flashAlarm(){
+    const el = document.createElement('div');
+    el.className = 'alarm-flash';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1900);
+}
+
+// ===== 到点随机语音（干员日语「完成任务」语音，PRTS 下载到 static/sounds/arkanights/） =====
+// manifest.json 由下载脚本生成；为空或缺失时回退到本地合成提示音。
+let voiceFiles = [];
+async function loadVoiceManifest(){
+    try {
+        const res = await fetch('static/sounds/arkanights/manifest.json', { cache: 'no-cache' });
+        if (!res.ok) { voiceFiles = []; return; }
+        const data = await res.json();
+        voiceFiles = Array.isArray(data.files) ? data.files : [];
+        console.log(`[voice] 已加载 ${voiceFiles.length} 条到点语音`);
+    } catch(e) { voiceFiles = []; }
+}
+// 到点提醒主入口：有语音则随机放一条，否则合成「叮咚」
+function playEndAlert(){
+    if ((state.settings.pomodoro_sound || 'on') === 'off') return;
+    if (voiceFiles.length){
+        const url = voiceFiles[Math.floor(Math.random() * voiceFiles.length)];
+        try {
+            const a = new Audio(url);
+            a.volume = 1.0;
+            const p = a.play();
+            if (p && p.catch) p.catch(() => playAlarmSound());
+            return;
+        } catch(e) { /* 落到合成音 */ }
+    }
+    playAlarmSound();
+}
+
 async function checkCurrentTracking() {
     const current = await apiGet('/tracking/current');
     if (current && current.task_id) {
@@ -1017,14 +1282,191 @@ function renderTasks() {
     const list = DOM.taskList;
     list.innerHTML = '';
     const filtered = filterTasks(state.flatTasks);
+    // 记录当前筛选下可见的任务（供批量选择的「全选」使用）
+    state.visibleIds = new Set(filtered.map(t => t.id));
     if (filtered.length === 0) {
         DOM.taskListEmpty.style.display = 'block';
     } else {
         DOM.taskListEmpty.style.display = 'none';
         appendTaskGroups(list, filtered);
     }
+    // 长线战役独立区域：显示 track=campaign 的任务作为方向指引
+    renderCampaignSection();
     updateClaimAllButton();
     enableDragSort();
+    // 若处于选择模式，重渲染后同步勾选框与选中态（不重新触发进入动画）
+    if (state.selectionMode) { applySelectionModeToDOM(true); updateBatchToolbar(); }
+}
+
+// 渲染长线战役（方向指引）独立区域
+function renderCampaignSection() {
+    const section = DOM.campaignSection;
+    const list = DOM.campaignList;
+    if (!section || !list) return;
+    // 筛选出所有 campaign 任务（不受当前 filter.track 影响）
+    const campaignTasks = state.flatTasks.filter(t =>
+        (t.track || 'daily') === 'campaign' && !t.archived && !t.deleted
+    );
+    if (campaignTasks.length === 0) {
+        section.style.display = 'none';
+        return;
+    }
+    section.style.display = 'block';
+    list.innerHTML = '';
+
+    const childrenOf = (t) => campaignTasks.filter(c => c.parent_id === t.id);
+
+    // 生成单张战役卡片：每一层级都带展开/收起按钮，与主任务列表的父子展开行为保持一致
+    const buildCard = (task, isRoot, depth) => {
+        const children = childrenOf(task);
+        // 展开状态：根级保持默认展开（与改动前一致），子任务层级默认收起；展开过的记在 expandedCampaigns
+        const isCollapsed = state.collapsedCampaigns.has(task.id);
+        const isExpanded = isCollapsed ? false : (state.expandedCampaigns.has(task.id) || depth < 1);
+        const card = document.createElement('div');
+        card.className = isRoot ? 'campaign-card' : 'campaign-child-card';
+        card.dataset.taskId = task.id;
+
+        // 展开/收起按钮：无子任务时保留同宽占位，保证同层级标题/星级左对齐
+        const expandBtn = document.createElement('button');
+        expandBtn.className = isRoot ? 'campaign-expand-btn' : 'campaign-child-expand-btn';
+        if (children.length > 0) {
+            expandBtn.innerHTML = isExpanded ? '<i class="fa-solid fa-chevron-down"></i>' : '<i class="fa-solid fa-chevron-right"></i>';
+            expandBtn.title = isExpanded ? '收起子任务' : '展开子任务';
+            expandBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (isExpanded) {
+                    state.collapsedCampaigns.add(task.id);
+                    state.expandedCampaigns.delete(task.id);
+                } else {
+                    state.collapsedCampaigns.delete(task.id);
+                    state.expandedCampaigns.add(task.id);
+                }
+                renderCampaignSection();
+            });
+        } else {
+            expandBtn.classList.add('is-empty');
+            expandBtn.disabled = true;
+            expandBtn.tabIndex = -1;
+        }
+        card.appendChild(expandBtn);
+
+        // 星级
+        const stars = document.createElement('div');
+        stars.className = isRoot ? 'campaign-stars' : 'campaign-child-stars';
+        for (let i = 0; i < Math.min(task.priority, 6); i++) {
+            const s = document.createElement('span');
+            s.className = 'star'; s.textContent = '★'; s.style.transform = 'rotate(15deg)';
+            s.style.display = 'inline-block'; s.style.color = 'var(--highlight-gold-1)';
+            s.style.fontSize = isRoot ? '14px' : '12px';
+            s.style.textShadow = '0 2px 4px rgba(0,0,0,0.6), 0 0 4px rgba(232,184,24,0.6)';
+            stars.appendChild(s);
+        }
+        card.appendChild(stars);
+
+        // 标题（可点击打开详情）
+        const title = document.createElement('div');
+        title.className = isRoot ? 'campaign-title' : 'campaign-child-title';
+        title.textContent = task.title;
+        title.addEventListener('click', () => openTaskDetail(task.id));
+        card.appendChild(title);
+
+        if (isRoot) {
+            // 描述
+            if (task.description) {
+                const desc = document.createElement('div');
+                desc.className = 'campaign-desc'; desc.textContent = task.description;
+                card.appendChild(desc);
+            }
+            // 子任务数量标签
+            if (children.length > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'campaign-child-count';
+                badge.textContent = `${children.length} 个子任务`;
+                card.appendChild(badge);
+            }
+        } else if (task.status) {
+            // 子任务状态
+            const cStatus = document.createElement('span');
+            cStatus.className = 'campaign-child-status';
+            const statusMap = {todo:'待办',in_progress:'进行中',paused:'已暂停',done:'已完成',cancelled:'已取消'};
+            cStatus.textContent = statusMap[task.status] || task.status;
+            card.appendChild(cStatus);
+        }
+
+        card.appendChild(buildCampaignActions(task));
+        return { card, children, isExpanded };
+    };
+
+    // 递归渲染：卡片 + 其子任务容器
+    const renderNode = (task, isRoot, depth, container) => {
+        const { card, children, isExpanded } = buildCard(task, isRoot, depth);
+        container.appendChild(card);
+        if (children.length > 0 && isExpanded) {
+            const childList = document.createElement('div');
+            childList.className = 'campaign-children';
+            children.forEach(child => renderNode(child, false, depth + 1, childList));
+            container.appendChild(childList);
+        }
+    };
+
+    // 只显示根级 campaign 任务
+    const rootCampaigns = campaignTasks.filter(t => !t.parent_id || !campaignTasks.some(c => c.id === t.parent_id));
+    rootCampaigns.forEach(task => renderNode(task, true, 0, list));
+}
+
+// 长线战役卡片的操作按钮：追踪 / 编辑 / 删除 / 归档(复用与常规任务卡片一致的处理函数)
+function buildCampaignActions(task) {
+    const actions = document.createElement('div');
+    actions.className = 'campaign-actions';
+    if (state.settings.quick_track) {
+        const trackBtn = document.createElement('button');
+        trackBtn.className = `action-btn track-btn ${state.trackingTaskId === task.id ? 'active' : ''}`;
+        trackBtn.innerHTML = '<i class="fa-solid fa-diamond"></i>';
+        trackBtn.title = '追踪';
+        trackBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTrackingForTask(task.id); });
+        actions.appendChild(trackBtn);
+    }
+    const editBtn = document.createElement('button');
+    editBtn.className = 'action-btn';
+    editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+    editBtn.title = '编辑';
+    editBtn.addEventListener('click', (e) => { e.stopPropagation(); openTaskModal(task); });
+    actions.appendChild(editBtn);
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'action-btn danger';
+    deleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+    deleteBtn.title = '删除';
+    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); showConfirm('确定要删除此任务吗？', () => handleDeleteTask(task.id)); });
+    actions.appendChild(deleteBtn);
+    if (task.archived) {
+        const unarchiveBtn = document.createElement('button');
+        unarchiveBtn.className = 'action-btn';
+        unarchiveBtn.innerHTML = '<i class="fa-solid fa-box-open"></i>';
+        unarchiveBtn.title = '恢复归档';
+        unarchiveBtn.addEventListener('click', (e) => { e.stopPropagation(); handleUnarchive(task.id); });
+        actions.appendChild(unarchiveBtn);
+    } else if (task.deleted) {
+        const restoreBtn = document.createElement('button');
+        restoreBtn.className = 'action-btn';
+        restoreBtn.innerHTML = '<i class="fa-solid fa-trash-restore"></i>';
+        restoreBtn.title = '恢复';
+        restoreBtn.addEventListener('click', (e) => { e.stopPropagation(); handleRestoreTask(task.id); });
+        actions.appendChild(restoreBtn);
+    } else {
+        const archiveBtn = document.createElement('button');
+        archiveBtn.className = 'action-btn';
+        archiveBtn.innerHTML = '<i class="fa-solid fa-box"></i>';
+        archiveBtn.title = '归档';
+        archiveBtn.addEventListener('click', (e) => { e.stopPropagation(); handleArchive(task.id); });
+        actions.appendChild(archiveBtn);
+    }
+    return actions;
+}
+
+function toggleCollapse(id){
+    if (state.collapsedTasks.has(id)) state.collapsedTasks.delete(id);
+    else state.collapsedTasks.add(id);
+    renderTasks();
 }
 
 function appendTaskGroups(list, filtered) {
@@ -1032,6 +1474,7 @@ function appendTaskGroups(list, filtered) {
     const added = new Set();
     const collectDescendants = (task) => {
         let result = [task];
+        if (state.collapsedTasks.has(task.id)) return result;
         const children = state.flatTasks.filter(t => t.parent_id === task.id && filteredIds.has(t.id));
         children.forEach(child => {
             result = result.concat(collectDescendants(child));
@@ -1069,10 +1512,18 @@ function filterTasks(tasks) {
     if (state.filter.status) filtered = filtered.filter(t => t.status === state.filter.status);
     if (state.filter.priority) filtered = filtered.filter(t => t.priority == state.filter.priority);
     if (state.filter.taskLine) filtered = filtered.filter(t => t.task_line === state.filter.taskLine);
+    if (state.filter.track) filtered = filtered.filter(t => (t.track || 'daily') === state.filter.track);
     if (state.filter.tracked !== '') filtered = filtered.filter(t => t.is_tracked == state.filter.tracked);
     if (state.filter.search) {
         const q = state.filter.search.toLowerCase();
-        filtered = filtered.filter(t => t.title.toLowerCase().includes(q) || (t.description && t.description.toLowerCase().includes(q)));
+        filtered = filtered.filter(t =>
+            t.title.toLowerCase().includes(q) ||
+            (t.description && t.description.toLowerCase().includes(q)) ||
+            (t.tags && t.tags.some(tag => tag.name.toLowerCase().includes(q)))
+        );
+    }
+    if (state.filter.category) {
+        filtered = filtered.filter(t => (t.tags || []).some(tag => tag.name === state.filter.category));
     }
     if (state.filter.tags.length) {
         filtered = filtered.filter(t => {
@@ -1137,7 +1588,7 @@ function createTaskCard(task) {
     card.dataset.taskId = task.id;
     card.dataset.priority = task.priority;
     card.dataset.status = task.status;
-    card.draggable = !isBlocked(task) && task.status !== 'done';
+    card.draggable = !isBlocked(task) && task.status !== 'done' && !state.selectionMode;
     // V4 光泽扫过层（hover 时划过一道高光）
     const cardSheen = document.createElement('div');
     cardSheen.className = 'card-sheen';
@@ -1155,6 +1606,16 @@ function createTaskCard(task) {
         completedBadge.className = 'task-completed-badge';
         completedBadge.textContent = 'completed';
         card.appendChild(completedBadge);
+    }
+
+    // 批量选择模式：卡片左侧显示圆形勾选框
+    if (state.selectionMode) {
+        card.classList.add('selecting');
+        if (state.selectedIds.has(task.id)) card.classList.add('selected');
+        const chk = document.createElement('div');
+        chk.className = 'select-checkbox' + (state.selectedIds.has(task.id) ? ' checked' : '');
+        chk.innerHTML = '<i class="fa-solid fa-check"></i>';
+        card.appendChild(chk);
     }
 
     const indent = document.createElement('div');
@@ -1182,11 +1643,29 @@ function createTaskCard(task) {
     const title = document.createElement('span');
     title.className = 'task-title';
     title.textContent = task.title;
+    if (task.children && task.children.length) {
+        const collapsed = state.collapsedTasks.has(task.id);
+        const collapseBtn = document.createElement('button');
+        collapseBtn.className = 'task-collapse-btn';
+        collapseBtn.innerHTML = collapsed ? '<i class="fa-solid fa-chevron-right"></i>' : '<i class="fa-solid fa-chevron-down"></i>';
+        collapseBtn.title = collapsed ? '展开子任务' : '折叠子任务';
+        collapseBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleCollapse(task.id); });
+        topRow.appendChild(collapseBtn);
+    }
     topRow.appendChild(title);
     const lineTag = document.createElement('span');
     lineTag.className = `task-line-tag ${task.task_line}`;
     lineTag.textContent = task.task_line === 'main' ? '主线' : '支线';
     topRow.appendChild(lineTag);
+    const trackTag = document.createElement('span');
+    trackTag.className = `task-track-tag ${task.track || 'daily'}`;
+    const trackIcon = document.createElement('i');
+    trackIcon.className = (task.track === 'campaign') ? 'fa-solid fa-trophy' : 'fa-solid fa-list-check';
+    trackTag.appendChild(trackIcon);
+    trackTag.appendChild(document.createTextNode((task.track === 'campaign') ? ' 主线战役' : ' 日常'));
+    topRow.appendChild(trackTag);
+    // 稀有度框（优先级 → 方舟素材稀有度边框：1→r6金 / 2→r5 / 3→r4 / 4→r3 / 5→r2 / 6→r1）
+    // 稀有度框已移除：星级（★）已是优先级的直观展示，圆形角标与卡片风格冲突
     main.appendChild(topRow);
     if (task.description) {
         const desc = document.createElement('div');
@@ -1197,10 +1676,23 @@ function createTaskCard(task) {
     if (task.tags && task.tags.length) {
         const tagsDiv = document.createElement('div');
         tagsDiv.className = 'task-tags';
+        const cats = state.settings.categories || [];
         task.tags.forEach(tag => {
+            const isCat = cats.includes(tag.name);
             const tagSpan = document.createElement('span');
-            tagSpan.className = 'task-tag';
-            tagSpan.textContent = tag.name;
+            if (isCat) {
+                tagSpan.className = 'task-category-badge';
+                const img = document.createElement('img');
+                img.className = 'task-category-icon';
+                img.src = 'static/icons/' + categoryIconFile(tag.name);
+                img.alt = tag.name;
+                img.loading = 'lazy';
+                tagSpan.appendChild(img);
+                tagSpan.appendChild(document.createTextNode(tag.name));
+            } else {
+                tagSpan.className = 'task-tag';
+                tagSpan.textContent = tag.name;
+            }
             tagsDiv.appendChild(tagSpan);
         });
         main.appendChild(tagsDiv);
@@ -1323,7 +1815,11 @@ function createTaskCard(task) {
         actions.appendChild(archiveBtn);
     }
     card.appendChild(actions);
-    card.addEventListener('click', () => { if (window._suppressClick) return; if (!isBlocked(task)) openTaskDetail(task.id); });
+    card.addEventListener('click', () => {
+        if (window._suppressClick) return;
+        if (state.selectionMode) { toggleSelectTask(task); return; }
+        if (!isBlocked(task)) openTaskDetail(task.id);
+    });
     return card;
 }
 
@@ -1408,7 +1904,11 @@ function renderGraph() {
     svg.innerHTML = '';
     if (state.flatTasks.length === 0) { DOM.graphEmpty.style.display = 'block'; return; }
     DOM.graphEmpty.style.display = 'none';
-    const nodes = state.flatTasks.filter(t => !t.archived && !t.deleted);
+    // 图谱只显示「未删除且未归档」的任务；用 == 1 兼容数字/字符串/布尔
+    const nodes = state.flatTasks.filter(t => !(t.deleted == 1 || t.deleted === true) && !t.archived);
+    // 清理已删除任务的残留坐标缓存，避免脏坐标遗留
+    const validIds = new Set(nodes.map(n => n.id));
+    Object.keys(state.graphNodePositions).forEach(id => { if (!validIds.has(Number(id))) delete state.graphNodePositions[id]; });
     const view = state.graphViewBox;
     svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.width} ${view.height}`);
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
@@ -1452,6 +1952,7 @@ function renderGraph() {
                     path.setAttribute('stroke-opacity', cfg.opacity);
                     path.setAttribute('stroke-dasharray', cfg.dash);
                     path.classList.add('graph-edge');
+                    path.dataset.edge = pathId.replace('edge-', '');
                     if (idx === 0) {
                         path.setAttribute('id', pathId);
                         path.classList.add('graph-edge-base');
@@ -1500,6 +2001,7 @@ function renderGraph() {
         rect.style.cursor = 'grab';
         rect.addEventListener('click', () => openTaskDetail(n.id));
         rect.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
+        rect.addEventListener('touchstart', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); }, { passive: false });
         g.appendChild(rect);
         // 左侧状态色条（同任务卡片 border-left 风格）
         const bar = document.createElementNS('http://www.w3.org/2000/svg','rect');
@@ -1525,15 +2027,24 @@ function renderGraph() {
         sub.dataset.taskId = n.id;
         sub.textContent = ({ todo:'待办', in_progress:'进行中', paused:'已暂停', done:'已完成', cancelled:'已取消' })[n.status] || n.status || '';
         g.appendChild(sub);
-        // 星级小标识（右侧）
+        // 星级（固定在卡片上方，紧凑排列：尖角顶凹角）
         if (n.priority > 0) {
-            const starText = document.createElementNS('http://www.w3.org/2000/svg','text');
-            starText.setAttribute('x', cx + W/2 - 10); starText.setAttribute('y', cy + 5);
-            starText.setAttribute('text-anchor','end');
-            starText.setAttribute('fill','rgba(232,184,24,0.55)'); starText.setAttribute('font-size','10');
-            starText.dataset.taskId = n.id;
-            starText.textContent = '★'.repeat(Math.min(n.priority, 6));
-            g.appendChild(starText);
+            const starCount = Math.min(n.priority, 6);
+            const STAR_SPACING = 8; // 紧凑间距：★尖角几乎顶到下一颗凹角
+            const starStartX = cx + W/2 - 4;
+            const starY = cy - H/2 + 14; // 卡片上方固定位置
+            for (let si = 0; si < starCount; si++) {
+                const sx = starStartX - si * STAR_SPACING;
+                const st = document.createElementNS('http://www.w3.org/2000/svg','text');
+                st.setAttribute('x', sx); st.setAttribute('y', starY);
+                st.setAttribute('text-anchor','end');
+                st.setAttribute('fill','rgba(232,184,24,0.90)'); st.setAttribute('font-size','12');
+                st.setAttribute('transform','rotate(15, ' + sx + ', ' + starY + ')');
+                st.dataset.taskId = n.id;
+                st.classList.add('graph-node-star');
+                st.textContent = '★';
+                g.appendChild(st);
+            }
         }
         // 透明命中层（覆盖整块，便于拖拽/点击）
         const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
@@ -1543,6 +2054,7 @@ function renderGraph() {
         hit.style.pointerEvents = 'all'; hit.style.cursor = 'grab';
         hit.dataset.taskId = n.id;
         hit.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); });
+        hit.addEventListener('touchstart', (e) => { e.stopPropagation(); e.preventDefault(); startNodeDrag(n.id, e); }, { passive: false });
         hit.addEventListener('click', (e) => { e.stopPropagation(); openTaskDetail(n.id); });
         g.appendChild(hit);
     });
@@ -1581,7 +2093,7 @@ let dragNodeId = null;
 let dragOffsetX = 0, dragOffsetY = 0;
 function getLevelMap() {
     const map = {};
-    state.flatTasks.filter(t=>!t.archived&&!t.deleted).forEach(n => {
+    state.flatTasks.filter(t => !(t.deleted == 1 || t.deleted === true) && !t.archived).forEach(n => {
         const lvl = n.level||0;
         if (!map[lvl]) map[lvl] = [];
         map[lvl].push(n);
@@ -1589,28 +2101,46 @@ function getLevelMap() {
     Object.values(map).forEach(arr => arr.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)));
     return map;
 }
+function getPointer(e) {
+    if (e.touches && e.touches.length > 0) return e.touches[0];
+    if (e.changedTouches && e.changedTouches.length > 0) return e.changedTouches[0];
+    return e;
+}
+function isTouchEvent(e) { return !!(e.touches || e.changedTouches); }
+
+let dragNodeTouchStart = null;
+
 function startNodeDrag(id, e) {
     dragNodeId = id;
+    const p = getPointer(e);
+    if (isTouchEvent(e)) dragNodeTouchStart = { x: p.clientX, y: p.clientY, t: Date.now(), id };
     const svgRect = DOM.graphSvg.getBoundingClientRect();
     const viewBox = state.graphViewBox;
     const scaleX = viewBox.width / svgRect.width;
     const scaleY = viewBox.height / svgRect.height;
-    const mouseX = (e.clientX - svgRect.left) * scaleX + viewBox.x;
-    const mouseY = (e.clientY - svgRect.top) * scaleY + viewBox.y;
+    const mouseX = (p.clientX - svgRect.left) * scaleX + viewBox.x;
+    const mouseY = (p.clientY - svgRect.top) * scaleY + viewBox.y;
     const nodePos = state.graphNodePositions[id] || getDefaultNodePosition(state.flatTasks.find(t=>t.id===id), getLevelMap());
     dragOffsetX = mouseX - nodePos.x;
     dragOffsetY = mouseY - nodePos.y;
-    document.addEventListener('mousemove', onNodeDrag);
-    document.addEventListener('mouseup', endNodeDrag);
+    if (isTouchEvent(e)) {
+        document.addEventListener('touchmove', onNodeDrag, { passive: false });
+        document.addEventListener('touchend', endNodeDrag);
+    } else {
+        document.addEventListener('mousemove', onNodeDrag);
+        document.addEventListener('mouseup', endNodeDrag);
+    }
 }
 function onNodeDrag(e) {
     if (!dragNodeId) return;
+    if (isTouchEvent(e)) e.preventDefault();
+    const p = getPointer(e);
     const svgRect = DOM.graphSvg.getBoundingClientRect();
     const viewBox = state.graphViewBox;
     const scaleX = viewBox.width / svgRect.width;
     const scaleY = viewBox.height / svgRect.height;
-    const mouseX = (e.clientX - svgRect.left) * scaleX + viewBox.x;
-    const mouseY = (e.clientY - svgRect.top) * scaleY + viewBox.y;
+    const mouseX = (p.clientX - svgRect.left) * scaleX + viewBox.x;
+    const mouseY = (p.clientY - svgRect.top) * scaleY + viewBox.y;
     const newX = mouseX - dragOffsetX;
     const newY = mouseY - dragOffsetY;
     state.graphNodePositions[dragNodeId] = { x: newX, y: newY };
@@ -1618,43 +2148,102 @@ function onNodeDrag(e) {
     const W = 170, H = 60;
     const g = DOM.graphSvg.querySelector('g');
     if (g) {
+        // ★★★ 拖拽时星星定位必须与 renderGraph 第1750-1766行完全一致 ★★★
+        // 渲染逻辑：从卡片右边缘往左排、text-anchor=end、Y=cy-H/2+14
         g.querySelectorAll(`[data-task-id="${dragNodeId}"]`).forEach(el => {
             if (el.tagName === 'rect') {
                 el.setAttribute('x', newX - W/2);
                 el.setAttribute('y', newY - H/2);
             } else if (el.tagName === 'text') {
                 const isLabel = el.classList.contains('graph-label');
-                const isStar = el.textContent && el.textContent.startsWith('★') && !isLabel;
-                el.setAttribute('x', isStar ? newX + W/2 - 10 : newX - W/2 + 14);
-                el.setAttribute('y', isLabel ? newY - 3 : (isStar ? newY + 5 : newY + 15));
+                const isStar = el.classList.contains('graph-node-star');
+                if (isStar) {
+                    // 与渲染完全一致：从右侧往左、间距8、Y偏移14
+                    const STAR_SPACING = 8;
+                    const starStartX = newX + W/2 - 4;
+                    const starY = newY - H/2 + 14;
+                    // 用 DOM 顺序确定这是第几颗星（渲染时从第0颗到starCount-1）
+                    // 渲染是 for(si=0; si<starCount; si++) → sx = starStartX - si*SPACING
+                    // 所以第0颗在最右边，DOM顺序=渲染顺序
+                    const allStars = Array.from(g.querySelectorAll(`[data-task-id="${dragNodeId}"].graph-node-star`));
+                    const si = allStars.indexOf(el);
+                    const sx = starStartX - si * STAR_SPACING;
+                    el.setAttribute('x', sx);
+                    el.setAttribute('y', starY);
+                    el.setAttribute('transform', 'rotate(15, ' + sx + ', ' + starY + ')');
+                } else if (isLabel) {
+                    el.setAttribute('x', newX - W/2 + 14);
+                    el.setAttribute('y', newY - 3);
+                } else {
+                    el.setAttribute('x', newX - W/2 + 14);
+                    el.setAttribute('y', newY + 15);
+                }
             }
         });
     }
+    updateGraphEdges(dragNodeId);
 }
-function endNodeDrag() {
+function endNodeDrag(e) {
+    if (dragNodeId && dragNodeTouchStart) {
+        const p = getPointer(e);
+        const dx = p.clientX - dragNodeTouchStart.x;
+        const dy = p.clientY - dragNodeTouchStart.y;
+        const dt = Date.now() - dragNodeTouchStart.t;
+        // 轻触（位移<10px、时长<300ms）视为打开详情，因为 touchstart 已 preventDefault，
+        // 浏览器不会触发 click，需要手动兜底。
+        if (Math.sqrt(dx*dx + dy*dy) < 10 && dt < 300) {
+            openTaskDetail(dragNodeTouchStart.id);
+        }
+    }
     if (dragNodeId) {
         // 拖拽结束后标记用户操作，并刷新连线（边的起点/终点坐标需要更新）
         state.graphUserPanned = true;
         renderGraph();  // 只在结束时重绘一次，更新边的位置
     }
     dragNodeId = null;
+    dragNodeTouchStart = null;
     document.removeEventListener('mousemove', onNodeDrag);
+    document.removeEventListener('mouseup', endNodeDrag);
+    document.removeEventListener('touchmove', onNodeDrag);
+    document.removeEventListener('touchend', endNodeDrag);
+}
+function updateGraphEdges(nodeId) {
+    const g = DOM.graphSvg.querySelector('g');
+    if (!g || !nodeId) return;
+    const lm = getLevelMap();
+    g.querySelectorAll('.graph-edge').forEach(path => {
+        const edge = path.dataset.edge;
+        if (!edge) return;
+        const parts = edge.split('-');
+        if (parts.length < 2) return;
+        const pid = parts[0], cid = parts[1];
+        if (pid !== String(nodeId) && cid !== String(nodeId)) return;
+        const parentPos = state.graphNodePositions[pid] || getDefaultNodePosition(state.flatTasks.find(t => t.id == pid), lm);
+        const childPos = state.graphNodePositions[cid] || getDefaultNodePosition(state.flatTasks.find(t => t.id == cid), lm);
+        const px = parentPos.x + 75, py = parentPos.y;
+        const cxp = childPos.x - 75, cyp = childPos.y;
+        const d = `M ${px} ${py} C ${px+45} ${py}, ${cxp-45} ${cyp}, ${cxp} ${cyp}`;
+        path.setAttribute('d', d);
+    });
 }
 function startGraphDrag(e) {
+    const p = getPointer(e);
     // 排除节点上的操作（让节点拖拽优先）
     if(e.target.closest('.graph-node')||e.target.closest('.graph-hit')||e.target.closest('text')||e.target.closest('rect')) return;
     state.isDraggingGraph=true;
-    state.graphDragStart={x:e.clientX,y:e.clientY};
+    state.graphDragStart={x:p.clientX,y:p.clientY};
     e.preventDefault();
 }
 function moveGraphDrag(e) {
     if(!state.isDraggingGraph) return;
-    const dx=e.clientX-state.graphDragStart.x, dy=e.clientY-state.graphDragStart.y;
+    if (isTouchEvent(e)) e.preventDefault();
+    const p = getPointer(e);
+    const dx=p.clientX-state.graphDragStart.x, dy=p.clientY-state.graphDragStart.y;
     const view = state.graphViewBox;
     const scaleFactor = view.width / DOM.graphSvg.clientWidth;
     view.x -= dx * scaleFactor;
     view.y -= dy * scaleFactor;
-    state.graphDragStart={x:e.clientX,y:e.clientY};
+    state.graphDragStart={x:p.clientX,y:p.clientY};
     state.graphUserPanned = true;  // 标记用户手动操作
     DOM.graphSvg.setAttribute('viewBox',`${view.x} ${view.y} ${view.width} ${view.height}`);
 }
@@ -1726,9 +2315,17 @@ function showTasksForDate(dateStr){
     openModal('dateTasksModal');
 }
 
-function renderAchievements(){ if(!state.achievements.length) return; const grid=DOM.achievementsGrid; grid.innerHTML='';
-    state.achievements.forEach(ach=>{ const unlocked=state.unlockedAchievements.some(u=>u.achievement_id===ach.id);
-        const card=document.createElement('div'); card.className=`achievement-card ${unlocked?'':'locked'}`;
+function renderAchievements(){
+    // 防止数据未加载完时渲染导致"先亮后灭"闪烁
+    if(!state.achievements.length || !state.unlockedAchievements) return;
+    const grid=DOM.achievementsGrid; grid.innerHTML='';
+    const unlockedIds = new Set(state.unlockedAchievements.map(u => u.achievement_id));
+    state.achievements.forEach(ach=>{
+        const unlocked = unlockedIds.has(ach.id);
+        // 默认 locked（暗），只有确认解锁才加 unlocked 类（亮）
+        const card=document.createElement('div');
+        card.className='achievement-card' + (unlocked ? ' unlocked' : '');
+        card.classList.add(!unlocked ? 'locked' : '');
         const icon=document.createElement('div'); icon.className='badge-icon'; icon.innerHTML='<i class="fa-solid fa-award"></i>';
         const name=document.createElement('div'); name.className='achievement-name'; name.textContent=ach.name;
         const desc=document.createElement('div'); desc.className='achievement-desc'; desc.textContent=ach.description;
@@ -1745,18 +2342,27 @@ function renderProfileBadges(){ const grid=DOM.profileBadgesGrid; grid.innerHTML
 function renderGiftPacks(){ const grid=DOM.giftPacksGrid; grid.innerHTML='';
     state.giftPacks.forEach(pack=>{ if(pack.purchased) return;
         const card=document.createElement('div'); card.className='gift-pack-card';
-        card.innerHTML=`<div class="gift-pack-name">${escapeHtml(pack.name)}</div><div class="gift-pack-desc">${escapeHtml(pack.description)}</div><div class="gift-pack-cost">${pack.cost_source_stone} 源石</div>`;
+        card.innerHTML=`
+            <div class="gift-pack-name">${escapeHtml(pack.name)}</div>
+            <div class="gift-pack-desc">${escapeHtml(pack.description)}</div>
+            <div class="gift-pack-cost">${pack.cost_source_stone} <span style="font-size:0.85em;opacity:0.7">源石</span></div>`;
         card.addEventListener('click',()=>purchaseGiftPack(pack.id)); grid.appendChild(card);
     });
 }
 
 function renderTransactions(){ const list=DOM.transactionsList; if(!list) return; list.innerHTML='';
     const recent=state.transactions.slice(0,50);
+    // 资源类型中文映射
+    const resNames = {exp:'经验值',source_stone:'源石',lungmen:'龙门币',orundum:'合成玉',sanity:'理智'};
     recent.forEach(tx=>{ const div=document.createElement('div'); div.className='transaction-item';
-        const reason=document.createElement('span'); reason.textContent=tx.reason;
-        const date=document.createElement('span'); date.textContent=formatDate(tx.created_at);
-        const amount=document.createElement('span'); amount.textContent=`${tx.amount>0?'+':''}${tx.amount} ${tx.resource_type}`;
-        div.appendChild(reason); div.appendChild(date); div.appendChild(amount); list.appendChild(div);
+        const reason=document.createElement('span'); reason.className='tx-reason'; reason.textContent=tx.reason;
+        const meta=document.createElement('div'); meta.className='tx-meta';
+        const resType=document.createElement('span'); resType.className='tx-res-type'; resType.textContent=resNames[tx.resource_type]||tx.resource_type;
+        const date=document.createElement('span'); date.className='tx-date'; date.textContent=formatDate(tx.created_at);
+        const amount=document.createElement('span'); amount.className='tx-amount '+(tx.amount>0?'positive':'negative');
+        amount.textContent=(tx.amount>0?'+':'')+tx.amount;
+        meta.appendChild(resType); meta.appendChild(date); meta.appendChild(amount);
+        div.appendChild(reason); div.appendChild(meta); list.appendChild(div);
     });
 }
 
@@ -1779,21 +2385,61 @@ function updateResourceDisplay(){
     if(DOM.profileLungmen) DOM.profileLungmen.textContent = res.lungmen?.current_value || 0;
     if(DOM.profileOrundum) DOM.profileOrundum.textContent = res.orundum?.current_value || 0;
     if(DOM.profileSanity) DOM.profileSanity.textContent = `${res.sanity?.current_value||0}/${res.sanity?.max_value||120}`;
-    if(DOM.profileLevel) DOM.profileLevel.textContent = calculateLevel(res.exp?.current_value||0);
-    if(DOM.profileExpFill) DOM.profileExpFill.style.width = `${(res.exp?.current_value % 100)}%`;
-    if(DOM.profileExpText) DOM.profileExpText.textContent = `${res.exp?.current_value} / 100 EXP`;
+    const expCurrent = res.exp?.current_value || 0;
+    const lp = levelProgress(expCurrent);
+    if(DOM.profileLevel) DOM.profileLevel.textContent = lp.level;
+    if(DOM.profileExpFill) DOM.profileExpFill.style.width = `${(lp.expForLevel ? (lp.expInLevel / lp.expForLevel) * 100 : 0)}%`;
+    if(DOM.profileExpText) DOM.profileExpText.textContent = `${lp.expInLevel} / ${lp.expForLevel} EXP`;
 }
 
 function updateUserInfo() {
     const exp = state.resources.exp?.current_value || 0;
-    const level = calculateLevel(exp);
-    const expInLevel = exp % 100;
-    DOM.userName.textContent = state.settings.username || '博士';
-    DOM.userLevel.textContent = `Lv.${level}`;
-    DOM.userExpFill.style.width = `${expInLevel}%`;
+    const lp = levelProgress(exp);
+    const uname = state.settings.username || '博士';
+    DOM.userName.textContent = uname;
+    const profileUsernameEl = document.getElementById('profileUsername');
+    if (profileUsernameEl) profileUsernameEl.textContent = uname;
+    DOM.userLevel.textContent = `Lv.${lp.level}`;
 }
 
-function calculateLevel(exp){ return Math.floor(exp/100)+1; }
+/* ===== 等级 / 经验曲线（对标明日方舟博士等级） =====
+   采用明日方舟真实「升级所需声望」曲线：分段线性、斜率随等级递增——
+   即凸曲线（导函数本身递增，升级越来越难，但中段平缓、后期陡升）。
+   真实数据点（每级所需经验）：
+     L1 500, L2 800, L3 1240,
+     L4–L34 每级 +80,  L35–L51 每级 +300,
+     L52–L65 每级 +500, L66–L100 每级 +1000,
+     L101–L120 每级 +2000（120 为原上限，之后按 +2000 外推）。
+   SCALE 为整体缩放：默认 0.05。
+     注：Quest-log 是真实任务系统，经验得来远比游戏内刷关稀疏，每点经验更珍贵，
+     所以整体比真实方舟（SCALE≈1）松得多——取 0.05 让升级节奏对低频经验友好。
+     调 SCALE：调大 → 更接近真实方舟（更难/更慢）；调小 → 更易/更快。
+     FLOOR 为单级最低经验下限（避免前期每级都卡成同一个数、毫无区分）。 */
+const AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000];
+const LEVEL_SCALE = 0.05;
+const LEVEL_FLOOR = 30;
+function levelExpForLevel(level){
+    let need;
+    if (level >= 1 && level <= AK_EXP_TABLE.length) {
+        need = AK_EXP_TABLE[level - 1];
+    } else {
+        // 超出原表：从 L120(100000) 起每级 +2000 外推
+        need = 100000 + (level - 120) * 2000;
+    }
+    return Math.max(LEVEL_FLOOR, Math.round(need * LEVEL_SCALE / 10) * 10);
+}
+function levelProgress(exp){
+    let level = 1, total = 0;
+    while (true) {
+        const need = levelExpForLevel(level);
+        if (exp < total + need) {
+            return { level, expInLevel: exp - total, expForLevel: need };
+        }
+        total += need;
+        level++;
+    }
+}
+function calculateLevel(exp){ return levelProgress(exp).level; }
 
 function switchView(view) {
     if (rewardModalTimer) {
@@ -1838,15 +2484,16 @@ function switchView(view) {
 
 function openTaskModal(task=null){
     DOM.taskForm.reset(); DOM.taskFormId.value=''; DOM.taskFormTitle.value=''; DOM.taskFormDesc.value='';
-    setStarRating(1); DOM.taskFormTaskLine.value='side'; DOM.taskFormStatus.value='todo'; DOM.taskFormParent.value='';
+    setStarRating(1); DOM.taskFormTaskLine.value='side'; DOM.taskFormTrack.value='daily'; DOM.taskFormStatus.value='todo'; DOM.taskFormParent.value='';
     DOM.taskFormTarget.value=''; DOM.taskFormCurrent.value='0'; DOM.taskFormPlannedStart.value=''; DOM.taskFormPlannedEnd.value='';
     DOM.taskFormDueDate.value=''; DOM.taskFormPrerequisite.value=''; DOM.taskFormRepeatType.value=''; DOM.taskFormRepeatInterval.value='1';
     DOM.taskFormRewardExp.value='0'; DOM.taskFormRewardLungmen.value='0'; DOM.taskFormRewardStone.value='0'; DOM.taskFormRewardOrundum.value='0';
     DOM.taskFormNotes.value=''; DOM.repeatIntervalGroup.style.display='none'; state.selectedTags=[]; renderTagList();
+    renderFormCategoryOptions(); DOM.taskFormCategory.value='';
     fillParentOptions(); fillPrerequisiteOptions();
     if(task){
         DOM.taskModalTitle.textContent='编辑任务'; DOM.taskFormId.value=task.id; DOM.taskFormTitle.value=task.title||'';
-        DOM.taskFormDesc.value=task.description||''; setStarRating(task.priority||1); DOM.taskFormTaskLine.value=task.task_line||'side';
+        DOM.taskFormDesc.value=task.description||''; setStarRating(task.priority||1); DOM.taskFormTaskLine.value=task.task_line||'side'; DOM.taskFormTrack.value=task.track||'daily';
         DOM.taskFormStatus.value=task.status||'todo'; DOM.taskFormParent.value=task.parent_id||''; DOM.taskFormTarget.value=task.target_value||'';
         DOM.taskFormCurrent.value=task.current_value||'0'; DOM.taskFormPlannedStart.value=task.planned_start?task.planned_start.substring(0,16):'';
         DOM.taskFormPlannedEnd.value=task.planned_end?task.planned_end.substring(0,16):''; DOM.taskFormDueDate.value=task.due_date?task.due_date.substring(0,16):'';
@@ -1855,6 +2502,8 @@ function openTaskModal(task=null){
         DOM.taskFormRewardStone.value=task.reward_source_stone||'0'; DOM.taskFormRewardOrundum.value=task.reward_orundum||'0';
         DOM.taskFormNotes.value=task.notes||''; if(task.repeat_type==='custom') DOM.repeatIntervalGroup.style.display='flex';
         state.selectedTags=(task.tags||[]).map(t=>t.name); renderTagList();
+        renderFormCategoryOptions();
+        const cats=state.settings.categories||[]; const taskCat=(task.tags||[]).map(t=>t.name).find(n=>cats.includes(n))||''; DOM.taskFormCategory.value=taskCat;
         restrictStatusOptions(task.status); DOM.taskFormStatus.disabled=false;
         updateAutoRewardPreview();
     } else {
@@ -1925,7 +2574,7 @@ async function handleTaskFormSubmit(e){
     const currentId=DOM.taskFormId.value?parseInt(DOM.taskFormId.value):null;
     const hasTarget=!!DOM.taskFormTarget.value;
     const data={
-        title, description:DOM.taskFormDesc.value.trim(), priority, task_line:taskLine, status:DOM.taskFormStatus.value,
+        title, description:DOM.taskFormDesc.value.trim(), priority, task_line:taskLine, track:DOM.taskFormTrack.value, status:DOM.taskFormStatus.value,
         parent_id:DOM.taskFormParent.value?parseInt(DOM.taskFormParent.value):null,
         target_value:hasTarget?parseFloat(DOM.taskFormTarget.value):null,
         current_value:DOM.taskFormCurrent.value?parseFloat(DOM.taskFormCurrent.value):0,
@@ -1939,7 +2588,8 @@ async function handleTaskFormSubmit(e){
         reward_lungmen:parseFloat(DOM.taskFormRewardLungmen.value)||0,
         reward_source_stone:parseFloat(DOM.taskFormRewardStone.value)||0,
         reward_orundum:parseFloat(DOM.taskFormRewardOrundum.value)||0,
-        notes:DOM.taskFormNotes.value.trim(), tags:state.selectedTags,
+        notes:DOM.taskFormNotes.value.trim(),
+        tags:(function(){ const c=DOM.taskFormCategory.value; const t=state.selectedTags.slice(); if(c && !t.includes(c)) t.push(c); return t; })(),
     };
     const id=DOM.taskFormId.value;
     const result = id ? await apiPut(`/tasks/${id}`,data) : await apiPost('/tasks',data);
@@ -1954,6 +2604,162 @@ async function handleTaskFormSubmit(e){
 
 async function handleDeleteTask(id){ await apiDelete(`/tasks/${id}`); await loadTasks(); }
 async function handleArchive(id){ await apiPost(`/tasks/${id}/archive`); await loadTasks(); }
+
+/* =========================================================
+   批量选择模式：批量 → 点卡片勾选（父任务自动带全部子任务）
+   → 底部操作栏全选/归档/删除 → 完成退出。无需改后端：
+   循环调用现有单任务归档/删除接口。
+   ========================================================= */
+function initBatchSelection(){
+    const btn = document.getElementById('batchSelectBtn');
+    if (btn) btn.addEventListener('click', () => toggleSelectionMode());
+}
+
+function toggleSelectionMode(force){
+    const enter = (typeof force === 'boolean') ? force : !state.selectionMode;
+    if (enter === state.selectionMode && typeof force !== 'boolean') return;
+    state.selectionMode = enter;
+    if (!enter) state.selectedIds.clear();
+    document.body.classList.toggle('selection-mode', enter);
+    const btn = document.getElementById('batchSelectBtn');
+    if (btn) btn.classList.toggle('active-gold', enter);
+    applySelectionModeToDOM(enter);  // 不整表重渲染，子任务不动
+    updateBatchToolbar();
+}
+
+/* 进入/退出选择模式时只改 DOM，不 renderTasks()，避免列表闪烁、子任务跳动 */
+function applySelectionModeToDOM(enter){
+    const cards = document.querySelectorAll('.task-card');
+    if (!enter) {
+        cards.forEach(card => {
+            card.classList.remove('selecting', 'selected');
+            card.draggable = true;  // 后续按任务状态重算
+            const chk = card.querySelector('.select-checkbox');
+            if (chk) chk.remove();
+        });
+        // 恢复 draggable：被阻塞/已完成的任务保持 false
+        cards.forEach(card => {
+            const taskId = parseInt(card.dataset.taskId, 10);
+            const task = state.flatTasks.find(t => t.id === taskId);
+            if (!task) return;
+            card.draggable = !isBlocked(task) && task.status !== 'done';
+        });
+        return;
+    }
+    cards.forEach(card => {
+        const taskId = parseInt(card.dataset.taskId, 10);
+        const selected = state.selectedIds.has(taskId);
+        card.classList.add('selecting');
+        card.draggable = false;
+        if (selected) card.classList.add('selected');
+        if (card.querySelector('.select-checkbox')) return;
+        const chk = document.createElement('div');
+        chk.className = 'select-checkbox' + (selected ? ' checked' : '');
+        chk.innerHTML = '<i class="fa-solid fa-check"></i>';
+        const indent = card.querySelector('.task-indent');
+        if (indent) card.insertBefore(chk, indent);
+        else card.appendChild(chk);
+    });
+}
+
+function ensureBatchToolbar(){
+    let bar = document.getElementById('batchToolbar');
+    if (bar) return bar;
+    bar = document.createElement('div');
+    bar.id = 'batchToolbar';
+    bar.className = 'batch-toolbar';
+    bar.innerHTML =
+        '<button type="button" class="batch-btn" id="batchSelectAllBtn"><i class="fa-regular fa-square-check"></i><span>全选</span></button>' +
+        '<div class="batch-count"><span id="batchCountNum">0</span> 项</div>' +
+        '<button type="button" class="batch-btn" id="batchArchiveBtn" disabled><i class="fa-solid fa-box-archive"></i><span>归档</span></button>' +
+        '<button type="button" class="batch-btn danger" id="batchDeleteBtn" disabled><i class="fa-solid fa-trash-can"></i><span>删除</span></button>' +
+        '<button type="button" class="batch-btn primary" id="batchDoneBtn"><i class="fa-solid fa-check"></i><span>完成</span></button>';
+    document.body.appendChild(bar);
+    bar.querySelector('#batchSelectAllBtn').addEventListener('click', batchToggleSelectAll);
+    bar.querySelector('#batchArchiveBtn').addEventListener('click', batchArchive);
+    bar.querySelector('#batchDeleteBtn').addEventListener('click', batchDelete);
+    bar.querySelector('#batchDoneBtn').addEventListener('click', () => toggleSelectionMode(false));
+    return bar;
+}
+
+function updateBatchToolbar(){
+    const bar = ensureBatchToolbar();
+    const count = state.selectedIds.size;
+    bar.classList.toggle('visible', state.selectionMode);
+    bar.querySelector('#batchCountNum').textContent = count;
+    const dis = count === 0;
+    bar.querySelector('#batchArchiveBtn').disabled = dis;
+    bar.querySelector('#batchDeleteBtn').disabled = dis;
+    const visible = [...state.visibleIds];
+    const allSel = state.selectionMode && visible.length > 0 && visible.every(id => state.selectedIds.has(id));
+    bar.querySelector('#batchSelectAllBtn').classList.toggle('all-selected', allSel);
+    bar.querySelector('#batchSelectAllBtn').querySelector('span').textContent = allSel ? '取消' : '全选';
+}
+
+/* 收集任务及其全部子孙 id：选中父任务自动勾选所有子任务 */
+function collectTaskBranchIds(id){
+    const ids = [id];
+    const walk = (pid) => {
+        state.flatTasks.forEach(t => { if (t.parent_id === pid) { ids.push(t.id); walk(t.id); } });
+    };
+    walk(id);
+    return ids;
+}
+
+function toggleSelectTask(task){
+    const ids = collectTaskBranchIds(task.id);
+    const deselect = state.selectedIds.has(task.id);
+    ids.forEach(i => deselect ? state.selectedIds.delete(i) : state.selectedIds.add(i));
+    // 只改已渲染卡片的样式，不整列表重渲染，保证操作流畅
+    ids.forEach(i => {
+        const card = document.querySelector(`.task-card[data-task-id="${i}"]`);
+        if (card) {
+            card.classList.toggle('selected', !deselect);
+            const chk = card.querySelector('.select-checkbox');
+            if (chk) chk.classList.toggle('checked', !deselect);
+        }
+    });
+    updateBatchToolbar();
+}
+
+function batchToggleSelectAll(){
+    const visible = [...state.visibleIds];
+    const allSel = visible.length > 0 && visible.every(id => state.selectedIds.has(id));
+    if (allSel) {
+        state.selectedIds.clear();
+    } else {
+        visible.forEach(id => collectTaskBranchIds(id).forEach(i => state.selectedIds.add(i)));
+    }
+    // 不整表重渲染：只同步已渲染卡片的选中态与勾选框，子任务 DOM 完全不动
+    document.querySelectorAll('.task-card').forEach(card => {
+        const taskId = parseInt(card.dataset.taskId, 10);
+        const sel = state.selectedIds.has(taskId);
+        card.classList.toggle('selected', sel);
+        const chk = card.querySelector('.select-checkbox');
+        if (chk) chk.classList.toggle('checked', sel);
+    });
+    updateBatchToolbar();
+}
+
+async function batchArchive(){
+    const ids = [...state.selectedIds];
+    if (!ids.length) return;
+    for (const id of ids) await apiPost(`/tasks/${id}/archive`);
+    showToast(`已归档 ${ids.length} 个任务`);
+    state.selectedIds.clear();
+    await loadTasks();
+}
+
+function batchDelete(){
+    const ids = [...state.selectedIds];
+    if (!ids.length) return;
+    showConfirm(`确定删除选中的 ${ids.length} 个任务吗？子任务会一并删除（可在回收站恢复）。`, async () => {
+        for (const id of ids) await apiDelete(`/tasks/${id}`);
+        showToast(`已删除 ${ids.length} 个任务`);
+        state.selectedIds.clear();
+        await loadTasks();
+    });
+}
 async function handleUnarchive(id){ await apiPost(`/tasks/${id}/unarchive`); await loadTasks(); }
 async function handleRestoreTask(id){ await apiPost(`/tasks/${id}/restore`); await loadTasks(); }
 
@@ -1983,9 +2789,12 @@ async function completeTaskAndHandleReward(taskId) {
         }
     }
 
-    await loadTasks();
-    await loadResources();
-    await loadRealityRewards();
+    // 并行加载减少移动端延迟；完成后恢复滚动位置，避免"跳回列表顶部"
+    const prevScroll = window.scrollY || document.documentElement.scrollTop || 0;
+    const prevListScroll = DOM.taskListContainer ? DOM.taskListContainer.scrollTop : 0;
+    await Promise.all([loadTasks(), loadResources(), loadRealityRewards()]);
+    window.scrollTo(0, prevScroll);
+    if (DOM.taskListContainer) DOM.taskListContainer.scrollTop = prevListScroll;
 
     const updatedTask = state.flatTasks.find(t => t.id === taskId);
     if (updatedTask && updatedTask.status === 'done') {
@@ -2319,7 +3128,7 @@ function collapseTrackingPanel(){
     DOM.mainContent.classList.remove('panel-expanded');
     DOM.trackingPanel.style.width='';
     if(window.innerWidth > 768){
-        DOM.mainContent.style.marginLeft='56px';
+        DOM.mainContent.style.marginLeft='64px';
         DOM.trackingExpanded.style.transform = '';
     } else {
         DOM.mainContent.style.marginLeft='0';
@@ -2342,17 +3151,15 @@ function updateTrackingTimer(){ if(state.trackingTaskId&&state.trackingStartTime
 
 async function openRewardModal(taskId){
     rewardModalOpenTaskId = taskId;
+    const titleEl = document.querySelector('#rewardModal .modal-title');
+    if(titleEl) titleEl.textContent = '任务奖励';
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
     // 防御性拦截：已领取的任务不再打开弹窗
     if(task.reward_claimed){ showToast('奖励已领取'); rewardModalOpenTaskId=null; return; }
     DOM.rewardDetails.innerHTML='';
-    const rewardSVGs = {
-        exp: '<svg viewBox="0 0 24 24" width="36" height="36"><rect x="3" y="7" width="18" height="12" rx="2.5" fill="#1a3a5c" stroke="#6AB0E8" stroke-width="1.2"/><text x="12" y="16.2" text-anchor="middle" font-size="8.5" font-weight="800" fill="#6AB0E8" letter-spacing="0.5">EXP</text></svg>',
-        lungmen: '<svg viewBox="0 0 24 24" width="36" height="36"><rect x="4" y="10" width="13" height="8" rx="1.2" fill="#154C8A"/><rect x="6" y="6.5" width="13" height="8" rx="1.2" fill="#1E6BC4"/><rect x="8" y="3" width="13" height="8" rx="1.2" fill="#2989D9"/><text x="14.2" y="10" text-anchor="middle" font-size="5.5" font-weight="700" fill="#E8F4FF">龙</text></svg>',
-        source_stone: '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="12,2 20,12 12,21.5 4,12" fill="#FFD700"/><polygon points="12,2 20,12 12,12 4,12" fill="#FFEC8B"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#B8860B"/></svg>',
-        orundum: '<svg viewBox="0 0 24 24" width="36" height="36"><polygon points="12,2 20,12 12,21.5 4,12" fill="#D42027"/><polygon points="12,2 20,12 12,12 4,12" fill="#FF6B71"/><polygon points="12,12 20,12 12,21.5 4,21.5" fill="#6B0F1A"/></svg>'
-    };
-    const rewards=[ {name:'经验值',value:task.reward_exp||0,svg:rewardSVGs.exp,color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,svg:rewardSVGs.lungmen,color:'#2989D9'}, {name:'源石',value:task.reward_source_stone||0,svg:rewardSVGs.source_stone,color:'#FFD700'}, {name:'合成玉',value:task.reward_orundum||0,svg:rewardSVGs.orundum,color:'#D42027'} ];
+    // 使用共享 RESOURCE_SVGS（唯一真实来源）
+    // 未知掉落类型的宝箱图标（定义见文件顶部模块级 DROP_CHEST_SVG）
+    const rewards=[ {name:'经验值',value:task.reward_exp||0,key:'exp',svg:RESOURCE_SVGS.exp,color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,key:'lungmen',svg:RESOURCE_SVGS.lungmen,color:'#2989D9'}, {name:'源石',value:task.reward_source_stone||0,key:'source_stone',svg:RESOURCE_SVGS.source_stone,color:'#FFD700'}, {name:'合成玉',value:task.reward_orundum||0,key:'orundum',svg:RESOURCE_SVGS.orundum,color:'#D42027'} ];
     let hasReward=false;
     // 圆形资源卡片网格
     const grid = document.createElement('div'); grid.className='reward-grid';
@@ -2365,7 +3172,7 @@ async function openRewardModal(taskId){
         ring.style.setProperty('--ring-color', r.color);
         // 内圈（放图标）
         const iconWrap = document.createElement('div'); iconWrap.className='reward-icon-wrap';
-        iconWrap.innerHTML = r.svg;
+        iconWrap.innerHTML = r.svg; tryUpgradeResIcon(iconWrap, r.key);
         // 数量角标（右下角，游戏风格）
         const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `${r.value}`;
         circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
@@ -2384,13 +3191,40 @@ async function openRewardModal(taskId){
             const dropGrid = document.createElement('div'); dropGrid.className='reward-grid reward-grid-small';
             drops.forEach(drop=>{ const card=document.createElement('div'); card.className='reward-circle-card drop-card';
                 const circle = document.createElement('div'); circle.className='reward-circle';
-                const ring = document.createElement('div'); ring.className='reward-ring'; ring.style.setProperty('--ring-color', 'var(--highlight-gold-1)');
+                const ring = document.createElement('div'); ring.className='reward-ring';
                 const iconWrap = document.createElement('div'); iconWrap.className='reward-icon-wrap';
-                iconWrap.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="3" width="18" height="18" rx="4" fill="none" stroke="rgba(232,184,24,0.6)" stroke-width="1.5" stroke-dasharray="3 2"/><path d="M12 7v10M7 12h10" stroke="rgba(232,184,24,0.8)" stroke-width="1.5"/></svg>';
-                let dName='?', dVal=1, dColor='var(--highlight-gold-1)';
-                if(typeof drop==='string'){ const parts=drop.split(':'); if(parts.length>=2){ const rt=parts[0]; dVal=parseInt(parts[1])||1;
-                    const rm={'source_stone':['源石','#FFD700'],'orundum':['合成玉','#D42027'],'lungmen':['龙门币','#2989D9'],'exp':['经验值','#6AB0E8']}; const entry=rm[rt]||[rt,dColor]; dName=entry[0]; dColor=entry[1]; } else dName=drop; }
-                else if(drop.name&&drop.quantity){ dName=drop.name; dVal=drop.quantity; }
+                let dName='?', dVal=1, dColor='var(--highlight-gold-1)', dKey=null;
+                // 基础货币/经验：固定配色
+                const rb={
+                    'source_stone':['源石','#FFD700','source_stone'],
+                    'orundum':['合成玉','#D42027','orundum'],
+                    'lungmen':['龙门币','#2989D9','lungmen'],
+                    'exp':['经验值','#6AB0E8','exp']
+                };
+                // 仓库素材中文名与配色统一取自官方目录（配色按稀有度，与图标底板一致）
+                const whRarityColor=['#9E9E9E','#8BC34A','#29B6F6','#AB47BC','#FFCA28','#FF7043'];
+                const resolveDrop=(rt)=>{
+                    if(rb[rt]) return rb[rt];
+                    const keyCandidates = [rt, rt.startsWith('mat_') ? rt.slice(4) : `mat_${rt}`];
+                    for (const k of keyCandidates) {
+                        const it=WAREHOUSE_CATALOG.find(x=>x.key===k);
+                        if(it) return [it.name, whRarityColor[it.r]||'#FFCA28', it.key];
+                    }
+                    return null;
+                };
+                if(typeof drop==='string'){ const parts=drop.split(':'); if(parts.length>=2){ const rt=parts[0]; dVal=parseInt(parts[1])||1; const entry=resolveDrop(rt); if(entry){ dName=entry[0]; dColor=entry[1]; dKey=entry[2]; } else dName=rt; } else dName=drop; }
+                else if(drop.name&&drop.quantity){ dName=drop.name; dVal=drop.quantity; const e=resolveDrop(drop.key||drop.name); if(e){ dColor=e[1]; dKey=e[2]; } }
+                ring.style.setProperty('--ring-color', dColor);
+                if(dKey && dKey.startsWith('mat_')){
+                    // 仓库素材直接用合成好的官方图标
+                    iconWrap.innerHTML='';
+                    const im=document.createElement('img');
+                    im.src=`static/icons/${dKey}.png`; im.alt=dName;
+                    im.style.cssText='width:100%;height:100%;object-fit:contain;';
+                    im.addEventListener('error',()=>{ iconWrap.innerHTML=DROP_CHEST_SVG; });
+                    iconWrap.appendChild(im);
+                } else if(dKey){ iconWrap.innerHTML = RESOURCE_SVGS[dKey]; tryUpgradeResIcon(iconWrap, dKey); }
+                else { iconWrap.innerHTML = DROP_CHEST_SVG; }
                 const num = document.createElement('div'); num.className='reward-num-badge'; num.textContent = `x${dVal}`;
                 circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
                 card.appendChild(circle);
@@ -2441,7 +3275,7 @@ async function openRewardModal(taskId){
         requestAnimationFrame(() => {
             const modalEl = document.querySelector('#rewardModal .modal');
             if(modalEl){ const r = modalEl.getBoundingClientRect();
-                checkWrap.style.cssText = 'position:fixed;top:'+(r.bottom+8)+'px;left:'+(r.left+r.width/2-26)+'px;z-index:100;';
+                checkWrap.style.cssText = 'position:fixed;top:'+(r.bottom+30)+'px;left:'+(r.left+r.width/2-26)+'px;z-index:100;';
             }
         });
     }
@@ -2470,110 +3304,105 @@ async function claimReward(){
 }
 
 function spawnParticlesGatherThenFly(sourceElement) {
+    // 保留旧函数名兼容（claimReward 还在调用），内部委托给新动画
+    playRewardFlyEffect(sourceElement, null);
+}
+
+/**
+ * 方舟风格奖励动画：
+ * 1. 源元素金色脉冲
+ * 2. 浮动奖励数字（+exp / +源石 等）向上飘并淡出
+ * 3. 少量精致粒子（星形/圆形）从源飘向资源栏
+ * 4. 资源栏图标短暂放大闪烁
+ */
+function playRewardFlyEffect(sourceElement, resultData) {
     const container = DOM.particleContainer;
+    if (!container) return;
+
     const resourceBar = document.querySelector('.resource-display');
-    const barRect = resourceBar ? resourceBar.getBoundingClientRect() : { left: window.innerWidth - 100, top: 0, width: 100 };
-    const startRect = sourceElement ? sourceElement.getBoundingClientRect() : { left: window.innerWidth / 2 - 50, top: window.innerHeight / 2 - 50, width: 100, height: 100 };
+    const barRect = resourceBar ? resourceBar.getBoundingClientRect() : { left: window.innerWidth - 120, top: 8, width: 100 };
+    const startRect = sourceElement ? sourceElement.getBoundingClientRect() : { left: window.innerWidth / 2 - 60, top: window.innerHeight / 2 - 60, width: 120, height: 120 };
+    const cx = startRect.left + startRect.width / 2;
+    const cy = startRect.top + startRect.height / 2;
 
-    const colors = ['#E8B818', '#F8D840', '#6AB0E8', '#C87830', '#A080C8', '#FAE060', '#60C890'];
-    const shapes = ['circle', 'diamond', 'star'];
-
-    // 第一阶段：聚集 (30个粒子)
-    for (let i = 0; i < 30; i++) {
-        const particle = document.createElement('div');
-        const size = 4 + Math.random() * 8;
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const shape = shapes[Math.floor(Math.random() * shapes.length)];
-
-        particle.style.position = 'absolute';
-        particle.style.width = size + 'px';
-        particle.style.height = size + 'px';
-        particle.style.background = color;
-        particle.style.boxShadow = `0 0 12px ${color}`;
-        particle.style.borderRadius = shape === 'circle' ? '50%' : (shape === 'diamond' ? '2px' : '50%');
-        if (shape === 'diamond') {
-            particle.style.transform = 'rotate(45deg)';
-        }
-        if (shape === 'star') {
-            particle.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
-        }
-
-        const startX = startRect.left + Math.random() * startRect.width;
-        const startY = startRect.top + Math.random() * startRect.height;
-        particle.style.left = startX + 'px';
-        particle.style.top = startY + 'px';
-        particle.style.transition = 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-        particle.style.opacity = '1';
-        particle.style.zIndex = '2500';
-        container.appendChild(particle);
-
-        requestAnimationFrame(() => {
-            const cx = window.innerWidth / 2 + (Math.random() - 0.5) * 40;
-            const cy = window.innerHeight / 2 + (Math.random() - 0.5) * 40;
-            particle.style.transform = `translate(${cx - startX}px, ${cy - startY}px) scale(0.6)`;
-            particle.style.opacity = '0.9';
-        });
+    // ── 阶段1：源元素金色脉冲 ──
+    if (sourceElement) {
+        sourceElement.style.transition = 'box-shadow 0.15s ease';
+        sourceElement.style.boxShadow = '0 0 30px rgba(232,184,24,0.7), 0 0 60px rgba(232,184,24,0.3)';
+        setTimeout(() => { sourceElement.style.boxShadow = ''; }, 400);
     }
 
-    // 第二阶段：飞向资源栏 (50个粒子)
-    setTimeout(() => {
-        container.querySelectorAll('div').forEach(el => {
-            if (el.style.position === 'absolute' && el.style.opacity !== '0') {
-                el.remove();
-            }
+    // ── 阶段2：浮动奖励文字 ──
+    const floatTexts = ['✦', '★', '+', '✧'];
+    const textColors = ['#E8B818', '#F8D840', '#6AB0E8', '#60C890', '#C87830'];
+    for (let i = 0; i < 8; i++) {
+        const el = document.createElement('div');
+        el.textContent = floatTexts[i % floatTexts.length];
+        el.style.cssText = `
+            position:fixed; z-index:3000; pointer-events:none;
+            left:${cx + (Math.random() - 0.5) * 60}px; top:${cy + (Math.random() - 0.5) * 30}px;
+            font-size:${14 + Math.random() * 12}px; color:${textColors[i % textColors.length]};
+            font-weight:bold; text-shadow:0 0 8px currentColor, 0 2px 4px rgba(0,0,0,0.5);
+            opacity:1; transition:all 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+        `;
+        container.appendChild(el);
+        requestAnimationFrame(() => {
+            el.style.transform = `translateY(-${50 + Math.random() * 40}px) scale(${1.2 + Math.random() * 0.5})`;
+            el.style.opacity = '0';
         });
+        setTimeout(() => el.remove(), 900);
+    }
 
-        for (let i = 0; i < 50; i++) {
-            const particle = document.createElement('div');
-            const size = 3 + Math.random() * 6;
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const shape = shapes[Math.floor(Math.random() * shapes.length)];
+    // ── 阶段3：精致粒子飘向资源栏（少量，15个足够）──
+    const pColors = ['#E8B818', '#F8D840', '#6AB0E8', '#FAE060', '#60C890'];
+    const particleCount = 15;
+    for (let i = 0; i < particleCount; i++) {
+        const p = document.createElement('div');
+        const size = 4 + Math.random() * 6;
+        const color = pColors[i % pColors.length];
+        const isStar = Math.random() > 0.5;
 
-            particle.style.position = 'absolute';
-            particle.style.width = size + 'px';
-            particle.style.height = size + 'px';
-            particle.style.background = color;
-            particle.style.boxShadow = `0 0 12px ${color}`;
-            particle.style.borderRadius = shape === 'circle' ? '50%' : (shape === 'diamond' ? '2px' : '50%');
-            if (shape === 'diamond') {
-                particle.style.transform = 'rotate(45deg)';
-            }
-            if (shape === 'star') {
-                particle.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
-            }
+        p.style.cssText = `
+            position:fixed; z-index:2500; pointer-events:none;
+            width:${size}px; height:${size}px;
+            background:${color};
+            box-shadow:0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}40;
+            border-radius:${isStar ? '0' : '50%'};
+            ${isStar ? 'clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)' : ''}
+            left:${cx + (Math.random()-0.5)*30}px; top:${cy + (Math.random()-0.5)*30}px;
+            opacity:0.9;
+            transition:all 0.7s cubic-bezier(0.25,0.46,0.45,0.94);
+        `;
+        container.appendChild(p);
 
-            const startX = window.innerWidth / 2 + (Math.random() - 0.5) * 60;
-            const startY = window.innerHeight / 2 + (Math.random() - 0.5) * 60;
-            particle.style.left = startX + 'px';
-            particle.style.top = startY + 'px';
-            particle.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            particle.style.opacity = '1';
-            particle.style.zIndex = '2500';
-            container.appendChild(particle);
+        requestAnimationFrame(() => {
+            const tx = barRect.left + Math.random() * barRect.width;
+            const ty = barRect.top + 10 + Math.random() * 16;
+            p.style.transform = `translate(${tx - parseFloat(p.style.left)}px, ${ty - parseFloat(p.style.top)}px) scale(0.25) rotate(${Math.random()*360}deg)`;
+            p.style.opacity = '0';
+        });
+        setTimeout(() => p.remove(), 800);
+    }
 
-            requestAnimationFrame(() => {
-                const targetX = barRect.left + Math.random() * barRect.width;
-                const targetY = barRect.top + Math.random() * 20;
-                particle.style.transform = `translate(${targetX - startX}px, ${targetY - startY}px) scale(0.3)`;
-                particle.style.opacity = '0';
-            });
-        }
-
-        setTimeout(() => {
-            container.querySelectorAll('div').forEach(el => {
-                if (el.style.position === 'absolute') {
-                    el.remove();
-                }
-            });
-        }, 800);
-    }, 500);
+    // ── 阶段4：资源栏图标闪烁 ──
+    setTimeout(() => {
+        document.querySelectorAll('.resource-icon, .res-icon').forEach(icon => {
+            icon.style.transition = 'transform 0.2s ease, filter 0.2s ease';
+            icon.style.transform = 'scale(1.25)';
+            icon.style.filter = 'drop-shadow(0 0 8px rgba(232,184,24,0.8)) brightness(1.3)';
+            setTimeout(() => { icon.style.transform = ''; icon.style.filter = ''; }, 250);
+        });
+    }, 350);
 }
 
 async function handleClaimAll(){
     const result=await apiPost('/tasks/claim-all');
     if(result){
         await loadTasks(); await loadResources(); await loadTransactions(); await loadRealityRewards();
-        setTimeout(() => spawnParticlesGatherThenFly(DOM.claimAllBtn), 300);
+        // 只在确实领到了奖励时才播放动画
+        if(result.claimed_count > 0 || result.total_reward_value > 0 || (result.claimed && result.claimed.length > 0)){
+            setTimeout(() => playRewardFlyEffect(DOM.claimAllBtn, result), 300);
+        }
     }
 }
 
@@ -2592,6 +3421,7 @@ async function handleImport(){
             if(task.priority!==undefined&&(task.priority<1||task.priority>6)) throw new Error(`优先级必须在1-6之间 (${path})`);
             const validStatus=['todo','in_progress','paused','done','cancelled']; if(task.status&&!validStatus.includes(task.status)) throw new Error(`状态枚举不合法 (${path})`);
             const validTaskLines=['main','side']; if(task.task_line&&!validTaskLines.includes(task.task_line)) throw new Error(`任务线枚举不合法 (${path})`);
+            const validTracks=['daily','campaign']; if(task.track&&!validTracks.includes(task.track)) throw new Error(`任务分桶枚举不合法 (${path})`);
             const validRepeatTypes=['daily','weekly','monthly','custom']; if(task.repeat_type&&!validRepeatTypes.includes(task.repeat_type)) throw new Error(`重复类型枚举不合法 (${path})`);
             const validProgressModes=['auto','manual','count']; if(task.progress_mode&&!validProgressModes.includes(task.progress_mode)) throw new Error(`进度模式枚举不合法 (${path})`);
             const hasTarget = task.target_value !== undefined && task.target_value !== null;
@@ -2860,6 +3690,7 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
         container.appendChild(switchWrapper);
         DOM.settingsList.appendChild(container);
     });
+    if (DOM.pomodoroSound) DOM.pomodoroSound.value = state.settings.pomodoro_sound || 'on';
     openModal('settingsModal'); }
 
 function applyTheme() {
@@ -2992,6 +3823,24 @@ async function applyWallpaper() {
 
             // 加载失败：视频保持透明，预览图背景仍在，不空白
             video.addEventListener('error', conceal);
+
+            // 手机端看门狗：壁纸「经常不动、偶尔会动」的常见原因是——
+            //   1) 自动播放被系统拒绝（省电模式/首次未交互）；
+            //   2) 弱网/内网穿透下缓冲卡住；
+            //   3) 首次访问触发服务端转码，媒体请求长时间无响应（readyState 一直为 0）。
+            // 这里周期性补播：源没准备好就 reload，最多重试 8 次后停手省电。
+            let wpRetries = 0;
+            const wpWatchdog = setInterval(() => {
+                if (revealed) { clearInterval(wpWatchdog); return; }
+                if (document.hidden) return;                 // 后台不打扰
+                if (wpRetries++ > 8) { clearInterval(wpWatchdog); return; }
+                if (video.readyState === 0) video.load();    // 源没就绪 -> 重新拉取
+                startPlay();
+            }, 4000);
+            // 切回前台时补播（手机切走再回来最常见的"不动了"）
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden && video.paused) startPlay();
+            });
 
             window._wallpaperVideo = video;
         }
@@ -3181,7 +4030,68 @@ async function openTaskDetail(taskId){
     openModal('taskDetailModal');
 }
 
-async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); showToast('购买成功'); } }
+// 礼包领取后弹出与「领取奖励」同款的奖励结算弹窗（物品已在后端发放完毕，此处仅展示）
+function showPackRewardModal(granted){
+    if(!granted || !granted.length) return;
+    const titleEl = document.querySelector('#rewardModal .modal-title');
+    if(titleEl) titleEl.textContent = '礼包奖励';
+    DOM.rewardDetails.innerHTML = '';
+    DOM.randomDropSection.style.display = 'none';
+    // 货币固定配色；mat_ 素材从官方目录查中文名与稀有度配色（与领取奖励弹窗一致）
+    const rb = {
+        'source_stone': ['源石', '#FFD700', 'source_stone'],
+        'orundum': ['合成玉', '#D42027', 'orundum'],
+        'lungmen': ['龙门币', '#2989D9', 'lungmen'],
+        'exp': ['经验值', '#6AB0E8', 'exp'],
+        'sanity': ['理智', '#60C890', 'sanity']
+    };
+    const whRarityColor = ['#9E9E9E','#8BC34A','#29B6F6','#AB47BC','#FFCA28','#FF7043'];
+    const resolve = (rt) => {
+        if(rb[rt]) return rb[rt];
+        const keyCandidates = [rt, rt.startsWith('mat_') ? rt.slice(4) : `mat_${rt}`];
+        for (const k of keyCandidates) {
+            const it = WAREHOUSE_CATALOG.find(x => x.key === k);
+            if(it) return [it.name, whRarityColor[it.r] || '#FFCA28', it.key];
+        }
+        return null;
+    };
+    const grid = document.createElement('div'); grid.className = 'reward-grid';
+    granted.forEach(g => {
+        const key = g.key, val = Math.floor(Number(g.amount) || 0);
+        if(val <= 0) return;
+        const entry = resolve(key);
+        let name = key, color = 'var(--highlight-gold-1)', ckey = null;
+        if(entry){ name = entry[0]; color = entry[1]; ckey = entry[2]; }
+        const card = document.createElement('div'); card.className = 'reward-circle-card';
+        const circle = document.createElement('div'); circle.className = 'reward-circle';
+        const ring = document.createElement('div'); ring.className = 'reward-ring';
+        ring.style.setProperty('--ring-color', color);
+        const iconWrap = document.createElement('div'); iconWrap.className = 'reward-icon-wrap';
+        if(ckey && ckey.startsWith('mat_')){
+            // 仓库素材直接用合成好的官方图标
+            const im = document.createElement('img');
+            im.src = `static/icons/${ckey}.png`; im.alt = name;
+            im.style.cssText = 'width:100%;height:100%;object-fit:contain;';
+            im.addEventListener('error', () => { iconWrap.innerHTML = DROP_CHEST_SVG; });
+            iconWrap.appendChild(im);
+        } else if(ckey){ iconWrap.innerHTML = RESOURCE_SVGS[ckey]; tryUpgradeResIcon(iconWrap, ckey); }
+        else { iconWrap.innerHTML = DROP_CHEST_SVG; }
+        const num = document.createElement('div'); num.className = 'reward-num-badge'; num.textContent = `x${val}`;
+        circle.appendChild(ring); circle.appendChild(iconWrap); circle.appendChild(num);
+        card.appendChild(circle);
+        const label = document.createElement('div'); label.className = 'reward-label'; label.textContent = name;
+        card.appendChild(label);
+        grid.appendChild(card);
+    });
+    if(grid.childElementCount === 0) return;
+    DOM.rewardDetails.appendChild(grid);
+    // 已发放：隐藏领取按钮，清理可能残留的外部对勾
+    DOM.rewardClaimBtn.style.display = 'none';
+    const oldCheck = document.querySelector('.reward-external-check'); if(oldCheck) oldCheck.remove();
+    openModal('rewardModal');
+}
+
+async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); const rewards=result.rewards; if(rewards&&rewards.length){ showPackRewardModal(rewards); } else showToast('领取成功'); } }
 
 function updateExchangeCost(){ const target=DOM.exchangeTarget.value; const amount=parseFloat(DOM.exchangeAmount.value)||0; let cost=0;
     if(target==='source_stone') cost=amount*EXCHANGE_RATES.source_stone; else if(target==='orundum') cost=amount*EXCHANGE_RATES.orundum;
@@ -3207,6 +4117,141 @@ function closeAllModals(){
     const extCheck = document.querySelector('.reward-external-check'); if(extCheck) extCheck.remove();
 }
 
+/* ===== 仓库（素材 + 基础货币） ===== */
+// 素材图鉴：按稀有度分四档；仓库展示全部素材及已收集数量
+/* =========================================================
+   仓库素材目录
+   由 build_warehouse.py 从官方 gamedata/excel/item_table.json 生成，
+   含官方中文名 / 分类 / 稀有度(0灰 1绿 2蓝 3紫 4金 5传说)。
+   等级不写文字 —— 玩家看图标背景色即可分辨。
+   ========================================================= */
+let WAREHOUSE_CATALOG = [];
+let WAREHOUSE_CATALOG_LOADED = false;
+
+// 分类顺序（明日方舟仓库惯例）：养成消耗在前，信物最后
+const WH_CAT_ORDER = ['作战记录', '技巧概要', '芯片', '模组', '素材', '信物'];
+
+async function loadWarehouseCatalog(){
+    if (WAREHOUSE_CATALOG_LOADED) return WAREHOUSE_CATALOG;
+    try {
+        const r = await fetch('static/warehouse_catalog.json', { cache: 'no-cache' });
+        const d = await r.json();
+        WAREHOUSE_CATALOG = (d && d.items) ? d.items : [];
+    } catch(e){
+        console.error('[warehouse] 目录加载失败', e);
+        WAREHOUSE_CATALOG = [];
+    }
+    WAREHOUSE_CATALOG_LOADED = true;
+    return WAREHOUSE_CATALOG;
+}
+
+function formatWhNum(n){ n = Number(n) || 0; return Math.floor(n).toLocaleString('en-US'); }
+
+async function openWarehouse(){
+    try {
+        await loadWarehouseCatalog();
+        const data = await apiGet('/api/inventory');
+        renderWarehouse(data && data.data ? data.data : {currencies:{}, materials:[]});
+        openModal('warehouseModal');
+    } catch(e){ console.error('[warehouse]', e); if (typeof showToast === 'function') showToast('仓库加载失败'); }
+}
+
+function renderWarehouse(data){
+    const currencies = data.currencies || {};
+    const inv = {};
+    (data.materials || []).forEach(m => { inv[m.type] = m.qty; });
+
+    // 基础货币（不写分组标题）
+    const curMap = [
+        ['lungmen', '龙门币'], ['source_stone', '源石'], ['orundum', '合成玉'],
+    ];
+    const curWrap = document.getElementById('warehouseCurrencies');
+    if (curWrap){
+        curWrap.innerHTML = '';
+        curMap.forEach(([key, name]) => {
+            const val = currencies[key] || 0;
+            const card = document.createElement('div');
+            card.className = 'wh-cur-card';
+            const icon = document.createElement('div'); icon.className = 'wh-cur-icon'; icon.dataset.key = key;
+            icon.innerHTML = RESOURCE_SVGS[key] || DROP_CHEST_SVG; tryUpgradeResIcon(icon, key);
+            const info = document.createElement('div'); info.className = 'wh-cur-info';
+            info.innerHTML = `<div class="wh-cur-val">${formatWhNum(val)}</div><div class="wh-cur-name">${name}</div>`;
+            card.appendChild(icon); card.appendChild(info);
+            curWrap.appendChild(card);
+        });
+    }
+
+    // 素材：按「类别」分组，不标注等级（等级看图标背景色）
+    const grid = document.getElementById('warehouseMatWrap');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (!WAREHOUSE_CATALOG.length){
+        grid.innerHTML = '<div class="wh-empty">素材目录未生成，请先运行 build_warehouse.py</div>';
+        return;
+    }
+
+    let owned = 0, total = 0;
+
+    WH_CAT_ORDER.forEach(cat => {
+        const items = WAREHOUSE_CATALOG.filter(x => x.cat === cat);
+        if (!items.length) return;
+
+        const sec = document.createElement('div');
+        sec.className = 'wh-cat' + (cat === '信物' ? ' wh-cat-collapsed' : '');
+
+        const head = document.createElement('div');
+        head.className = 'wh-cat-head';
+        const catOwned = items.filter(x => (inv[x.key] || 0) > 0).length;
+        head.innerHTML = `<span class="wh-cat-name">${cat}</span><span class="wh-cat-count">${catOwned}/${items.length}</span>`;
+        // 信物数量多，默认折叠，点击展开
+        if (cat === '信物'){
+            head.classList.add('wh-cat-toggle');
+            head.addEventListener('click', () => sec.classList.toggle('wh-cat-collapsed'));
+        }
+        sec.appendChild(head);
+
+        const g = document.createElement('div');
+        g.className = 'wh-mat-grid';
+
+        items.forEach(it => {
+            total++;
+            const qty = Math.floor(inv[it.key] || 0);
+            if (qty > 0) owned++;
+            const cell = document.createElement('div');
+            cell.className = 'wh-mat wh-r' + it.r + (qty > 0 ? '' : ' wh-mat-empty');
+            cell.title = it.name;
+
+            const icon = document.createElement('img');
+            icon.className = 'wh-mat-icon';
+            icon.src = `static/icons/${it.key}.png`;
+            icon.alt = it.name;
+            icon.loading = 'lazy';           // 数量多，滚动到才加载
+            icon.decoding = 'async';
+            icon.addEventListener('error', () => { icon.style.visibility = 'hidden'; });
+
+            const qtyEl = document.createElement('div');
+            qtyEl.className = 'wh-mat-qty';
+            qtyEl.textContent = 'x' + formatWhNum(qty);
+
+            const nm = document.createElement('div');
+            nm.className = 'wh-mat-name';
+            nm.textContent = it.name;
+
+            cell.appendChild(icon); cell.appendChild(qtyEl); cell.appendChild(nm);
+            g.appendChild(cell);
+        });
+
+        sec.appendChild(g);
+        grid.appendChild(sec);
+    });
+
+    const prog = document.getElementById('warehouseProgress');
+    if (prog) prog.textContent = `已收集 ${owned} / ${total} 种`;
+}
+
+function closeWarehouse(){ closeAllModals(); }
+
 let touchStartX=0, touchStartY=0, touchMoved=false, swipedCard=null, swipeTimeout=null;
 function handleTouchStart(e){ touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; touchMoved=false; if(swipeTimeout){ clearTimeout(swipeTimeout); swipeTimeout=null; } }
 function handleTouchMove(e){ const touchCurrentX=e.touches[0].clientX, touchCurrentY=e.touches[0].clientY;
@@ -3226,13 +4271,131 @@ function handleTouchEnd(){
 }
 
 function debounce(fn,delay){ let timer; return function(...args){ clearTimeout(timer); timer=setTimeout(()=>fn.apply(this,args),delay); }; }
+
+/* =========================================================
+   自定义下拉组件（替换原生 select）：无浏览器闪白、带入场动画
+   ========================================================= */
+function initCustomDropdowns(){
+    document.querySelectorAll('.custom-dropdown').forEach(dd=>{
+        const targetId = dd.dataset.target;
+        const sel = document.getElementById(targetId);
+        const trigger = dd.querySelector('.custom-dropdown-trigger');
+        const menu = dd.querySelector('.custom-dropdown-menu');
+        if(!sel || !trigger || !menu) return;
+
+        trigger.addEventListener('click', e => {
+            e.stopPropagation();
+            const wasOpen = dd.classList.contains('open');
+            closeAllCustomDropdowns();
+            if(!wasOpen) dd.classList.add('open');
+        });
+
+        menu.addEventListener('click', e => {
+            const li = e.target.closest('li[data-value]');
+            if(!li) return;
+            const val = li.dataset.value;
+            const text = li.textContent;
+            sel.value = val;
+            sel.dispatchEvent(new Event('change', { bubbles:true }));
+            trigger.querySelector('.custom-dropdown-label').textContent = text;
+            syncCustomDropdownSelection(dd, val);
+            dd.classList.remove('open');
+        });
+    });
+
+    // 初始化一次选中态
+    document.querySelectorAll('.custom-dropdown').forEach(dd => {
+        const sel = document.getElementById(dd.dataset.target);
+        if(sel) syncCustomDropdownSelection(dd, sel.value);
+    });
+
+    // 点击外部 / ESC 关闭
+    document.addEventListener('click', closeAllCustomDropdowns);
+    document.addEventListener('keydown', e => { if(e.key==='Escape') closeAllCustomDropdowns(); });
+}
+function closeAllCustomDropdowns(){
+    document.querySelectorAll('.custom-dropdown.open').forEach(dd=>dd.classList.remove('open'));
+}
+function syncCustomDropdownSelection(dd, value){
+    const trigger = dd.querySelector('.custom-dropdown-trigger');
+    const menu = dd.querySelector('.custom-dropdown-menu');
+    let matched = false;
+    menu.querySelectorAll('li').forEach(li=>{
+        const isSelected = li.dataset.value === value;
+        li.classList.toggle('selected', isSelected);
+        if(isSelected){
+            trigger.querySelector('.custom-dropdown-label').textContent = li.textContent;
+            matched = true;
+        }
+    });
+    if(!matched){
+        const first = menu.querySelector('li');
+        if(first) trigger.querySelector('.custom-dropdown-label').textContent = first.textContent;
+    }
+}
+/* 根据隐藏 select 的 options 重建自定义下拉菜单（用于分类动态变化） */
+function rebuildCustomDropdown(selectId){
+    const sel = document.getElementById(selectId); if(!sel) return;
+    const dd = document.querySelector('.custom-dropdown[data-target="'+selectId+'"]'); if(!dd) return;
+    const menu = dd.querySelector('.custom-dropdown-menu'); if(!menu) return;
+    const current = sel.value;
+    menu.innerHTML = '';
+    Array.from(sel.options).forEach(opt => {
+        const li = document.createElement('li');
+        li.setAttribute('role','option');
+        li.dataset.value = opt.value;
+        li.textContent = opt.textContent;
+        menu.appendChild(li);
+    });
+    syncCustomDropdownSelection(dd, current);
+}
+
 function applyFilters(){ state.filter.status=DOM.filterStatus.value; state.filter.priority=DOM.filterPriority.value; state.filter.taskLine=DOM.filterTaskLine.value;
+    state.filter.track=DOM.filterTrack.value; state.filter.category=DOM.filterCategory.value;
     state.filter.tracked=DOM.filterTracked.value; state.filter.search=DOM.filterSearch.value; state.filter.showArchived=DOM.showArchived.checked; state.filter.showDeleted=DOM.showDeleted.checked;
-    renderTasks(); updateTagFilter(); }
-function updateTagFilter(){ const allTags=new Set(); state.flatTasks.filter(t=>!t.archived&&!t.deleted).forEach(t=>(t.tags||[]).forEach(tag=>allTags.add(tag.name)));
-    DOM.tagFilterContainer.innerHTML=''; allTags.forEach(tag=>{ const chip=document.createElement('span'); chip.className='tag-chip'; chip.textContent=tag;
-        chip.addEventListener('click',()=>{ chip.classList.toggle('active'); if(chip.classList.contains('active')) state.filter.tags.push(tag); else state.filter.tags=state.filter.tags.filter(t=>t!==tag); renderTasks(); });
-        DOM.tagFilterContainer.appendChild(chip); }); }
+    renderTasks(); }
+
+function renderCategoryFilter(){
+    const sel=DOM.filterCategory; if(!sel) return;
+    const current=state.filter.category;
+    const cats=state.settings.categories||[];
+    sel.innerHTML='<option value="">全部分类</option>';
+    cats.forEach(cat=>{ const o=document.createElement('option'); o.value=cat; o.textContent=cat; sel.appendChild(o); });
+    const addO=document.createElement('option'); addO.value='__new__'; addO.textContent='＋ 新建分类'; sel.appendChild(addO);
+    sel.value = cats.includes(current) ? current : '';
+    rebuildCustomDropdown('filterCategory');
+}
+
+function renderFormCategoryOptions(){
+    const sel=DOM.taskFormCategory; if(!sel) return;
+    const cats=state.settings.categories||[];
+    sel.innerHTML='<option value="">无</option>';
+    cats.forEach(cat=>{ const o=document.createElement('option'); o.value=cat; o.textContent=cat; sel.appendChild(o); });
+}
+// 受管分类 -> 方舟素材图标文件名（static/icons/ 下）；未匹配的分类回退到 cat_other.png
+function categoryIconFile(name){
+    const map={ '学习':'cat_study.png','健身':'cat_fitness.png','工作':'cat_work.png','生活':'cat_life.png','其他':'cat_other.png' };
+    return map[name] || 'cat_other.png';
+}
+
+async function onCategoryFilterChange(){
+    if(DOM.filterCategory.value === '__new__'){
+        const name = window.prompt('新建分类名称：') || '';
+        const trimmed = name.trim();
+        if(!trimmed){ renderCategoryFilter(); return; }
+        const cats = Array.isArray(state.settings.categories) ? state.settings.categories.slice() : [];
+        if(!cats.includes(trimmed)) cats.push(trimmed);
+        state.settings.categories = cats;
+        await apiPut('/settings', { categories: cats });
+        state.filter.category = trimmed;
+        renderCategoryFilter();
+        applyFilters();
+        showToast('已新建分类：' + trimmed);
+    } else {
+        applyFilters();
+    }
+}
+function updateTagFilter(){ /* 已废弃：分类改为受管下拉 filterCategory，由 renderCategoryFilter 渲染 */ }
 function updateTrackingPanelIfNeeded(){ if(state.trackingTaskId) updateTrackingPanel(); }
 function checkLevelUp(){ const currentLevel=calculateLevel(state.resources.exp?.current_value||0);
     if(currentLevel>state.lastLevel&&state.lastLevel!==0){ state.lastLevel=currentLevel; DOM.levelUpText.textContent='理智已回满'; DOM.levelUpOverlay.classList.add('show');

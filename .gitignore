@@ -40,3 +40,12 @@ launcher_error.log
 # ===== 桌面运行虚拟环境（若有） =====
 venv/
 .venv/
+
+# ===== 素材源文件（8GB+，仅本地保留，构建产物已入 static/） =====
+assets-source/
+
+# ===== 移动端壁纸视频（大体积媒体，非源码） =====
+data/wallpaper_mobile/
+
+# ===== AI 会话数据（本地记忆，非源码） =====
+.workbuddy/

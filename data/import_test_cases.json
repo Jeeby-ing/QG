@@ -1,0 +1,337 @@
+{
+  "version": 1,
+  "tags": [
+    { "name": "测试-日常", "color": "blue" },
+    { "name": "测试-主线", "color": "gold" },
+    { "name": "测试-高优", "color": "red" },
+    { "name": "测试-低优", "color": "grey" },
+    { "name": "测试-重复", "color": "green" },
+    { "name": "测试-依赖", "color": "purple" }
+  ],
+  "tasks": [
+    {
+      "title": "【用例01-极简】每日登录签到",
+      "original_id": 1001,
+      "priority": 1,
+      "task_line": "side",
+      "track": "daily",
+      "status": "todo"
+    },
+    {
+      "title": "【用例02-进行中】推进主线章节第 8 章",
+      "original_id": 1002,
+      "description": "验证：进行中状态 + 手动进度 45%",
+      "priority": 4,
+      "task_line": "main",
+      "track": "campaign",
+      "status": "in_progress",
+      "progress": 45,
+      "tags": ["测试-主线"],
+      "reward_exp": 120,
+      "reward_lungmen": 800
+    },
+    {
+      "title": "【用例03-已暂停】整理干员练度表",
+      "original_id": 1003,
+      "description": "验证：已暂停状态 + 半透明降透明度显示",
+      "priority": 2,
+      "status": "paused",
+      "progress": 20,
+      "tags": ["测试-低优"]
+    },
+    {
+      "title": "【用例04-已完成】通关剿灭作战 400 杀",
+      "original_id": 1004,
+      "description": "验证：已完成 + 主线 + 6 星 + 四种奖励全填 + 指定完成时间",
+      "priority": 6,
+      "task_line": "main",
+      "track": "campaign",
+      "status": "done",
+      "completed_at": "2026-09-05T14:30:00+00:00",
+      "tags": ["测试-主线", "测试-高优"],
+      "reward_exp": 500,
+      "reward_lungmen": 3000,
+      "reward_source_stone": 1,
+      "reward_orundum": 200,
+      "notes": "完成后应自动生成随机掉落并进入仓库"
+    },
+    {
+      "title": "【用例05-已取消】临时取消的外包事项",
+      "original_id": 1005,
+      "description": "验证：已取消状态 + 标题删除线 + 卡片淡化",
+      "priority": 1,
+      "status": "cancelled",
+      "tags": ["测试-低优"]
+    },
+    {
+      "title": "【用例06-计数模式】刷取固源岩 30 个",
+      "original_id": 1006,
+      "description": "验证：计数进度模式 current_value=12 / target_value=30 → 40%",
+      "priority": 3,
+      "status": "in_progress",
+      "target_value": 30,
+      "current_value": 12,
+      "tags": ["测试-日常"]
+    },
+    {
+      "title": "【用例07-计数达标】刷取糖 10 个",
+      "original_id": 1007,
+      "description": "验证：计数模式已达标并标记完成，进度应强制 100%",
+      "priority": 3,
+      "status": "done",
+      "target_value": 10,
+      "current_value": 10,
+      "completed_at": "2026-09-06T09:15:00+00:00",
+      "reward_exp": 80
+    },
+    {
+      "title": "【用例08-边界】手动进度 100 但状态仍为待办",
+      "original_id": 1008,
+      "description": "验证：progress=100 却 status=todo 的边界情况不应报错",
+      "priority": 2,
+      "status": "todo",
+      "progress": 100
+    },
+    {
+      "title": "【用例09-嵌套父】整理明日方舟素材库",
+      "original_id": 1009,
+      "description": "验证：三层嵌套（父→子→孙）导入后的层级关系与聚合进度",
+      "priority": 4,
+      "task_line": "main",
+      "track": "campaign",
+      "status": "in_progress",
+      "tags": ["测试-主线"],
+      "children": [
+        {
+          "title": "【用例09-A】导出素材清单",
+          "original_id": 100901,
+          "description": "子任务 A：已完成",
+          "priority": 2,
+          "status": "done",
+          "completed_at": "2026-09-06T10:00:00+00:00"
+        },
+        {
+          "title": "【用例09-B】核对素材图标",
+          "original_id": 100902,
+          "description": "子任务 B：进行中，且自身还有两个孙任务",
+          "priority": 3,
+          "status": "in_progress",
+          "children": [
+            {
+              "title": "【用例09-B-孙1】核对赤金系列图标",
+              "original_id": 10090201,
+              "priority": 2,
+              "status": "done",
+              "completed_at": "2026-09-06T11:00:00+00:00"
+            },
+            {
+              "title": "【用例09-B-孙2】核对芯片系列图标",
+              "original_id": 10090202,
+              "priority": 2,
+              "status": "todo"
+            }
+          ]
+        },
+        {
+          "title": "【用例09-C】归档入库",
+          "original_id": 100903,
+          "description": "子任务 C：待办，被用例 18 的子任务依赖",
+          "priority": 3,
+          "status": "todo"
+        }
+      ]
+    },
+    {
+      "title": "【用例10-每日重复】每日体力清空",
+      "original_id": 1010,
+      "description": "验证：repeat_type=daily，导入后应自动补齐 repeat_next_date",
+      "priority": 2,
+      "status": "todo",
+      "repeat_type": "daily",
+      "tags": ["测试-重复"]
+    },
+    {
+      "title": "【用例11-每周重复】每周剿灭作战",
+      "original_id": 1011,
+      "description": "验证：repeat_type=weekly",
+      "priority": 4,
+      "status": "todo",
+      "repeat_type": "weekly",
+      "tags": ["测试-重复"]
+    },
+    {
+      "title": "【用例12-每月重复】每月月度总结",
+      "original_id": 1012,
+      "description": "验证：repeat_type=monthly",
+      "priority": 3,
+      "status": "todo",
+      "repeat_type": "monthly",
+      "tags": ["测试-重复"]
+    },
+    {
+      "title": "【用例13-自定义重复】每 3 天清理一次缓存",
+      "original_id": 1013,
+      "description": "验证：repeat_type=custom + repeat_interval=3",
+      "priority": 1,
+      "status": "todo",
+      "repeat_type": "custom",
+      "repeat_interval": 3,
+      "tags": ["测试-重复"]
+    },
+    {
+      "title": "【用例14-已完成重复】已完成且已指定下次日期",
+      "original_id": 1014,
+      "description": "验证：已完成的重复任务 + 显式 repeat_next_date，导入后应生成下一次副本",
+      "priority": 2,
+      "status": "done",
+      "completed_at": "2026-09-07T08:00:00+00:00",
+      "repeat_type": "daily",
+      "repeat_next_date": "2026-09-08T08:00:00+00:00",
+      "tags": ["测试-重复"]
+    },
+    {
+      "title": "【用例15-依赖链起点】搭建本地数据库",
+      "original_id": 1015,
+      "description": "依赖链 1015 → 1016 → 1017 的起点，已完成",
+      "priority": 5,
+      "task_line": "main",
+      "status": "done",
+      "completed_at": "2026-09-04T09:00:00+00:00",
+      "tags": ["测试-依赖"]
+    },
+    {
+      "title": "【用例16-依赖链中段】编写数据迁移脚本",
+      "original_id": 1016,
+      "description": "前置为 1015（已完成）→ 本任务应可正常推进",
+      "priority": 5,
+      "task_line": "main",
+      "status": "todo",
+      "prerequisite_id": 1015,
+      "tags": ["测试-依赖"]
+    },
+    {
+      "title": "【用例17-依赖链末端】执行迁移并校验",
+      "original_id": 1017,
+      "description": "前置为 1016（未完成）→ 本任务应显示为依赖阻塞",
+      "priority": 5,
+      "task_line": "main",
+      "status": "todo",
+      "prerequisite_id": 1016,
+      "tags": ["测试-依赖"]
+    },
+    {
+      "title": "【用例18-跨父子依赖】素材库收尾工作",
+      "original_id": 1018,
+      "description": "验证：子任务可以依赖另一个父任务下的子任务（100903）",
+      "priority": 3,
+      "status": "todo",
+      "children": [
+        {
+          "title": "【用例18-子】等待用例09-C完成后再开始",
+          "original_id": 101801,
+          "description": "前置为 100903（待办）→ 应显示依赖阻塞",
+          "priority": 3,
+          "status": "todo",
+          "prerequisite_id": 100903,
+          "tags": ["测试-依赖"]
+        }
+      ]
+    },
+    {
+      "title": "【用例19-日期齐全】季度复盘会议准备",
+      "original_id": 1019,
+      "description": "验证：planned_start / planned_end / due_date 三个日期字段同时存在",
+      "priority": 4,
+      "status": "todo",
+      "planned_start": "2026-09-08T09:00:00+00:00",
+      "planned_end": "2026-09-12T18:00:00+00:00",
+      "due_date": "2026-09-15T18:00:00+00:00",
+      "tags": ["测试-日常"]
+    },
+    {
+      "title": "【用例20-多标签】同时挂多个标签的任务",
+      "original_id": 1020,
+      "description": "验证：一个任务挂 3 个标签，且标签在导入时自动创建",
+      "priority": 3,
+      "status": "todo",
+      "tags": ["测试-日常", "测试-高优", "测试-主线"]
+    },
+    {
+      "title": "【用例21-特殊字符】引号\"测试\" & <标签> 反斜杠\\ 百分号% 表情🚀 结束",
+      "original_id": 1021,
+      "description": "验证转义：双引号 \" 、尖括号 <script>alert(1)</script> 、与号 & 、反斜杠 \\ 、百分号 100% 、emoji 🎮✨\n这是换行后的第二行描述。",
+      "priority": 2,
+      "status": "todo",
+      "notes": "备注里也放一些特殊字符：单引号 ' 、波浪号 ~ 、竖线 | 、等于 = 、大括号 { } "
+    },
+    {
+      "title": "【用例22-超长文本】这是一条用于测试长标题渲染与省略号截断的超长任务标题，需要足够长以便观察到卡片标题区域在极长文本下的换行与溢出表现，继续续写更多的文字直到明显超出一行显示范围为止",
+      "original_id": 1022,
+      "description": "长描述第一行：用于验证卡片与详情弹窗在长文本下的表现。\n长描述第二行：包含较多内容。\n长描述第三行：继续填充。\n长描述第四行：结束。",
+      "priority": 3,
+      "status": "todo",
+      "notes": "长备注：同样用于验证备注字段在长文本下的渲染表现，这里填充一些额外内容以便观察换行与截断效果。"
+    },
+    {
+      "title": "【用例23-追踪中】正在专注追踪的任务",
+      "original_id": 1023,
+      "description": "验证：is_tracked=true 导入后追踪按钮应为激活态",
+      "priority": 4,
+      "status": "in_progress",
+      "is_tracked": true,
+      "progress": 30
+    },
+    {
+      "title": "【用例24-自带掉落】已完成且自带掉落配置",
+      "original_id": 1024,
+      "description": "验证：已完成任务自带 drop_config，导入时不应重新随机生成掉落",
+      "priority": 5,
+      "task_line": "main",
+      "status": "done",
+      "completed_at": "2026-09-06T20:00:00+00:00",
+      "drop_config": "{\"random_drops\": [\"lungmen:1200\", \"MTL_GOLD1:1\", \"MTL_ROCK:2\"]}",
+      "reward_exp": 300,
+      "reward_lungmen": 1200,
+      "tags": ["测试-高优"]
+    },
+    {
+      "title": "【用例25-排序】sort_order 为 999 的任务",
+      "original_id": 1025,
+      "description": "验证：sort_order 字段在导入时被正确写入",
+      "priority": 2,
+      "status": "todo",
+      "sort_order": 999
+    },
+    {
+      "title": "【用例26-零奖励】奖励字段全部为 0",
+      "original_id": 1026,
+      "description": "验证：奖励为 0 时不应显示领取奖励按钮",
+      "priority": 1,
+      "status": "done",
+      "completed_at": "2026-09-07T07:00:00+00:00",
+      "reward_exp": 0,
+      "reward_lungmen": 0,
+      "reward_source_stone": 0,
+      "reward_orundum": 0
+    },
+    {
+      "title": "【用例27-空字段】描述与备注均为空字符串",
+      "original_id": 1027,
+      "description": "",
+      "notes": "",
+      "priority": 2,
+      "status": "todo"
+    },
+    {
+      "title": "【用例28-战役分桶】主线战役分桶下的支线任务",
+      "original_id": 1028,
+      "description": "验证：track=campaign 但 task_line=side 的组合",
+      "priority": 4,
+      "task_line": "side",
+      "track": "campaign",
+      "status": "todo",
+      "progress": 0,
+      "reward_exp": 150
+    }
+  ]
+}

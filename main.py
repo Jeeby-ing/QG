@@ -115,6 +115,14 @@ def init_db():
             created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
         );
 
+        CREATE TABLE IF NOT EXISTS inventory (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            material_type TEXT NOT NULL,
+            qty REAL DEFAULT 0 CHECK(qty >= 0),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+            UNIQUE(material_type)
+        );
+
         CREATE TABLE IF NOT EXISTS gift_packs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -204,6 +212,13 @@ def init_db():
         );
         """)
 
+        # 迁移：tasks 增加 track 字段（daily=日常任务 / campaign=主线战役）
+        cur.execute("PRAGMA table_info(tasks)")
+        _cols = [r['name'] for r in cur.fetchall()]
+        if 'track' not in _cols:
+            cur.execute("ALTER TABLE tasks ADD COLUMN track TEXT DEFAULT 'daily' CHECK(track IN ('daily','campaign'))")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_track ON tasks(track)")
+
         # 初始资源
         resources = [
             ('exp', 0, None),
@@ -230,9 +245,20 @@ def init_db():
             "theme": "dark",
             "import_count": 0,
             "level_rewards_claimed": [],
-            "username": "博士"
+            "username": "博士",
+            "categories": ["学习", "健身", "工作", "生活", "其他"],
+            "pomodoro_sound": "on"
         }
         cur.execute("INSERT OR IGNORE INTO settings (id, settings_json) VALUES (1, ?)", (json.dumps(default_settings),))
+
+        # 迁移：已存在的设置补充 categories 字段（受管分类清单）
+        cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+        _srow = cur.fetchone()
+        if _srow:
+            _s = json.loads(_srow[0])
+            if 'categories' not in _s:
+                _s['categories'] = ["学习", "健身", "工作", "生活", "其他"]
+                cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(_s),))
 
         # 预置成就
         achievements = [
@@ -277,20 +303,33 @@ def generate_weekly_packs(cur):
                 (monday.isoformat(), next_monday.isoformat()))
     if cur.fetchone()[0] == 0:
         pack_count = random.randint(3, 5)
+        # 方舟风格周礼包：含方舟素材，价格递增，奖励价值增速 > 价格增速
         packs = [
-            {"name": "新兵训练包", "description": "包含龙门币和经验", "pack_type": "fixed",
-             "content_config": json.dumps({"resources": {"lungmen": 1000, "exp": 100}}),
-             "cost_source_stone": 2, "rarity": "common"},
-            {"name": "进阶补给包", "description": "随机资源", "pack_type": "random",
+            {"name": "每周基础补给", "description": "龙门币与基础素材",
+             "pack_type": "fixed",
+             "content_config": json.dumps({
+                 "resources": {"lungmen": 6000, "exp": 600},
+                 "materials": [{"type": k, "amount": a} for k, a in _pick_pack_materials(3, 0, 1)]}),
+             "cost_source_stone": 6, "rarity": "common"},
+            {"name": "公开招募支援包", "description": "随机资源与进阶素材",
+             "pack_type": "random",
              "content_config": json.dumps(
-                 {"random_pool": ["lungmen:2000", "exp:200", "source_stone:1", "orundum:100"]}),
-             "cost_source_stone": 4, "rarity": "rare"},
-            {"name": "豪华混合包", "description": "固定+随机", "pack_type": "mixed",
-             "content_config": json.dumps({"fixed": {"source_stone": 2}, "random": ["lungmen:5000", "orundum:500"]}),
-             "cost_source_stone": 8, "rarity": "epic"},
-            {"name": "传说礼包", "description": "丰厚奖励", "pack_type": "fixed",
-             "content_config": json.dumps({"resources": {"source_stone": 5, "orundum": 1000, "lungmen": 10000}}),
-             "cost_source_stone": 15, "rarity": "legendary"},
+                 {"random_pool": ["lungmen:8000", "exp:700", "source_stone:2", "orundum:250",
+                                  ] + [f"{k}:{a}" for k, a in _pick_pack_materials(10, 1, 3)]}),
+             "cost_source_stone": 15, "rarity": "rare"},
+            {"name": "资深干员情报箱", "description": "固定源石 + 稀有素材",
+             "pack_type": "mixed",
+             "content_config": json.dumps(
+                 {"fixed": {"source_stone": 5, "orundum": 200},
+                  "random": ["lungmen:15000", "orundum:900", "exp:900", "source_stone:4",
+                             ] + [f"{k}:{a}" for k, a in _pick_pack_materials(10, 2, 4)]}),
+             "cost_source_stone": 30, "rarity": "epic"},
+            {"name": "标准寻访契约", "description": "罗德岛高级物资与顶级素材",
+             "pack_type": "fixed",
+             "content_config": json.dumps({
+                 "resources": {"source_stone": 12, "orundum": 3000, "lungmen": 30000, "exp": 1500},
+                 "materials": [{"type": k, "amount": a} for k, a in _pick_pack_materials(6, 2, 4)]}),
+             "cost_source_stone": 60, "rarity": "legendary"},
         ]
         for i in range(pack_count):
             pack = packs[i % len(packs)]
@@ -323,10 +362,32 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+# ---------- 等级 / 经验曲线（与前端 static/app.js 保持一致） ----------
+# 明日方舟真实「升级所需声望」曲线；SCALE 越小升级越快，FLOOR 为单级最低经验。
+_AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000]
+_LEVEL_SCALE = 0.05
+_LEVEL_FLOOR = 30
+
+
+def _level_exp_for_level(level: int) -> int:
+    if level >= 1 and level <= len(_AK_EXP_TABLE):
+        need = _AK_EXP_TABLE[level - 1]
+    else:
+        need = 100000 + (level - 120) * 2000
+    return max(_LEVEL_FLOOR, round(need * _LEVEL_SCALE / 10) * 10)
+
+
 def calculate_level(exp: float) -> int:
     if exp < 0:
         exp = 0
-    return int(exp / 100) + 1
+    level = 1
+    total = 0
+    while True:
+        need = _level_exp_for_level(level)
+        if exp < total + need:
+            return level
+        total += need
+        level += 1
 
 
 def add_resource(cur, resource_type: str, amount: float, reason: str, ref_id: int = None):
@@ -342,6 +403,43 @@ def get_resource(cur, resource_type: str) -> float:
     cur.execute("SELECT current_value FROM resources WHERE resource_type = ?", (resource_type,))
     row = cur.fetchone()
     return row[0] if row else 0
+
+
+def add_inventory(cur, material_type: str, amount: float):
+    """累加仓库素材数量（用于随机掉落收集）。"""
+    if amount == 0:
+        return
+    cur.execute(
+        "INSERT INTO inventory (material_type, qty, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(material_type) DO UPDATE SET qty = qty + excluded.qty, updated_at = excluded.updated_at",
+        (material_type, amount, now_iso()))
+
+
+def get_inventory(cur) -> Dict[str, float]:
+    """返回仓库中所有素材 {material_type: qty}。"""
+    cur.execute("SELECT material_type, qty FROM inventory")
+    return {row["material_type"]: row["qty"] for row in cur.fetchall()}
+
+
+def add_drops_to_inventory(cur, drop_config: Optional[str]):
+    """把掉落配置中的方舟素材(MTL_/sprite_)累加进仓库。"""
+    if not drop_config:
+        return
+    try:
+        config = json.loads(drop_config)
+    except (ValueError, TypeError):
+        return
+    for drop in config.get("random_drops", []):
+        if ':' not in drop:
+            continue
+        res_type, amount_str = drop.split(':', 1)
+        # 仓库素材统一以 mat_ 前缀标识（见 build_warehouse.py）
+        if res_type.startswith('mat_'):
+            try:
+                add_inventory(cur, res_type, float(amount_str))
+            except ValueError:
+                pass
+
 
 
 def get_reality_reward_progress(cur, reward) -> float:
@@ -417,7 +515,7 @@ def check_and_apply_level_up(cur, old_exp: float, new_exp: float):
             settings = json.loads(cur.fetchone()[0])
             claimed_levels = settings.get("level_rewards_claimed", [])
             if new_level not in claimed_levels:
-                content = {"resources": {"source_stone": 2, "orundum": 300, "lungmen": 5000, "exp": 200}}
+                content = _build_level_pack_content(new_level)
                 far_future = "9999-12-31T23:59:59Z"
                 cur.execute("""
                     INSERT INTO gift_packs (name, description, pack_type, content_config, cost_source_stone, rarity, available_from, available_until)
@@ -485,30 +583,227 @@ def update_parent_progress(cur, parent_id: int):
         update_parent_progress(cur, grandparent["parent_id"])
 
 
-def calculate_random_drops(task_id: int, completed_at: str) -> List[str]:
-    """使用系统随机源生成掉落，避免可预测性"""
+def calculate_task_difficulty(cur, task_id: int, task: dict) -> float:
+    """综合难度算法：星级 + 任务线 + 子任务数 + 前置依赖 → 1~15 分"""
+    score = 0.0
+    # 基础：星级 (1-6)
+    score += task.get('priority', 1)
+    # 任务线：主线 > 支线 > 日常
+    line = task.get('task_line', '')
+    if line == 'main':
+        score += 2.5
+    elif line == 'side':
+        score += 1.0
+    # campaign（长线战役）额外加成
+    if task.get('track') == 'campaign':
+        score += 1.5
+    # 子任务数量加成（每个+0.5，上限+3）
+    cur.execute(
+        "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
+        (task_id,))
+    child_count = cur.fetchone()[0]
+    score += min(child_count * 0.5, 3.0)
+    # 前置依赖加成
+    if task.get('prerequisite_id'):
+        score += 1.0
+    return max(1.0, min(score, 15.0))
+
+
+# =========================================================
+# 仓库素材目录与掉落池
+#   目录由 build_warehouse.py 从官方 gamedata/excel/item_table.json 生成，
+#   含官方中文名/分类/稀有度；掉落池据此按稀有度动态构建（高级加权）。
+# =========================================================
+WAREHOUSE_CATALOG_PATH = os.path.join(STATIC_DIR, "warehouse_catalog.json")
+
+
+def _load_warehouse_catalog() -> list:
+    """加载仓库素材目录；缺失时降级为空列表（不影响主流程）。"""
+    try:
+        with open(WAREHOUSE_CATALOG_PATH, encoding="utf-8") as f:
+            return json.load(f)["items"]
+    except Exception as e:
+        print(f"[warn] 仓库素材目录加载失败: {e}")
+        return []
+
+
+WAREHOUSE_CATALOG = _load_warehouse_catalog()
+
+# 各档位允许掉落的稀有度区间（0灰 1绿 2蓝 3紫 4金 5传说）
+#   星级映射: ★1-2→low, ★3→mid, ★4→high, ★5-6→extreme
+POOL_RARITY_RANGE = {
+    'low':     (0, 1),
+    'mid':     (0, 2),
+    'high':    (1, 3),
+    'extreme': (2, 4),
+}
+# 稀有度 -> 掉落数量区间（越稀有掉得越少）
+RARITY_AMOUNT = {0: (2, 5), 1: (2, 4), 2: (1, 3), 3: (1, 2), 4: (1, 2), 5: (1, 1)}
+
+
+def _build_material_pools() -> dict:
+    """按稀有度构建四档掉落池。
+
+    权重 = (稀有度+1)^2 —— 越稀有的素材在池内权重越高，
+    配合"高星池只放高稀有度"的区间限制，实现「高星出高级素材」的高级加权。
+    """
+    pools = {k: [] for k in POOL_RARITY_RANGE}
+    for it in WAREHOUSE_CATALOG:
+        if it.get('cat') == '信物':
+            continue  # 信物不走常规池，改为高星稀有额外奖励
+        r = int(it.get('r', 0))
+        mn, mx = RARITY_AMOUNT.get(r, (1, 2))
+        weight = (r + 1) ** 2
+        for pname, (lo, hi) in POOL_RARITY_RANGE.items():
+            if lo <= r <= hi:
+                pools[pname].append((it['key'], mn, mx, weight))
+    return pools
+
+
+MATERIAL_DROP_POOLS = _build_material_pools()
+
+
+def _pick_pack_materials(n, min_r=0, max_r=4, rng=None):
+    """从官方仓库目录里挑选 n 个「多种类别、不重复」的素材 key（均带生成好的图标）。
+
+    只返回 mat_ 前缀的真实目录 key，绝不臆造图标缺失的 key。
+    按类别分层取样，保证一次礼包里素材品类多样（不要每次就那几个东西）。
+    """
+    rng = rng or random
+    pool = [it for it in WAREHOUSE_CATALOG
+            if min_r <= int(it.get('r', 0)) <= max_r and it.get('cat') != '信物']
+    by_cat = {}
+    for it in pool:
+        by_cat.setdefault(it['cat'], []).append(it)
+    cats = list(by_cat.keys())
+    chosen, seen = [], set()
+    attempts = 0
+    while len(chosen) < n and cats and attempts < n * 12:
+        attempts += 1
+        cat = rng.choice(cats)
+        cands = [x for x in by_cat[cat] if x['key'] not in seen]
+        if not cands:
+            continue
+        it = rng.choice(cands)
+        seen.add(it['key'])
+        # 数量随稀有度提升（越稀有给得越少）
+        amt = rng.randint(1, 2 + int(it.get('r', 0)))
+        chosen.append((it['key'], amt))
+    return chosen
+
+
+def _build_level_pack_content(level: int) -> dict:
+    """等级礼包内容：随等级提升奖励价值，素材多样（取自官方目录，图标齐备）。
+
+    level 为 5 的倍数；tier = level//5（5→1, 10→2, 15→3...）。
+    """
+    tier = max(1, level // 5)
+    resources = {
+        "source_stone": 2 + tier * 2,
+        "orundum": 200 + tier * 150,
+        "lungmen": 5000 + tier * 4000,
+        "exp": 200 + tier * 150,
+    }
+    min_r = 0 if tier < 2 else 1
+    max_r = min(1 + tier, 4)
+    mats = _pick_pack_materials(2 + tier, min_r, max_r)
+    return {
+        "resources": resources,
+        "materials": [{"type": k, "amount": a} for k, a in mats],
+    }
+
+
+# 信物（干员信物等收集品）：仅高星任务极小概率额外掉落
+WAREHOUSE_TOKENS = [it['key'] for it in WAREHOUSE_CATALOG if it.get('cat') == '信物']
+
+# 基础货币掉落（龙门币/合成玉/源石），按档位配置数量与权重
+BASE_CURRENCY_DROPS = {
+    'low':     [('lungmen', 300, 1200, 10), ('orundum', 5, 20, 4)],
+    'mid':     [('lungmen', 800, 2500, 10), ('orundum', 15, 45, 5), ('source_stone', 1, 1, 1)],
+    'high':    [('lungmen', 1500, 4000, 9), ('orundum', 35, 90, 6), ('source_stone', 1, 2, 2)],
+    'extreme': [('lungmen', 3000, 7000, 8), ('orundum', 80, 180, 6), ('source_stone', 1, 3, 3)],
+}
+
+
+def _weighted_distinct_pick(pool, count, rng):
+    """在掉落池内按权重无重复地抽取 count 个条目，返回 ['key:amount', ...]"""
+    items = [(e[0], e[1], e[2], e[3]) for e in pool]
+    keys = [e[0] for e in items]
+    weights = [e[3] for e in items]
+    chosen = []
+    chosen_keys = set()
+    candidates = list(range(len(items)))
+    for _ in range(count):
+        avail = [i for i in candidates if keys[i] not in chosen_keys]
+        if not avail:
+            break
+        avail_weights = [weights[i] for i in avail]
+        idx = rng.choices(avail, weights=avail_weights, k=1)[0]
+        key, mn, mx, _ = items[idx]
+        chosen_keys.add(key)
+        amount = rng.randint(mn, max(mn, mx))
+        chosen.append(f"{key}:{amount}")
+    return chosen
+
+
+def _pick_pool(star: int) -> str:
+    """按任务星级分池：★1-2 基础, ★3 进阶, ★4 稀有, ★5-6 顶级"""
+    if star <= 2:
+        return 'low'
+    elif star == 3:
+        return 'mid'
+    elif star == 4:
+        return 'high'
+    else:
+        return 'extreme'
+
+
+def calculate_random_drops(task_id: int, completed_at: str, cur=None) -> List[str]:
+    """基于任务星级的方舟风格掉落系统（按星分池 + 高级加权）
+
+    cur: 可选。调用方若已持有数据库连接（如导入流程中，任务尚未提交），
+         必须传入同一个 cursor，否则新连接读不到未提交的任务行，导致掉落为空。
+    """
     rng = random.SystemRandom()
     drops = []
-    r = rng.random()
-    if r < 0.02:
-        drops.append("source_stone:1")
-    elif r < 0.025:
-        drops.append("source_stone:2")
-    r = rng.random()
-    if r < 0.05:
-        drops.append("orundum:50")
-    elif r < 0.06:
-        drops.append("orundum:200")
-    r = rng.random()
-    if r < 0.10:
-        drops.append("lungmen:2")
-    elif r < 0.12:
-        drops.append("lungmen:5")
-    return drops
+
+    def _generate(cur):
+        cur.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
+        row = cur.fetchone()
+        if not row:
+            return []
+        task = dict(row)
+
+        star = int(task.get('priority', 1))
+        difficulty = calculate_task_difficulty(cur, task_id, task)
+        pool_name = _pick_pool(star)
+        # 素材池 + 基础货币
+        pool = list(MATERIAL_DROP_POOLS[pool_name]) + list(BASE_CURRENCY_DROPS[pool_name])
+
+        # 掉落数量随星级提升（★1-2→1, ★3-4→2, ★5-6→3）
+        drop_count = 1 if star <= 2 else (2 if star <= 4 else 3)
+
+        # 按权重无重复抽取
+        out = _weighted_distinct_pick(pool, drop_count, rng)
+
+        # 极小概率额外掉落源石（所有星级都有机会，随难度提高）
+        if rng.random() < 0.02 + difficulty * 0.005:  # 2%~9.5%
+            out.append(f"source_stone:{rng.randint(1, max(1, int(difficulty / 3)))}")
+
+        # 高星任务极小概率额外掉落信物（收集品）
+        if star >= 5 and WAREHOUSE_TOKENS and rng.random() < 0.12:
+            out.append(f"{rng.choice(WAREHOUSE_TOKENS)}:{rng.randint(1, 2)}")
+        return out
+
+    if cur is not None:
+        return _generate(cur)
+    with db_cursor() as c:
+        return _generate(c)
 
 
 def parse_drop_config_to_rewards(drop_config: Optional[str]) -> Dict[str, float]:
-    rewards = {'source_stone': 0, 'orundum': 0, 'lungmen': 0}
+    """解析掉落配置为资源奖励（支持基础资源 + 方舟素材）"""
+    rewards = {'source_stone': 0, 'orundum': 0, 'lungmen': 0, 'exp': 0}
     if not drop_config:
         return rewards
     try:
@@ -519,20 +814,16 @@ def parse_drop_config_to_rewards(drop_config: Optional[str]) -> Dict[str, float]
                 res_type, amount_str = drop.split(':', 1)
                 try:
                     amount = float(amount_str)
+                    # 基础资源直接累加
                     if res_type in rewards:
                         rewards[res_type] += amount
+                    # 素材类（mat_ 前缀）：归入 materials 列表供弹窗展示
+                    elif res_type.startswith('mat_'):
+                        if 'materials' not in rewards:
+                            rewards['materials'] = []
+                        rewards['materials'].append({'type': res_type, 'amount': int(amount)})
                 except ValueError:
                     pass
-            elif '_' in drop:
-                parts = drop.rsplit('_', 1)
-                if len(parts) == 2:
-                    res_type, amount_str = parts
-                    try:
-                        amount = float(amount_str)
-                        if res_type in rewards:
-                            rewards[res_type] += amount
-                    except ValueError:
-                        pass
     except:
         pass
     return rewards
@@ -634,7 +925,7 @@ def create_repeat_copy(cur, task_id: int):
     else:
         return
     # 副本不继承父任务和前置依赖
-    reward_exp = task["priority"] * 20 * (1.3 if task["task_line"] == 'main' else 1.0)
+    reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
     reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
     cur.execute("""
         INSERT INTO tasks (
@@ -691,10 +982,10 @@ def get_task_with_tags(cur, task_id: int):
             "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
             (task_id,)).fetchone()[0]
         if task["task_line"] == 'main':
-            reward_exp = task["priority"] * 20 * 1.3
+            reward_exp = task["priority"] * 50 * 1.3
         else:
-            reward_exp = task["priority"] * 20
-        reward_exp += child_count * 5
+            reward_exp = task["priority"] * 50
+        reward_exp += child_count * 10
         task_dict["reward_exp"] = reward_exp
     if task_dict["reward_lungmen"] == 0:
         if task["task_line"] == 'side':
@@ -746,10 +1037,10 @@ def build_task_tree(cur, parent_id=None, include_archived=False, include_deleted
         child_count = child_count_map.get(t["id"], 0)
         if t["reward_exp"] == 0:
             if t["task_line"] == 'main':
-                reward_exp = t["priority"] * 20 * 1.3
+                reward_exp = t["priority"] * 50 * 1.3
             else:
-                reward_exp = t["priority"] * 20
-            reward_exp += child_count * 5
+                reward_exp = t["priority"] * 50
+            reward_exp += child_count * 10
             t["reward_exp"] = reward_exp
         if t["reward_lungmen"] == 0:
             if t["task_line"] == 'side':
@@ -796,6 +1087,7 @@ class TaskCreate(BaseModel):
     description: str = ''
     priority: int = Field(1, ge=1, le=6)
     task_line: str = Field('side', pattern='^(main|side)$')
+    track: str = Field('daily', pattern='^(daily|campaign)$')
     status: str = Field('todo', pattern='^(todo|in_progress|paused|done|cancelled)$')
     progress_mode: Optional[str] = Field(None, pattern='^(auto|manual|count)$')
     progress: float = 0
@@ -831,6 +1123,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     priority: Optional[int] = Field(None, ge=1, le=6)
     task_line: Optional[str] = Field(None, pattern='^(main|side)$')
+    track: Optional[str] = Field(None, pattern='^(daily|campaign)$')
     status: Optional[str] = Field(None, pattern='^(todo|in_progress|paused|done|cancelled)$')
     progress_mode: Optional[str] = Field(None, pattern='^(auto|manual|count)$')
     progress: Optional[float] = None
@@ -1070,6 +1363,7 @@ async def get_tasks(
         priority: Optional[int] = None,
         tag: Optional[str] = None,
         task_line: Optional[str] = None,
+        track: Optional[str] = None,
         is_tracked: Optional[bool] = None,
         keyword: Optional[str] = None,
         include_archived: bool = False,
@@ -1091,6 +1385,9 @@ async def get_tasks(
         if task_line:
             query += " AND task_line = ?"
             params.append(task_line)
+        if track:
+            query += " AND track = ?"
+            params.append(track)
         if is_tracked is not None:
             query += " AND is_tracked = ?"
             params.append(1 if is_tracked else 0)
@@ -1141,10 +1438,10 @@ async def get_tasks(
             child_count = child_count_map.get(task["id"], 0)
             if task_dict["reward_exp"] == 0:
                 if task["task_line"] == 'main':
-                    reward_exp = task["priority"] * 20 * 1.3
+                    reward_exp = task["priority"] * 50 * 1.3
                 else:
-                    reward_exp = task["priority"] * 20
-                reward_exp += child_count * 5
+                    reward_exp = task["priority"] * 50
+                reward_exp += child_count * 10
                 task_dict["reward_exp"] = reward_exp
             if task_dict["reward_lungmen"] == 0:
                 if task["task_line"] == 'side':
@@ -1217,18 +1514,19 @@ async def create_task(task: TaskCreate):
 
         cur.execute("""
             INSERT INTO tasks (
-                parent_id, title, description, priority, task_line, status, progress_mode, progress,
+                parent_id, title, description, priority, task_line, track, status, progress_mode, progress,
                 target_value, current_value, prerequisite_id, planned_start, planned_end, due_date,
                 repeat_type, repeat_interval, repeat_next_date, created_at, updated_at,
                 is_tracked, reward_exp, reward_lungmen, reward_source_stone, reward_orundum,
                 drop_config, notes, sort_order, archived, deleted, completed_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             task.parent_id,
             task.title,
             task.description,
             task.priority,
             task.task_line,
+            task.track,
             task.status,
             progress_mode,
             progress_value,
@@ -1713,12 +2011,12 @@ async def claim_reward(task_id: int):
         if task["reward_exp"] != 0:
             reward_exp = task["reward_exp"]
         else:
-            reward_exp = task["priority"] * 20 * (1.3 if task["task_line"] == 'main' else 1.0)
+            reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
             cur.execute(
                 "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
                 (task_id,))
             child_count = cur.fetchone()[0]
-            reward_exp += child_count * 5
+            reward_exp += child_count * 10
         if task["reward_lungmen"] != 0:
             reward_lungmen = task["reward_lungmen"]
         else:
@@ -1733,6 +2031,8 @@ async def claim_reward(task_id: int):
         rewards['source_stone'] += drop_rewards['source_stone']
         rewards['orundum'] += drop_rewards['orundum']
         rewards['lungmen'] += drop_rewards['lungmen']
+        # 掉落素材进入仓库
+        add_drops_to_inventory(cur, task["drop_config"])
         # 没有奖励也标记为已领取
         for res_type, amount in rewards.items():
             if amount > 0:
@@ -1759,12 +2059,12 @@ async def claim_all_rewards():
             if task["reward_exp"] != 0:
                 reward_exp = task["reward_exp"]
             else:
-                reward_exp = task["priority"] * 20 * (1.3 if task["task_line"] == 'main' else 1.0)
+                reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
                 cur.execute(
                     "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
                     (task["id"],))
                 child_count = cur.fetchone()[0]
-                reward_exp += child_count * 5
+                reward_exp += child_count * 10
             if task["reward_lungmen"] != 0:
                 reward_lungmen = task["reward_lungmen"]
             else:
@@ -1779,6 +2079,8 @@ async def claim_all_rewards():
             rewards['source_stone'] += drop_rewards['source_stone']
             rewards['orundum'] += drop_rewards['orundum']
             rewards['lungmen'] += drop_rewards['lungmen']
+            # 掉落素材进入仓库
+            add_drops_to_inventory(cur, task["drop_config"])
             for res_type, amount in rewards.items():
                 if amount > 0:
                     add_resource(cur, res_type, amount, f'task_reward_{task["id"]}', task["id"])
@@ -1805,6 +2107,25 @@ async def get_resources():
                 "updated_at": row["updated_at"]
             }
     return {"data": resources}
+
+
+@app.get("/api/inventory")
+async def get_inventory_api():
+    """返回仓库内容：基础货币(龙门币/源石/合成玉) + 方舟素材"""
+    with db_cursor() as cur:
+        cur.execute("SELECT resource_type, current_value FROM resources")
+        res = {row["resource_type"]: row["current_value"] for row in cur.fetchall()}
+        materials = get_inventory(cur)
+    return {
+        "data": {
+            "currencies": {
+                "lungmen": res.get("lungmen", 0),
+                "source_stone": res.get("source_stone", 0),
+                "orundum": res.get("orundum", 0),
+            },
+            "materials": [{"type": k, "qty": v} for k, v in materials.items()],
+        }
+    }
 
 
 @app.get("/api/resources/transactions")
@@ -1933,42 +2254,54 @@ async def purchase_gift_pack(pack_id: int):
         add_resource(cur, 'source_stone', -pack["cost_source_stone"], f'gift_pack_purchase_{pack_id}', pack_id)
         old_exp = get_resource(cur, 'exp')
         content_config = json.loads(pack["content_config"])
+        granted = []
+        def _grant(res_type, amount):
+            """发放内容：仓库素材(mat_)进仓库，其余进资源表；并记录已发放以便前端弹窗展示。"""
+            if res_type.startswith('mat_'):
+                add_inventory(cur, res_type, float(amount))
+            else:
+                add_resource(cur, res_type, amount, f'gift_pack_content_{pack_id}', pack_id)
+            granted.append({"key": res_type, "amount": float(amount)})
+
         if pack["pack_type"] == 'fixed':
             resources = content_config.get("resources", {})
             for res_type, amount in resources.items():
-                add_resource(cur, res_type, amount, f'gift_pack_content_{pack_id}', pack_id)
+                _grant(res_type, amount)
+            # 修复：fixed 礼包的 materials 列表此前被忽略，从未发放
+            for m in content_config.get("materials", []):
+                if isinstance(m, dict) and m.get("type"):
+                    _grant(m["type"], m["amount"])
         elif pack["pack_type"] == 'random':
             random_pool = content_config.get("random_pool", [])
             if random_pool:
-                chosen = random.choice(random_pool)
-                if ':' in chosen:
-                    res_type, amount_str = chosen.split(':', 1)
-                    try:
-                        amount = float(amount_str)
-                        add_resource(cur, res_type, amount, f'gift_pack_content_{pack_id}', pack_id)
-                    except ValueError:
-                        pass
+                # 一次给 2~3 件，奖励更丰厚、品类更杂
+                for chosen in random.sample(random_pool, min(3, len(random_pool))):
+                    if ':' in chosen:
+                        res_type, amount_str = chosen.split(':', 1)
+                        try:
+                            _grant(res_type, float(amount_str))
+                        except ValueError:
+                            pass
         elif pack["pack_type"] == 'mixed':
             fixed = content_config.get("fixed", {})
             for res_type, amount in fixed.items():
-                add_resource(cur, res_type, amount, f'gift_pack_content_{pack_id}', pack_id)
+                _grant(res_type, amount)
             random_pool = content_config.get("random", [])
             if random_pool:
-                chosen = random.choice(random_pool)
-                if ':' in chosen:
-                    res_type, amount_str = chosen.split(':', 1)
-                    try:
-                        amount = float(amount_str)
-                        add_resource(cur, res_type, amount, f'gift_pack_content_{pack_id}', pack_id)
-                    except ValueError:
-                        pass
+                for chosen in random.sample(random_pool, min(2, len(random_pool))):
+                    if ':' in chosen:
+                        res_type, amount_str = chosen.split(':', 1)
+                        try:
+                            _grant(res_type, float(amount_str))
+                        except ValueError:
+                            pass
         cur.execute("UPDATE gift_packs SET purchased = 1 WHERE id = ?", (pack_id,))
         cur.execute("SELECT COUNT(*) FROM gift_packs WHERE purchased = 1")
         purchased_count = cur.fetchone()[0]
         check_achievement(cur, 'gift_pack_purchased', purchased_count, None)
         new_exp = get_resource(cur, 'exp')
         check_and_apply_level_up(cur, old_exp, new_exp)
-    return {"data": {"id": pack_id, "purchased": True}}
+    return {"data": {"id": pack_id, "purchased": True, "rewards": granted}}
 
 
 @app.get("/api/achievements")
@@ -2184,6 +2517,7 @@ async def import_data(data: ImportData):
             description = task_data.get("description", "")
             priority = task_data.get("priority", 1)
             task_line = task_data.get("task_line", "side")
+            track = task_data.get("track", "daily")
             status = task_data.get("status", "todo")
             target_value = task_data.get("target_value")
             current_value = task_data.get("current_value")
@@ -2237,43 +2571,44 @@ async def import_data(data: ImportData):
             # 显式列出30个列名和对应的30个值
             cur.execute("""
                 INSERT INTO tasks (
-                    parent_id, title, description, priority, task_line, status, progress_mode, progress,
-                    target_value, current_value, prerequisite_id, planned_start, planned_end, due_date,
-                    repeat_type, repeat_interval, repeat_next_date, created_at, updated_at,
-                    is_tracked, reward_exp, reward_lungmen, reward_source_stone, reward_orundum,
-                    drop_config, notes, sort_order, archived, deleted, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                parent_id, title, description, priority, task_line, track, status, progress_mode, progress,
+                target_value, current_value, prerequisite_id, planned_start, planned_end, due_date,
+                repeat_type, repeat_interval, repeat_next_date, created_at, updated_at,
+                is_tracked, reward_exp, reward_lungmen, reward_source_stone, reward_orundum,
+                drop_config, notes, sort_order, archived, deleted, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 parent_id,  # 1
                 title,  # 2
                 description,  # 3
                 priority,  # 4
                 task_line,  # 5
-                status,  # 6
-                progress_mode,  # 7
-                progress_value,  # 8
-                target_value,  # 9
-                current_value,  # 10
-                None,  # 11 - prerequisite_id (稍后设置)
-                planned_start,  # 12
-                planned_end,  # 13
-                due_date,  # 14
-                repeat_type,  # 15
-                repeat_interval,  # 16
-                repeat_next_date,  # 17
-                now_iso(),  # 18 - created_at
-                now_iso(),  # 19 - updated_at
-                1 if is_tracked else 0,  # 20
-                reward_exp,  # 21
-                reward_lungmen,  # 22
-                reward_source_stone,  # 23
-                reward_orundum,  # 24
-                provided_drop_config if status != 'done' else None,  # 25
-                notes,  # 26
-                sort_order,  # 27
-                0,  # 28 - archived
-                0,  # 29 - deleted
-                completed_at  # 30
+                track,  # 6
+                status,  # 7
+                progress_mode,  # 8
+                progress_value,  # 9
+                target_value,  # 10
+                current_value,  # 11
+                None,  # 12 - prerequisite_id (稍后设置)
+                planned_start,  # 13
+                planned_end,  # 14
+                due_date,  # 15
+                repeat_type,  # 16
+                repeat_interval,  # 17
+                repeat_next_date,  # 18
+                now_iso(),  # 19 - created_at
+                now_iso(),  # 20 - updated_at
+                1 if is_tracked else 0,  # 21
+                reward_exp,  # 22
+                reward_lungmen,  # 23
+                reward_source_stone,  # 24
+                reward_orundum,  # 25
+                provided_drop_config,  # 26 - 导入自带的掉落必须保留（此前 status=='done' 会被置空）
+                notes,  # 27
+                sort_order,  # 28
+                0,  # 29 - archived
+                0,  # 30 - deleted
+                completed_at  # 31
             ))
             new_task_id = cur.lastrowid
             if original_id is not None:
@@ -2287,7 +2622,8 @@ async def import_data(data: ImportData):
             for child in children:
                 create_task_recursive(child, new_task_id)
             if status == 'done' and not provided_drop_config:
-                drops = calculate_random_drops(new_task_id, completed_at)
+                # 复用当前 cursor：任务行尚未提交，新连接读不到会导致掉落为空
+                drops = calculate_random_drops(new_task_id, completed_at, cur=cur)
                 drop_config = json.dumps({"random_drops": drops})
                 cur.execute("UPDATE tasks SET drop_config = ? WHERE id = ?", (drop_config, new_task_id))
             return new_task_id
@@ -2472,6 +2808,7 @@ async def update_settings(settings: Dict[str, Any]):
         "wp_current_id",
         "theme",
         "username",
+        "categories",
     }
     invalid_keys = set(settings.keys()) - allowed_keys
     if invalid_keys:

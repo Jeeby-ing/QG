@@ -3,15 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover">
+    <meta name="referrer" content="no-referrer">
     <title>QUEST LOG</title>
-    <link rel="icon" href="data:,">
+    <link rel="icon" type="image/png" href="static/favicon.png?v=20260904-112">
     <!-- 本地 Orbitron 字体 -->
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260830-52">
+    <link rel="stylesheet" href="static/style.css?v=20260907-209">
 </head>
 <body>
+    <!-- 方舟风格加载画面 -->
+    <div class="ark-loader" id="arkLoader">
+        <div class="ark-loader-bg"></div>
+        <div class="ark-loader-decor"></div>
+        <div class="ark-loader-content">
+            <div class="ark-logo">
+                <span class="ark-logo-text">QUEST</span>
+                <span class="ark-logo-text ark-logo-accent">LOG</span>
+            </div>
+            <div class="ark-logo-underline"></div>
+        </div>
+        <div class="ark-loader-bottom">
+            <div class="ark-loader-left">© QUEST LOG</div>
+            <div class="ark-loader-progress-wrap">
+                <div class="ark-loader-bar"><div class="ark-loader-fill" id="arkLoaderFill"></div></div>
+                <span class="ark-loader-pct" id="arkLoaderPct">INITIALIZING...</span>
+            </div>
+            <div class="ark-loader-right">V1.0 // LOCAL</div>
+        </div>
+    </div>
+
     <svg style="position:absolute;width:0;height:0;pointer-events:none;" aria-hidden="true">
         <defs>
             <filter id="rough-edge">
@@ -39,55 +61,66 @@
         <header class="top-nav" id="topNav">
             <div class="nav-left">
                 <div class="logo-container">
-                    <div class="logo-icon"><i class="fa-solid fa-diamond"></i><span class="logo-ring"></span><span class="logo-core"></span></div>
+                    <div class="logo-icon" title="Quest Log">
+                        <svg class="logo-cat" viewBox="0 0 24 24" aria-hidden="true">
+                            <defs>
+                                <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#E8B818"/>
+                                    <stop offset="100%" stop-color="#c99a10"/>
+                                </linearGradient>
+                                <filter id="catGlow" x="-50%" y="-50%" width="200%" height="200%">
+                                    <feGaussianBlur stdDeviation="1.2" result="blur"/>
+                                    <feMerge>
+                                        <feMergeNode in="blur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <circle class="logo-cat-bg" cx="12" cy="12" r="11"/>
+                            <path class="logo-cat-body" d="M12,2C6.48,2 2,6.48 2,12c0,4.42 2.87,8.17 6.84,9.5c0.5,0.09 0.68,-0.22 0.68,-0.48c0,-0.24 -0.01,-0.87 -0.01,-1.71c-2.78,0.6 -3.37,-1.34 -3.37,-1.34c-0.45,-1.15 -1.11,-1.46 -1.11,-1.46c-0.91,-0.62 0.07,-0.61 0.07,-0.61c1,0.07 1.53,1.03 1.53,1.03c0.89,1.52 2.34,1.08 2.91,0.83c0.09,-0.65 0.35,-1.08 0.63,-1.33c-2.22,-0.25 -4.55,-1.11 -4.55,-4.94c0,-1.09 0.39,-1.98 1.03,-2.68c-0.1,-0.25 -0.45,-1.27 0.1,-2.65c0,0 0.84,-0.27 2.75,1.02c0.8,-0.22 1.65,-0.33 2.5,-0.33c0.85,0 1.7,0.11 2.5,0.33c1.91,-1.29 2.75,-1.02 2.75,-1.02c0.55,1.38 0.2,2.4 0.1,2.65c0.64,0.7 1.03,1.59 1.03,2.68c0,3.84 -2.34,4.68 -4.57,4.93c0.36,0.31 0.68,0.92 0.68,1.85c0,1.34 -0.01,2.41 -0.01,2.74c0,0.27 0.18,0.58 0.69,0.48C19.14,20.16 22,16.42 22,12C22,6.48 17.52,2 12,2z"/>
+                            <!-- 右手边甩出的尾巴（金色，跟随 body 一起发光） -->
+                            <path class="logo-cat-body logo-cat-tail" d="M17.8,14.6 C20.4,14.0 22.6,12.0 21.7,9.6 C21.1,10.9 20.2,11.9 19.0,12.4 C19.9,13.1 19.0,14.3 17.8,14.6 Z"/>
+                        </svg>
+                    </div>
                     <h1 class="logo-text">QUEST LOG</h1>
                     <span class="logo-version">V1.0</span>
                 </div>
                 <div class="user-info" id="userInfo" title="点击修改用户名">
                     <span class="user-name" id="userName">博士</span>
                     <span class="user-level" id="userLevel">Lv.1</span>
-                    <div class="user-exp-bar"><div class="user-exp-fill" id="userExpFill"></div></div>
                 </div>
             </div>
             <nav class="nav-center" id="navTabs">
                 <button class="nav-tab active" data-view="tasks"><i class="fa-solid fa-list-check"></i><span>任务</span></button>
                 <button class="nav-tab" data-view="graph"><i class="fa-solid fa-diagram-project"></i><span>图谱</span></button>
                 <button class="nav-tab" data-view="calendar"><i class="fa-solid fa-calendar-days"></i><span>日历</span></button>
-                <button class="nav-tab" data-view="achievements"><i class="fa-solid fa-award"></i><span>勋章</span></button>
+                <button class="nav-tab" data-view="achievements"><i class="fa-solid fa-award"></i><span>蚀刻章</span></button>
                 <button class="nav-tab" data-view="rewards"><i class="fa-solid fa-gift"></i><span>兑换</span></button>
                 <button class="nav-tab" data-view="profile"><i class="fa-solid fa-user"></i><span>主页</span></button>
+                <span class="resource-timestamp" id="resourceTimestamp"></span>
             </nav>
             <div class="nav-right">
-                <span class="resource-timestamp" id="resourceTimestamp"></span>
                 <div class="resource-display" id="resourceDisplay">
                     <div class="resource-item" title="龙门币">
-                        <span class="resource-icon lungmen-icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none"><!-- 龙门币：蓝色叠层纸币 + 龙字 --><rect x="3" y="10" width="14" height="9" rx="1.5" fill="#154C8A"/><rect x="5" y="6.5" width="14" height="9" rx="1.5" fill="#1E6BC4"/><rect x="7" y="3" width="14" height="9" rx="1.5" fill="#2989D9"/><rect x="7" y="3" width="14" height="9" rx="1.5" fill="url(#lungmenGrad)"/><path d="M9 5 H19 M9 8 H19" stroke="#BDDCFD" stroke-width="0.65" opacity="0.6"/><text x="14" y="10.2" text-anchor="middle" font-size="6" font-weight="700" fill="#E8F4FF" font-family="sans-serif">龙</text><circle cx="18.5" cy="6.5" r="1.8" fill="none" stroke="#BDDCFD" stroke-width="0.5" opacity="0.5"/><defs><linearGradient id="lungmenGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4BAEFF" stop-opacity="0.3"/><stop offset="100%" stop-color="#2989D9" stop-opacity="0"/></linearGradient></defs></svg></span>
+                        <span class="resource-icon lungmen-icon" data-res-icon="lungmen"></span>
                         <span class="resource-value" id="resLungmen">0</span>
                     </div>
                     <div class="resource-item" title="合成玉">
-                        <span class="resource-icon orundum-icon">
-                            <svg viewBox="0 0 24 24" width="100%" height="100%"><!-- 合成玉：红黑菱形晶体 + 内六边形 --><polygon points="12,1.5 21,12 12,22.5 3,12" fill="#6B0F1A"/><polygon points="12,1.5 21,12 12,12 3,12" fill="#D42027"/><polygon points="12,12 21,12 12,22.5 3,22.5" fill="#1A0408"/><polygon points="12,4.5 17.5,12 12,19.5 6.5,12" fill="none" stroke="#FF6B71" stroke-width="0.4" opacity="0.5"/><polygon points="12,7 15.5,12 12,17 8.5,12" fill="none" stroke="#FF6B71" stroke-width="0.35" opacity="0.35"/><line x1="12" y1="1.5" x2="12" y2="22.5" stroke="#FF6B71" stroke-width="0.3" opacity="0.25"/><line x1="3" y1="12" x2="21" y2="12" stroke="#FF6B71" stroke-width="0.3" opacity="0.25"/><polygon points="12,6 16,12 12,18 8,12" fill="#D42027" opacity="0.15"/></svg>
-                        </span>
+                        <span class="resource-icon orundum-icon" data-res-icon="orundum"></span>
                         <span class="resource-value" id="resOrundum">0</span>
                     </div>
                     <div class="resource-item" title="源石">
-                        <span class="resource-icon stone-icon"><svg viewBox="0 0 24 24" width="100%" height="100%"><!-- 源石：金色菱形晶体 + 光晕 --><defs><radialGradient id="stoneGlow" cx="50%" cy="40%" r="55%"><stop offset="0%" stop-color="#FFF3B0" stop-opacity="0.7"/><stop offset="60%" stop-color="#F6D743" stop-opacity="0.2"/><stop offset="100%" stop-color="#F6D743" stop-opacity="0"/></radialGradient></defs><polygon points="12,0.5 22,12 12,23.5 2,12" fill="url(#stoneGlow)"/><polygon points="12,2 20.5,12 12,21.5 3.5,12" fill="#B8860B"/><polygon points="12,2 20.5,12 12,12 3.5,12" fill="#FFD700"/><polygon points="12,12 20.5,12 12,21.5 3.5,21.5" fill="#8B6914"/><polygon points="12,2 16,12 12,12 8,12" fill="#FFEC8B" opacity="0.6"/><polygon points="12,12 16,12 12,18 8,12" fill="#5C4A0F" opacity="0.4"/><polygon points="8,12 12,21.5 12,12" fill="#DAA520" opacity="0.5"/><polygon points="16,12 12,21.5 12,12" fill="#8B7355" opacity="0.3"/></svg></span>
+                        <span class="resource-icon stone-icon" data-res-icon="source_stone"></span>
                         <span class="resource-value" id="resStone">0</span>
                     </div>
-                    <div class="resource-item sanity-item" title="理智" id="sanityDisplay">
-                        <span class="resource-icon sanity-icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#A0B4C8" stroke-width="0.6" stroke-linejoin="round"><!-- 理智：几何线框大脑 + 闪电 --><path d="M6 14 C4 13.5 3.5 11.5 4.5 10 C3.5 8.5 5 6.5 7 6.5 C7 4.5 9.5 3.5 11.5 4.5 C12.5 3 15.5 3 16.5 4.5 C18.5 4 20.5 5.5 20 8 C21.5 9 21.5 11.5 20 13 C20.5 15 19 16.5 17 16 C16 18 13 18.5 11.5 17 C10 18.2 7.5 17.5 6 14 Z" fill="rgba(160,180,200,0.06)"/><path d="M11.5 4.5 L12.5 4.5 L13 6 L14.5 5.5 L16 7 L17.5 7 L18.5 9 L20 9.5 L20 12 L19 14 L17.5 15.5 L16 16.5 L14 17 L12 17.2 L10 17 L8 16 L6.5 14.5 L5 12.5 L4.5 10.5 L5.5 8.5 L7 7 L9 6 Z" stroke="#C8D8E8" stroke-width="0.45" opacity="0.5"/><path d="M11.5 6 L13 7 L14.5 6.5 M16 8 L17.5 9 M18 11 L17.5 13 M16 14.5 L14 15.5 M12 15.5 L10 15 M8 14 L6.5 12.5 M5.5 10.5 L7 8.5 M9 7 L10.5 6.5" stroke="#88A4BC" stroke-width="0.35" opacity="0.4"/><path d="M12 7 V16.5" stroke="#E8F0F8" stroke-width="0.5" opacity="0.3"/><!-- 闪电符号 --><polygon points="12.8,7 10,12 12.2,12 11,17 14.5,11 12,11" fill="#E8F0F8" stroke="none" opacity="0.85"/></svg></span>
-                        <div class="sanity-values">
-                            <span class="sanity-current" id="resSanityCurrent">120</span>
-                            <span class="sanity-max" id="resSanityMax">120</span>
-                        </div>
+                    <!-- 理智显示（仿方舟游戏内，与资源栏同组） -->
+                    <div class="nav-sanity-display" id="navSanityDisplay" title="理智">
+                        <span class="resource-icon sanity-icon" data-res-icon="sanity"></span>
+                        <span class="sanity-nav-values"><span class="sanity-current" id="resSanityCurrent">120</span><span class="sanity-max" id="resSanityMax">120</span></span>
                     </div>
                 </div>
                 <button class="icon-btn settings-btn" id="settingsBtn" title="设置"><i class="fa-solid fa-gear"></i></button>
                 <button class="icon-btn mobile-menu-btn" id="mobileMenuBtn" title="菜单"><i class="fa-solid fa-bars"></i></button>
-                <button class="remote-url-btn" id="remoteUrlBtn" title="远程访问地址（点击复制）">
-                    <i class="fa-solid fa-cloud-arrow-up" id="remoteUrlIcon"></i>
-                    <span class="remote-url-text" id="remoteUrlText">connecting...</span>
-                </button>
             </div>
         </header>
 
@@ -100,7 +133,15 @@
                 <div class="drag-indicator" id="dragIndicator"><span></span></div>
                 <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
                 <div class="tracking-header">
+                    <!-- 左侧：TRACKING 装饰 -->
+                    <span class="tracking-decor">TRACKING</span>
+                    <!-- 中间：父任务链 -->
                     <div class="tracking-parent-chain" id="trackingParentChain"></div>
+                    <!-- 右侧：FOCUS 装饰 + 专注按钮（FOCUS 在左） -->
+                    <div class="tracking-focus-group">
+                        <span class="tracking-focus-decor">FOCUS</span>
+                        <button class="tracking-focus-mini" id="trackingFocusBtn" title="专注模式"><i class="fa-solid fa-expand"></i></button>
+                    </div>
                 </div>
                 <div class="tracking-body" id="trackingBody">
                     <div class="tracking-empty" id="trackingEmpty"><div class="empty-diamond"><i class="fa-solid fa-diamond"></i></div><p>暂无追踪任务</p><p class="micro-text">选择任务开始追踪</p></div>
@@ -113,16 +154,19 @@
                             <div class="progress-bar" id="trackingProgressBar"><div class="progress-fill" id="trackingProgressFill"></div><div class="progress-thumb" id="trackingProgressThumb"></div></div>
                             <span class="progress-num" id="trackingProgressNum">0%</span>
                         </div>
-                        <div class="tracking-actions">
-                            <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-stop"></i><span>停止追踪</span></button>
-                            <button class="btn btn-primary btn-large" id="trackingCompleteBtn"><i class="fa-solid fa-check"></i><span>完成任务</span></button>
-                            <button class="btn btn-primary btn-large hidden" id="trackingRewardBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
-                            <button class="btn btn-secondary" id="trackingFocusBtn"><i class="fa-solid fa-expand"></i><span>专注模式</span></button>
-                        </div>
                     </div>
                 </div>
+                <!-- 操作按钮区：固定在卡片底部 -->
+                <div class="tracking-actions">
+                    <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-stop"></i><span>停止追踪</span></button>
+                    <button class="btn btn-primary btn-large" id="trackingCompleteBtn"><i class="fa-solid fa-check"></i><span>完成任务</span></button>
+                    <button class="btn btn-primary btn-large hidden" id="trackingRewardBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                </div>
                 <div class="tracking-footer">
-                    <div class="pomodoro-status hidden" id="pomodoroStatus"><span class="pomodoro-kind" id="pomodoroKind">专注</span><span class="pomodoro-countdown" id="pomodoroCountdown">25:00</span><span class="pomodoro-progress"><span id="pomodoroProgressFill"></span></span><button class="icon-btn pomodoro-stop" id="pomodoroStopBtn" title="结束番茄钟"><i class="fa-solid fa-stop"></i></button></div>
+                    <div class="pomodoro-status hidden" id="pomodoroStatus"><span class="pomodoro-kind" id="pomodoroKind">专注</span><span class="pomodoro-countdown" id="pomodoroCountdown">25:00</span><span class="pomodoro-progress"><span id="pomodoroProgressFill"></span></span></div>
+                    <div class="pomodoro-controls hidden" id="pomodoroControls">
+                        <button class="icon-btn pomodoro-stop" id="pomodoroStopBtn" title="结束番茄钟"><i class="fa-solid fa-stop"></i></button>
+                    </div>
                     <div class="tracking-timer" id="trackingTimer">00:00:00</div>
                 </div>
             </div>
@@ -136,18 +180,85 @@
                         <h2 class="view-title">任务列表</h2>
                         <div class="view-actions">
                             <button class="btn btn-primary btn-medium" id="newTaskBtn"><i class="fa-solid fa-plus"></i><span>新建任务</span></button>
+                            <button class="btn btn-secondary btn-medium" id="batchSelectBtn"><i class="fa-solid fa-layer-group"></i><span>批量</span></button>
                             <button class="btn btn-secondary btn-medium" id="importBtn"><i class="fa-solid fa-file-import"></i><span>导入</span></button>
                             <button class="btn btn-secondary btn-medium" id="exportBtn"><i class="fa-solid fa-file-export"></i><span>导出</span></button>
                             <button class="btn btn-secondary btn-medium claim-all-btn hidden-soft" id="claimAllBtn"><i class="fa-solid fa-gift"></i><span>一键领取</span></button>
                         </div>
                     </div>
                     <div class="filter-bar">
-                        <div class="filter-group"><select id="filterStatus" class="filter-select"><option value="">全部状态</option><option value="todo">待办</option><option value="in_progress">进行中</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
-                        <div class="filter-group"><select id="filterPriority" class="filter-select"><option value="">全部优先级</option><option value="1">1星</option><option value="2">2星</option><option value="3">3星</option><option value="4">4星</option><option value="5">5星</option><option value="6">6星</option></select></div>
-                        <div class="filter-group"><select id="filterTaskLine" class="filter-select"><option value="">全部任务线</option><option value="main">主线</option><option value="side">支线</option></select></div>
-                        <div class="filter-group"><select id="filterTracked" class="filter-select"><option value="">全部追踪</option><option value="1">仅追踪中</option><option value="0">未追踪</option></select></div>
-                        <div class="filter-group search-group"><input type="text" id="filterSearch" class="filter-search" placeholder="搜索关键词..."><i class="fa-solid fa-search search-icon"></i></div>
-                        <div class="filter-group tag-filter" id="tagFilterContainer"></div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterStatus">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">全部状态</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部状态</li>
+                                    <li role="option" data-value="todo">待办</li>
+                                    <li role="option" data-value="in_progress">进行中</li>
+                                    <li role="option" data-value="paused">已暂停</li>
+                                    <li role="option" data-value="done">已完成</li>
+                                    <li role="option" data-value="cancelled">已取消</li>
+                                </ul>
+                            </div>
+                            <select id="filterStatus" class="filter-select native-hidden"><option value="">全部状态</option><option value="todo">待办</option><option value="in_progress">进行中</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select>
+                        </div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterPriority">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">全部优先级</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部优先级</li>
+                                    <li role="option" data-value="1">1星</li>
+                                    <li role="option" data-value="2">2星</li>
+                                    <li role="option" data-value="3">3星</li>
+                                    <li role="option" data-value="4">4星</li>
+                                    <li role="option" data-value="5">5星</li>
+                                    <li role="option" data-value="6">6星</li>
+                                </ul>
+                            </div>
+                            <select id="filterPriority" class="filter-select native-hidden"><option value="">全部优先级</option><option value="1">1星</option><option value="2">2星</option><option value="3">3星</option><option value="4">4星</option><option value="5">5星</option><option value="6">6星</option></select>
+                        </div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterTrack">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">日常任务</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部分桶</li>
+                                    <li role="option" data-value="daily">日常任务</li>
+                                    <li role="option" data-value="campaign">主线战役</li>
+                                </ul>
+                            </div>
+                            <select id="filterTrack" class="filter-select native-hidden"><option value="">全部分桶</option><option value="daily" selected>日常任务</option><option value="campaign">主线战役</option></select>
+                        </div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterTaskLine">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">全部任务线</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部任务线</li>
+                                    <li role="option" data-value="main">主线</li>
+                                    <li role="option" data-value="side">支线</li>
+                                </ul>
+                            </div>
+                            <select id="filterTaskLine" class="filter-select native-hidden"><option value="">全部任务线</option><option value="main">主线</option><option value="side">支线</option></select>
+                        </div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterCategory">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">全部分类</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部分类</li>
+                                </ul>
+                            </div>
+                            <select id="filterCategory" class="filter-select native-hidden"><option value="">全部分类</option></select>
+                        </div>
+                        <div class="filter-group">
+                            <div class="custom-dropdown" data-target="filterTracked">
+                                <button type="button" class="custom-dropdown-trigger filter-select" aria-haspopup="listbox"><span class="custom-dropdown-label">全部追踪</span><i class="fa-solid fa-chevron-down custom-dropdown-arrow"></i></button>
+                                <ul class="custom-dropdown-menu" role="listbox">
+                                    <li role="option" data-value="">全部追踪</li>
+                                    <li role="option" data-value="1">仅追踪中</li>
+                                    <li role="option" data-value="0">未追踪</li>
+                                </ul>
+                            </div>
+                            <select id="filterTracked" class="filter-select native-hidden"><option value="">全部追踪</option><option value="1">仅追踪中</option><option value="0">未追踪</option></select>
+                        </div>
+                        <div class="filter-group search-group"><input type="text" id="filterSearch" class="filter-search" placeholder="搜索关键词/分类..."><i class="fa-solid fa-search search-icon"></i></div>
                         <label class="archive-toggle"><input type="checkbox" id="showArchived"> 显示归档</label>
                         <label class="archive-toggle"><input type="checkbox" id="showDeleted"> 显示已删除</label>
                     </div>
@@ -155,6 +266,11 @@
                 <div class="task-list-container" id="taskListContainer">
                     <div class="task-list" id="taskList"></div>
                     <div class="task-list-empty" id="taskListEmpty"><div class="empty-icon"><i class="fa-solid fa-inbox"></i></div><p>暂无任务</p><p class="micro-text">点击"新建任务"开始</p></div>
+                </div>
+                <!-- 长线战役独立区域 -->
+                <div class="campaign-section" id="campaignSection" style="display:none;">
+                    <h3 class="campaign-section-title"><i class="fa-solid fa-trophy"></i> 长线战役 <span class="campaign-decor">CAMPAIGN</span></h3>
+                    <div class="campaign-list" id="campaignList"></div>
                 </div>
             </section>
 
@@ -176,7 +292,7 @@
                     <h2 class="view-title">蚀刻章</h2>
                     <div class="view-actions">
                         <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
-                        <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-dice"></i><span>合成玉抽取</span></button>
+                        <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
                     </div>
                 </div>
                 <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
@@ -189,17 +305,22 @@
                     <div class="profile-card">
                         <div class="profile-level-section">
                             <div class="level-display"><span class="level-number" id="profileLevel">1</span><span class="level-label">等级</span></div>
-                            <div class="level-progress"><div class="progress-bar"><div class="progress-fill" id="profileExpFill"></div></div><span class="micro-text" id="profileExpText">0 / 100 EXP</span></div>
+                            <div class="level-progress">
+                                <div class="profile-username" id="profileUsername">博士</div>
+                                <div class="progress-bar"><div class="progress-fill" id="profileExpFill"></div></div>
+                                <span class="micro-text" id="profileExpText">0 / 100 EXP</span>
+                            </div>
                         </div>
                         <div class="profile-resources">
-                            <div class="profile-res-item"><span class="res-icon exp-icon"><i class="fa-solid fa-bolt"></i></span><span class="res-label">经验值</span><span class="res-value" id="profileExp">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon stone-icon"><svg viewBox="0 0 24 24" width="100%" height="100%"><polygon points="12,2 17,8 15,20 9,20 7,8" fill="#E8B818"/><polygon points="12,2 17,8 12,8" fill="#F6D743"/><polygon points="12,2 7,8 12,8" fill="#B8901F"/><polygon points="7,8 9,20 12,8" fill="#2B2620"/><polygon points="17,8 15,20 12,8" fill="#15120D"/><polygon points="9,20 15,20 12,8" fill="#3A2E12"/></svg></span><span class="res-label">源石</span><span class="res-value" id="profileStone">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon lungmen-icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none"><rect x="4.5" y="10" width="12" height="8" rx="1.6" fill="#1E5BA8" opacity="0.5"/><rect x="6.5" y="6.5" width="12" height="8" rx="1.6" fill="#2E7FD6" opacity="0.72"/><rect x="8.5" y="3" width="12" height="8" rx="1.6" fill="#3E9CE8"/><path d="M10.5 5.4 H18.5 M10.5 8.2 H18.5" stroke="#CFE8FF" stroke-width="0.7" opacity="0.75"/><circle cx="14.5" cy="7" r="2" fill="none" stroke="#CFE8FF" stroke-width="0.9"/></svg></span><span class="res-label">龙门币</span><span class="res-value" id="profileLungmen">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon orundum-icon"><svg viewBox="0 0 24 24" width="100%" height="100%"><polygon points="12,2.5 19,12 12,21.5 5,12" fill="#7E1622"/><polygon points="12,2.5 19,12 12,12 5,12" fill="#C0392B"/><polygon points="12,12 19,12 12,21.5 5,21.5" fill="#2A0A0E" opacity="0.92"/><path d="M12 2.5 V21.5 M5 12 H19" stroke="#E9B7BC" stroke-width="0.5" opacity="0.45"/></svg></span><span class="res-label">合成玉</span><span class="res-value" id="profileOrundum">0</span></div>
-                            <div class="profile-res-item"><span class="res-icon sanity-icon"><svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="#A0B4C8" stroke-width="0.6" stroke-linejoin="round"><!-- 理智：几何线框大脑 + 闪电 --><path d="M6 14 C4 13.5 3.5 11.5 4.5 10 C3.5 8.5 5 6.5 7 6.5 C7 4.5 9.5 3.5 11.5 4.5 C12.5 3 15.5 3 16.5 4.5 C18.5 4 20.5 5.5 20 8 C21.5 9 21.5 11.5 20 13 C20.5 15 19 16.5 17 16 C16 18 13 18.5 11.5 17 C10 18.2 7.5 17.5 6 14 Z" fill="rgba(160,180,200,0.06)"/><path d="M11.5 4.5 L12.5 4.5 L13 6 L14.5 5.5 L16 7 L17.5 7 L18.5 9 L20 9.5 L20 12 L19 14 L17.5 15.5 L16 16.5 L14 17 L12 17.2 L10 17 L8 16 L6.5 14.5 L5 12.5 L4.5 10.5 L5.5 8.5 L7 7 L9 6 Z" stroke="#C8D8E8" stroke-width="0.45" opacity="0.5"/><path d="M11.5 6 L13 7 L14.5 6.5 M16 8 L17.5 9 M18 11 L17.5 13 M16 14.5 L14 15.5 M12 15.5 L10 15 M8 14 L6.5 12.5 M5.5 10.5 L7 8.5 M9 7 L10.5 6.5" stroke="#88A4BC" stroke-width="0.35" opacity="0.4"/><path d="M12 7 V16.5" stroke="#E8F0F8" stroke-width="0.5" opacity="0.3"/><polygon points="12.8,7 10,12 12.2,12 11,17 14.5,11 12,11" fill="#E8F0F8" stroke="none" opacity="0.85"/></svg></span><span class="res-label">理智</span><span class="res-value" id="profileSanity">120/120</span></div>
+                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon exp-icon" data-res-icon-profile="exp"></span><span class="res-badge" id="profileExp">0</span></div><span class="res-label">经验值</span></div>
+                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon stone-icon" data-res-icon-profile="source_stone"></span><span class="res-badge" id="profileStone">0</span></div><span class="res-label">源石</span></div>
+                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon lungmen-icon" data-res-icon-profile="lungmen"></span><span class="res-badge" id="profileLungmen">0</span></div><span class="res-label">龙门币</span></div>
+                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon orundum-icon" data-res-icon-profile="orundum"></span><span class="res-badge" id="profileOrundum">0</span></div><span class="res-label">合成玉</span></div>
+                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon sanity-icon" data-res-icon-profile="sanity"></span><span class="res-badge" id="profileSanity">120/120</span></div><span class="res-label">理智</span></div>
                         </div>
                         <div class="profile-actions">
                             <button class="btn btn-secondary btn-medium" id="exchangeBtn"><i class="fa-solid fa-exchange-alt"></i><span>龙门币兑换</span></button>
+                            <button class="btn btn-secondary btn-medium" id="warehouseBtn"><i class="fa-solid fa-box-open"></i><span>仓库</span></button>
                         </div>
                     </div>
                     <div class="profile-badges"><h3 class="section-subtitle">已解锁蚀刻章</h3><div class="profile-badges-grid" id="profileBadgesGrid"></div></div>
@@ -226,7 +347,7 @@
         <div class="modal-overlay" id="modalOverlay"></div>
         <div class="modal-container hidden" id="taskModal">
             <div class="modal">
-                <div class="modal-header"><h3 class="modal-title" id="taskModalTitle">新建任务</h3><button class="icon-btn modal-close" id="taskModalClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header gold-accent"><h3 class="modal-title" id="taskModalTitle">新建任务</h3><button class="icon-btn modal-close" id="taskModalClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body">
                     <form id="taskForm">
                         <input type="hidden" id="taskFormId">
@@ -237,6 +358,10 @@
                         <div class="form-row">
                             <div class="form-group half"><label class="form-label">任务线</label><select class="form-select" id="taskFormTaskLine"><option value="side">支线</option><option value="main">主线</option></select></div>
                             <div class="form-group half"><label class="form-label">状态</label><select class="form-select" id="taskFormStatus"><option value="todo">待办</option><option value="in_progress">进行中</option><option value="paused">已暂停</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group half"><label class="form-label">分桶</label><select class="form-select" id="taskFormTrack"><option value="daily">日常任务</option><option value="campaign">主线战役</option></select></div>
+                            <div class="form-group half"><label class="form-label">分类</label><select class="form-select" id="taskFormCategory"><option value="">无</option></select></div>
                         </div>
                         <div class="form-row">
                             <div class="form-group half"><label class="form-label">父任务</label><select class="form-select" id="taskFormParent"><option value="">无（顶级任务）</option></select></div>
@@ -303,6 +428,15 @@
             <div class="modal">
                 <div class="modal-header"><h3 class="modal-title">全局设置</h3><button class="icon-btn modal-close" id="settingsModalClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body"><div class="settings-list" id="settingsList"></div>
+                    <div class="settings-divider"><span>专注提醒</span></div>
+                    <div class="sound-setting">
+                        <label class="form-label" for="pomodoroSound">番茄钟结束提示音</label>
+                        <select class="form-select" id="pomodoroSound">
+                            <option value="on">开启（响铃提醒）</option>
+                            <option value="off">关闭</option>
+                        </select>
+                        <p class="micro-text">专注 / 休息到点自动播放提示音，本地生成、无需联网，不受 B站 限制。</p>
+                    </div>
                     <div class="settings-divider"><span>数据管理</span></div>
                     <div class="data-manage-section">
                         <p class="micro-text">测试结束后一键清空数据（不可恢复，建议先导出备份）。</p>
@@ -398,10 +532,21 @@
                 <div class="modal-header"><h3 class="modal-title">确认操作</h3><button class="icon-btn modal-close" id="confirmClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body">
                     <p id="confirmMessage" style="margin-bottom:16px"></p>
-                    <div class="form-actions"><button class="btn btn-secondary" id="confirmCancel">取消</button><button class="btn btn-primary" id="confirmOk">确定</button></div>
-                </div>
+                <div class="form-actions"><button class="btn btn-secondary" id="confirmCancel">取消</button><button class="btn btn-primary" id="confirmOk">确定</button></div>
             </div>
         </div>
+    </div>
+    <!-- 仓库弹窗 -->
+    <div class="modal-container hidden" id="warehouseModal">
+        <div class="modal modal-warehouse">
+            <div class="modal-header gold-accent warehouse-header"><div class="wh-title-wrap"><i class="fa-solid fa-box-open"></i><div class="wh-title-text"><h3 class="modal-title">仓库</h3><span class="wh-title-en">WAREHOUSE</span></div></div><div class="wh-deco-lines"></div><button class="icon-btn modal-close" id="warehouseClose"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="modal-body">
+                <div class="wh-currencies" id="warehouseCurrencies"></div>
+                <div class="wh-section-title">素材收集 <span class="wh-progress" id="warehouseProgress"></span></div>
+                <div class="wh-mat-wrap" id="warehouseMatWrap"></div>
+            </div>
+        </div>
+    </div>
 
         <div class="badge-notification" id="badgeNotification">
             <div class="badge-notification-content">
@@ -417,6 +562,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260830-52"></script>
+    <script src="static/app.js?v=20260907-209"></script>
 </body>
 </html>
