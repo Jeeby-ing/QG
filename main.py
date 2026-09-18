@@ -123,6 +123,33 @@ def init_db():
             UNIQUE(material_type)
         );
 
+        -- 干员寻访（抽卡）：仅此模块可产出「干员信物」。
+        -- operator_records 记录每位干员的持有份数与信物数；信物只在抽到重复干员时 +1。
+        CREATE TABLE IF NOT EXISTS operator_records (
+            operator_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            rarity INTEGER NOT NULL CHECK(rarity IN (2,3,4,5,6)),
+            copies INTEGER DEFAULT 0 CHECK(copies >= 0),
+            tokens INTEGER DEFAULT 0 CHECK(tokens >= 0),
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+
+        -- 抽卡保底计数：total_pulls 累计抽数；since_last_6star 距上次出 6★ 的抽数（用于 50 抽保底）。
+        CREATE TABLE IF NOT EXISTS gacha_pity (
+            key TEXT PRIMARY KEY,
+            value INTEGER NOT NULL DEFAULT 0
+        );
+
+        -- 已购买的干员时装（皮肤）。皮肤目录由 OPERATOR_POOL 推导，只需记录已购。
+        CREATE TABLE IF NOT EXISTS skins_owned (
+            skin_id TEXT PRIMARY KEY,
+            operator_id TEXT NOT NULL,
+            operator_name TEXT NOT NULL,
+            skin_name TEXT NOT NULL,
+            cost_source_stone INTEGER NOT NULL,
+            purchased_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+        );
+
         CREATE TABLE IF NOT EXISTS gift_packs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -290,6 +317,40 @@ def init_db():
         generate_weekly_packs(cur)
 
 
+# ------------------------------------------------------------
+#  礼包体系（对齐明日方舟原版「组合包」分类）
+#  原版常驻组合包大致分为：新人组合包、罗德岛补给卡（月卡）、每周养成组合包、
+#  专业强化包、新人养成组合包、新人寻访组合包（十连券）、每月寻访组合包（大月卡）。
+#  这里保留原版的定位与相对性价比，换算进 Quest-log 的资源体系，
+#  统一用「至纯源石」购买，产出龙门币 / 合成玉 / 理智 / 经验 / 仓库素材。
+#  （按用户设定：龙门币与源石只能由任务或礼包产出，不能被兑换出来。）
+# ------------------------------------------------------------
+ARK_GIFT_PACKS = [
+    {"name": "新人组合包", "description": "罗德岛新人补给：龙门币 + 基础养成素材",
+     "pack_type": "fixed", "rarity": "common", "cost_source_stone": 3,
+     "resources": {"lungmen": 8000, "exp": 800, "orundum": 300}, "materials": (3, 0, 1)},
+    {"name": "罗德岛补给卡", "description": "每周补给：合成玉与理智，外加养成资源",
+     "pack_type": "fixed", "rarity": "common", "cost_source_stone": 8,
+     "resources": {"lungmen": 20000, "orundum": 1400, "sanity": 560}, "materials": (4, 0, 2)},
+    {"name": "每周养成组合包", "description": "常规周常养成资源包，固定资源 + 随机素材",
+     "pack_type": "mixed", "rarity": "rare", "cost_source_stone": 12,
+     "resources": {"lungmen": 30000, "exp": 2000, "sanity": 800}, "materials": (5, 1, 3)},
+    {"name": "专业强化包", "description": "面向干员专精的进阶素材包",
+     "pack_type": "fixed", "rarity": "rare", "cost_source_stone": 18,
+     "resources": {"lungmen": 50000, "exp": 3000}, "materials": (6, 2, 4)},
+    {"name": "新人养成组合包", "description": "一次性大额养成资源，含源石返还",
+     "pack_type": "fixed", "rarity": "epic", "cost_source_stone": 26,
+     "resources": {"lungmen": 60000, "exp": 4000, "source_stone": 8}, "materials": (5, 2, 4)},
+    {"name": "新人寻访组合包", "description": "含两次十连寻访所需的合成玉（6000）",
+     "pack_type": "fixed", "rarity": "epic", "cost_source_stone": 35,
+     "resources": {"orundum": 6000, "lungmen": 30000}, "materials": (3, 1, 3)},
+    {"name": "每月寻访组合包", "description": "大月卡：合成玉 + 源石返还 + 顶级素材",
+     "pack_type": "mixed", "rarity": "legendary", "cost_source_stone": 70,
+     "resources": {"orundum": 6000, "source_stone": 20, "lungmen": 60000, "exp": 4000},
+     "materials": (6, 3, 5)},
+]
+
+
 def generate_weekly_packs(cur):
     now = datetime.now(timezone.utc)
     weekday = now.weekday()
@@ -302,41 +363,24 @@ def generate_weekly_packs(cur):
     cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from >= ? AND available_from < ?",
                 (monday.isoformat(), next_monday.isoformat()))
     if cur.fetchone()[0] == 0:
-        pack_count = random.randint(3, 5)
-        # 方舟风格周礼包：含方舟素材，价格递增，奖励价值增速 > 价格增速
-        packs = [
-            {"name": "每周基础补给", "description": "龙门币与基础素材",
-             "pack_type": "fixed",
-             "content_config": json.dumps({
-                 "resources": {"lungmen": 6000, "exp": 600},
-                 "materials": [{"type": k, "amount": a} for k, a in _pick_pack_materials(3, 0, 1)]}),
-             "cost_source_stone": 6, "rarity": "common"},
-            {"name": "公开招募支援包", "description": "随机资源与进阶素材",
-             "pack_type": "random",
-             "content_config": json.dumps(
-                 {"random_pool": ["lungmen:8000", "exp:700", "source_stone:2", "orundum:250",
-                                  ] + [f"{k}:{a}" for k, a in _pick_pack_materials(10, 1, 3)]}),
-             "cost_source_stone": 15, "rarity": "rare"},
-            {"name": "资深干员情报箱", "description": "固定源石 + 稀有素材",
-             "pack_type": "mixed",
-             "content_config": json.dumps(
-                 {"fixed": {"source_stone": 5, "orundum": 200},
-                  "random": ["lungmen:15000", "orundum:900", "exp:900", "source_stone:4",
-                             ] + [f"{k}:{a}" for k, a in _pick_pack_materials(10, 2, 4)]}),
-             "cost_source_stone": 30, "rarity": "epic"},
-            {"name": "标准寻访契约", "description": "罗德岛高级物资与顶级素材",
-             "pack_type": "fixed",
-             "content_config": json.dumps({
-                 "resources": {"source_stone": 12, "orundum": 3000, "lungmen": 30000, "exp": 1500},
-                 "materials": [{"type": k, "amount": a} for k, a in _pick_pack_materials(6, 2, 4)]}),
-             "cost_source_stone": 60, "rarity": "legendary"},
-        ]
-        for i in range(pack_count):
-            pack = packs[i % len(packs)]
+        # 每周从原版风格组合包中轮换上架：罗德岛补给卡是常驻锚点（对应原版月卡），
+        # 其余随机抽取 2~4 个，保证同一周内不出现重复礼包。
+        anchor = next(p for p in ARK_GIFT_PACKS if p["name"] == "罗德岛补给卡")
+        others = [p for p in ARK_GIFT_PACKS if p is not anchor]
+        chosen = [anchor] + random.sample(others, random.randint(2, 4))
+        for pack in chosen:
+            n, lo, hi = pack["materials"]
+            mats = [{"type": k, "amount": a} for k, a in _pick_pack_materials(n, lo, hi)]
+            if pack["pack_type"] == "mixed":
+                # mixed：固定部分必给，另外从素材里随机再抽 2 件
+                content = {"fixed": dict(pack["resources"]),
+                           "random": [f"{m['type']}:{m['amount']}" for m in mats]}
+            else:
+                content = {"resources": dict(pack["resources"]), "materials": mats}
             cur.execute("""
                 INSERT INTO gift_packs (name, description, pack_type, content_config, cost_source_stone, rarity, available_from, available_until)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (pack["name"], pack["description"], pack["pack_type"], pack["content_config"],
+            """, (pack["name"], pack["description"], pack["pack_type"], json.dumps(content),
                   pack["cost_source_stone"], pack["rarity"], monday.isoformat(), next_monday.isoformat()))
 
 
@@ -365,16 +409,21 @@ def now_iso():
 # ---------- 等级 / 经验曲线（与前端 static/app.js 保持一致） ----------
 # 明日方舟真实「升级所需声望」曲线；SCALE 越小升级越快，FLOOR 为单级最低经验。
 _AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000]
-_LEVEL_SCALE = 0.05
-_LEVEL_FLOOR = 30
+# 二次曲线：need(L) = BASE + LIN*(L-1) + QUAD*(L-1)^2
+# 必须与前端 static/app.js 的 LEVEL_BASE / LEVEL_LIN / LEVEL_QUAD / LEVEL_ROUND / LEVEL_FLOOR 完全一致，
+# 否则前后端算出的等级会不一致（升级检测在后端、等级显示在前端）。
+_LEVEL_BASE = 60
+_LEVEL_LIN = 20
+_LEVEL_QUAD = 1.0
+_LEVEL_ROUND = 5
+_LEVEL_FLOOR = 50
 
 
 def _level_exp_for_level(level: int) -> int:
-    if level >= 1 and level <= len(_AK_EXP_TABLE):
-        need = _AK_EXP_TABLE[level - 1]
-    else:
-        need = 100000 + (level - 120) * 2000
-    return max(_LEVEL_FLOOR, round(need * _LEVEL_SCALE / 10) * 10)
+    n = max(0, level - 1)
+    need = _LEVEL_BASE + _LEVEL_LIN * n + _LEVEL_QUAD * n * n
+    # int(x + 0.5) 等价于 JS 的 Math.round（四舍五入，非银行家舍入），保证与前端一致
+    return max(_LEVEL_FLOOR, int(need / _LEVEL_ROUND + 0.5) * _LEVEL_ROUND)
 
 
 def calculate_level(exp: float) -> int:
@@ -422,13 +471,18 @@ def get_inventory(cur) -> Dict[str, float]:
 
 
 def add_drops_to_inventory(cur, drop_config: Optional[str]):
-    """把掉落配置中的方舟素材(MTL_/sprite_)累加进仓库。"""
+    """把掉落配置中的方舟素材(MTL_/sprite_)累加进仓库。
+
+    返回本次实际入库的素材列表 [{'type':..., 'amount':...}]，
+    供前端提示「仓库 +xxx」，避免用户领了奖励却看不到仓库变化。
+    """
+    granted = []
     if not drop_config:
-        return
+        return granted
     try:
         config = json.loads(drop_config)
     except (ValueError, TypeError):
-        return
+        return granted
     for drop in config.get("random_drops", []):
         if ':' not in drop:
             continue
@@ -436,9 +490,12 @@ def add_drops_to_inventory(cur, drop_config: Optional[str]):
         # 仓库素材统一以 mat_ 前缀标识（见 build_warehouse.py）
         if res_type.startswith('mat_'):
             try:
-                add_inventory(cur, res_type, float(amount_str))
+                amt = float(amount_str)
+                add_inventory(cur, res_type, amt)
+                granted.append({"type": res_type, "amount": amt})
             except ValueError:
                 pass
+    return granted
 
 
 
@@ -780,8 +837,12 @@ def calculate_random_drops(task_id: int, completed_at: str, cur=None) -> List[st
         # 素材池 + 基础货币
         pool = list(MATERIAL_DROP_POOLS[pool_name]) + list(BASE_CURRENCY_DROPS[pool_name])
 
-        # 掉落数量随星级提升（★1-2→1, ★3-4→2, ★5-6→3）
-        drop_count = 1 if star <= 2 else (2 if star <= 4 else 3)
+        # 掉落数量：随星级提升，且每次随机波动（不再固定 2 个）
+        lo, hi = {1: (1, 2), 2: (1, 2), 3: (1, 3), 4: (2, 4), 5: (2, 5), 6: (3, 5)}.get(star, (1, 2))
+        drop_count = rng.randint(lo, hi)
+        # 小概率再额外多掉一个（惊喜感）
+        if rng.random() < 0.18:
+            drop_count += 1
 
         # 按权重无重复抽取
         out = _weighted_distinct_pick(pool, drop_count, rng)
@@ -790,9 +851,7 @@ def calculate_random_drops(task_id: int, completed_at: str, cur=None) -> List[st
         if rng.random() < 0.02 + difficulty * 0.005:  # 2%~9.5%
             out.append(f"source_stone:{rng.randint(1, max(1, int(difficulty / 3)))}")
 
-        # 高星任务极小概率额外掉落信物（收集品）
-        if star >= 5 and WAREHOUSE_TOKENS and rng.random() < 0.12:
-            out.append(f"{rng.choice(WAREHOUSE_TOKENS)}:{rng.randint(1, 2)}")
+        # 注意：干员信物不再由此掉落 —— 按设定，信物只能通过「干员寻访」抽卡获得。
         return out
 
     if cur is not None:
@@ -1173,7 +1232,13 @@ class ReorderRequest(BaseModel):
 
 
 class ExchangeRequest(BaseModel):
-    target_type: str = Field(..., pattern='^(source_stone|orundum)$')
+    # 兑换方向：from_type 消耗，to_type 获得。
+    # 经济规则（明日方舟原版）：
+    #   - 龙门币只能通过任务 / 礼包获得，不可被兑换出去（禁止作为 from_type）。
+    #   - 源石不可被兑换出去（禁止作为 from_type）。
+    #   - 唯一允许的兑换：源石 → 合成玉，比例 1 源石 = 180 合成玉。
+    from_type: str = Field(..., pattern='^(source_stone)$')
+    to_type: str = Field(..., pattern='^(orundum)$')
     amount: float = Field(..., gt=0)
 
 
@@ -2031,8 +2096,8 @@ async def claim_reward(task_id: int):
         rewards['source_stone'] += drop_rewards['source_stone']
         rewards['orundum'] += drop_rewards['orundum']
         rewards['lungmen'] += drop_rewards['lungmen']
-        # 掉落素材进入仓库
-        add_drops_to_inventory(cur, task["drop_config"])
+        # 掉落素材进入仓库，并把实际入库明细返回给前端用于提示
+        materials = add_drops_to_inventory(cur, task["drop_config"])
         # 没有奖励也标记为已领取
         for res_type, amount in rewards.items():
             if amount > 0:
@@ -2041,7 +2106,7 @@ async def claim_reward(task_id: int):
         old_exp = get_resource(cur, 'exp') - rewards['exp']
         new_exp = get_resource(cur, 'exp')
         check_and_apply_level_up(cur, old_exp, new_exp)
-    return {"data": {"id": task_id, "claimed": True, "rewards": rewards}}
+    return {"data": {"id": task_id, "claimed": True, "rewards": rewards, "materials": materials}}
 
 
 @app.post("/api/tasks/claim-all")
@@ -2138,19 +2203,36 @@ async def get_transactions(limit: int = 50, offset: int = 0):
 
 @app.post("/api/resources/exchange")
 async def exchange_resource(request: ExchangeRequest):
-    if request.target_type == 'source_stone':
-        cost = request.amount * 1000
-    elif request.target_type == 'orundum':
-        cost = request.amount * 2
-    else:
-        raise HTTPException(status_code=400, detail="不支持的目标资源类型")
+    # 允许的兑换方向白名单：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。
+    # 龙门币 / 源石均不可被兑换出去；龙门币只能由任务或礼包获得。
+    EXCHANGE_ALLOWED = {
+        ('source_stone', 'orundum'): 180,  # 1 源石 -> 180 合成玉
+    }
+    rate = EXCHANGE_ALLOWED.get((request.from_type, request.to_type))
+    if rate is None:
+        raise HTTPException(
+            status_code=400,
+            detail="该兑换不被允许：仅支持 源石 → 合成玉（1 源石 = 180 合成玉）。龙门币与源石不可被兑换出去。",
+        )
+    if request.amount is None or request.amount <= 0:
+        raise HTTPException(status_code=400, detail="兑换数量必须为正数")
+
     with db_cursor() as cur:
-        lungmen = get_resource(cur, 'lungmen')
-        if lungmen < cost:
-            raise HTTPException(status_code=400, detail="龙门币不足")
-        add_resource(cur, 'lungmen', -cost, f'exchange_{request.target_type}', None)
-        add_resource(cur, request.target_type, request.amount, f'exchange_lungmen', None)
-    return {"data": {"exchanged": request.amount, "target_type": request.target_type, "cost": cost}}
+        have = get_resource(cur, request.from_type)
+        if have < request.amount:
+            raise HTTPException(status_code=400, detail="源石不足")
+        gained = request.amount * rate
+        add_resource(cur, request.from_type, -request.amount, f'exchange_out_{request.to_type}', None)
+        add_resource(cur, request.to_type, gained, f'exchange_in_{request.from_type}', None)
+    return {
+        "data": {
+            "from_type": request.from_type,
+            "to_type": request.to_type,
+            "spent": request.amount,
+            "gained": gained,
+            "rate": rate,
+        }
+    }
 
 
 @app.get("/api/reality-rewards")
@@ -2385,6 +2467,502 @@ async def create_custom_achievement(
         """, (achievement_id, name, description, condition_type, condition_value, json.dumps(badge_conf),
               1 if hidden else 0))
     return {"data": {"id": achievement_id, "badge_config": badge_conf}}
+
+
+# ============================================================
+#  干员寻访（抽卡）：专门产出「干员信物」
+#  - 信物只能通过本模块获得（任务 / 礼包 / 兑换均不发信物）。
+#  - 数据参考明日方舟原版：1 源石 = 180 合成玉，单次寻访 = 600 合成玉；
+#    标准出率 6★2% / 5★8% / 4★50% / 3★40%；50 抽后 6★ 概率逐步提升，99 抽必出 6★；
+#    十连第 10 抽保底 ≥4★。抽到重复干员时产出该干员「信物」+1。
+# ============================================================
+OPERATOR_GACHA_COST = 600          # 单次寻访消耗合成玉（原版标准）
+OPERATOR_GACHA_RATES = {6: 0.02, 5: 0.08, 4: 0.50, 3: 0.40}  # 绝对出率
+OPERATOR_PITY_THRESHOLD = 50       # 50 抽后开始软保底
+OPERATOR_PITY_HARD = 98            # 距上次 6★ 达到 98 抽时，下一抽必出 6★
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CHARACTER_TABLE_PATH = os.path.join(
+    BASE_DIR, "assets-source", "gamedata", "excel", "character_table.json")
+
+
+# ---- 前端图片资源索引（由 build_char_assets.py 生成） ----
+#   static/img/char/_index.json  : charId -> {portrait, token}   干员立绘 / 信物图标
+#   static/img/skin/_index.json  : skinId -> {file, name, ...}   皮肤立绘（真实皮肤名）
+CHAR_ASSETS_PATH = os.path.join(BASE_DIR, "static", "img", "char", "_index.json")
+SKIN_ASSETS_PATH = os.path.join(BASE_DIR, "static", "img", "skin", "_index.json")
+
+
+def _load_json_index(path: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+CHAR_ASSETS = _load_json_index(CHAR_ASSETS_PATH)      # charId -> {portrait, token}
+SKIN_ASSETS = _load_json_index(SKIN_ASSETS_PATH)      # skinId -> {file, name, group, charId, rarity}
+SKINS_BY_CHAR = {}
+for _sid, _s in SKIN_ASSETS.items():
+    SKINS_BY_CHAR.setdefault(_s.get("charId"), []).append(_sid)
+for _cid in SKINS_BY_CHAR:
+    SKINS_BY_CHAR[_cid].sort()
+
+
+def _load_character_meta() -> dict:
+    """读取本地明日方舟 character_table.json，拿干员稀有度/职业。
+
+    rarity 在官方表里是 0~5（= 星级-1），这里统一换算成 1~6 星。
+    读取失败时返回空 dict，卡池会退回用仓库目录自带的稀有度字段，不影响主流程。
+    """
+    try:
+        with open(CHARACTER_TABLE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        print(f"[warn] 干员表加载失败（将用仓库目录稀有度兜底）: {e}")
+        return {}
+    meta = {}
+    for v in data.values():
+        name = v.get("name")
+        raw = v.get("rarity") or 0
+        if name and raw >= 1:          # rarity 0 为机器人/敌方单位，非可玩干员
+            meta[name] = {"rarity": raw + 1, "profession": v.get("profession") or ""}
+    return meta
+
+
+OPERATOR_META = _load_character_meta()
+
+
+def _build_operator_pool() -> list:
+    """卡池 = 仓库「信物」目录里的全部干员，与信物一一对应。
+
+    干员 id 直接用仓库目录的素材 key（如 mat_p_char_4179_monstr），
+    这样寻访产出的信物和仓库里的信物必然是同一条记录，不会出现对不上的情况。
+    过滤掉「先锋皇家信物 / 遗产信物 / 信物藏品」这类通用职业信物——
+    它们不属于任何具体干员，不能作为寻访产出。
+    """
+    pool = []
+    for it in WAREHOUSE_CATALOG:
+        if it.get("cat") != "信物":
+            continue
+        raw = (it.get("name") or "").strip()
+        if not raw.endswith("的信物"):
+            continue                              # 通用职业信物，跳过
+        op_name = raw[:-3].strip()
+        if not op_name:
+            continue
+        info = OPERATOR_META.get(op_name)
+        if info:
+            rarity, profession = info["rarity"], info["profession"]
+        else:
+            rarity, profession = (it.get("r") or 2) + 1, ""
+        # 立绘 / 信物图标：key 为 mat_p_char_XXXX，去掉 mat_p_ 前缀即是干员 charId
+        asset = CHAR_ASSETS.get(it["key"][6:]) if it["key"].startswith("mat_p_") else None
+        pool.append({
+            "id": it["key"],
+            "char_id": it["key"][6:] if it["key"].startswith("mat_p_") else it["key"],
+            "name": op_name,
+            "rarity": rarity,
+            "profession": profession,
+            "portrait": (asset or {}).get("portrait"),
+            "token_icon": (asset or {}).get("token"),
+        })
+    return pool
+
+
+OPERATOR_POOL = _build_operator_pool()
+if not OPERATOR_POOL:      # 目录缺失时兜底，避免卡池为空导致寻访直接报错
+    OPERATOR_POOL = [{"id": "mat_fallback_amiya", "name": "阿米娅", "rarity": 5, "profession": "CASTER"}]
+OPERATOR_POOL_BY_RARITY = {}
+for _op in OPERATOR_POOL:
+    OPERATOR_POOL_BY_RARITY.setdefault(_op["rarity"], []).append(_op)
+OPERATOR_POOL_BY_CHAR = {op["char_id"]: op for op in OPERATOR_POOL}
+
+
+def _load_character_by_id() -> dict:
+    """charId -> {name, rarity, profession}。
+
+    和 _load_character_meta 的区别：这里保留 charId 作 key，
+    时装商店要靠 charId 反查「这件皮肤属于谁」。
+    """
+    try:
+        with open(CHARACTER_TABLE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    out = {}
+    for cid, v in data.items():
+        name = v.get("name")
+        raw = v.get("rarity") or 0
+        if name and raw >= 1:
+            out[cid] = {"name": name, "rarity": raw + 1, "profession": v.get("profession") or ""}
+    return out
+
+
+CHARACTER_BY_ID = _load_character_by_id()
+
+
+def _daily_key(salt: str) -> str:
+    """每天换一批的种子：让「精选卡池 / 时装货架」每天都有新鲜感。"""
+    return f"{salt}:{datetime.now().strftime('%Y%m%d')}"
+
+
+def _rotate(seq: list, seed: str, n: int) -> list:
+    """按稳定哈希把列表旋转一段后取前 n 个——同一自然日内结果固定。"""
+    if not seq:
+        return []
+    start = _stable_index(seed, len(seq))
+    return (seq[start:] + seq[:start])[:n]
+
+
+def featured_operators() -> dict:
+    """寻访弹窗顶部的「本期精选」：每日轮换，只挑有立绘的干员。
+
+    返回 {six: [...], five: [...], four: [...]}，前端用来铺立绘展示条，
+    让卡池在没有抽卡记录时也不是一片空白。
+    """
+    def pick(rarity: int, n: int) -> list:
+        cand = [op for op in OPERATOR_POOL if op["rarity"] == rarity and op.get("portrait")]
+        return _rotate(cand, _daily_key(f"featured:{rarity}"), n)
+
+    return {
+        "six": pick(6, 1),
+        "five": pick(5, 4),
+        "four": pick(4, 6),
+        "date": datetime.now().strftime("%Y-%m-%d"),
+    }
+
+
+def _gacha_pity_get(cur, key, default=0):
+    row = cur.execute("SELECT value FROM gacha_pity WHERE key=?", (key,)).fetchone()
+    return row["value"] if row else default
+
+
+def _gacha_pity_set(cur, key, value):
+    cur.execute(
+        "INSERT INTO gacha_pity (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, value),
+    )
+
+
+def roll_operator_rarity(since_last_6star):
+    """按保底逻辑决定本次稀有度。返回 3/4/5/6。"""
+    p6 = OPERATOR_GACHA_RATES[6]
+    if since_last_6star >= OPERATOR_PITY_HARD:
+        return 6
+    if since_last_6star >= OPERATOR_PITY_THRESHOLD:
+        # 软保底：自第 50 抽起，6★ 概率每抽 +2%，最高 100%
+        p6 = min(1.0, p6 + 0.02 * (since_last_6star - OPERATOR_PITY_THRESHOLD + 1))
+    roll = random.random()
+    if roll < p6:
+        return 6
+    if roll < p6 + OPERATOR_GACHA_RATES[5]:
+        return 5
+    if roll < p6 + OPERATOR_GACHA_RATES[5] + OPERATOR_GACHA_RATES[4]:
+        return 4
+    return 3
+
+
+def draw_one_operator(cur, force_min_rarity=None):
+    """执行一次寻访（已在校验过合成玉余额、已扣费之后调用）。
+    返回结果 dict，并更新 operator_records 与 gacha_pity。"""
+    since = _gacha_pity_get(cur, "since_last_6star", 0)
+    rarity = roll_operator_rarity(since)
+    if force_min_rarity and rarity < force_min_rarity:
+        rarity = force_min_rarity
+    pool = OPERATOR_POOL_BY_RARITY.get(rarity) or OPERATOR_POOL
+    op = random.choice(pool)
+    # 更新干员记录：首抽为「新干员」，重复则「信物 +1」
+    cur.execute(
+        "INSERT INTO operator_records (operator_id, name, rarity, copies, tokens) "
+        "VALUES (?, ?, ?, 0, 0) ON CONFLICT(operator_id) DO NOTHING",
+        (op["id"], op["name"], rarity),
+    )
+    row = cur.execute(
+        "SELECT copies, tokens FROM operator_records WHERE operator_id=?", (op["id"],)
+    ).fetchone()
+    copies = row["copies"] + 1
+    is_new = (copies == 1)
+    token_gain = 0 if is_new else 1
+    tokens = row["tokens"] + token_gain
+    cur.execute(
+        "UPDATE operator_records SET copies=?, tokens=?, updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+        "WHERE operator_id=?",
+        (copies, tokens, op["id"]),
+    )
+    # 保底计数
+    total = _gacha_pity_get(cur, "total_pulls", 0) + 1
+    _gacha_pity_set(cur, "total_pulls", total)
+    since_next = 0 if rarity == 6 else since + 1
+    _gacha_pity_set(cur, "since_last_6star", since_next)
+    return {
+        "operator_id": op["id"],
+        "name": op["name"],
+        "rarity": rarity,
+        "is_new": is_new,
+        "token_gain": token_gain,
+        "portrait": op.get("portrait"),
+        "token_icon": op.get("token_icon"),
+    }
+
+
+class GachaOperatorRequest(BaseModel):
+    count: int = Field(..., ge=1, le=10)
+
+
+@app.post("/api/gacha/operator")
+async def gacha_operator(req: GachaOperatorRequest):
+    count = req.count
+    cost = OPERATOR_GACHA_COST * count
+    with db_cursor() as cur:
+        orundum = get_resource(cur, "orundum")
+        if orundum < cost:
+            raise HTTPException(status_code=400, detail="合成玉不足")
+        add_resource(cur, "orundum", -cost, "gacha_operator", None)
+        results = []
+        for i in range(count):
+            # 十连第 10 抽保底 ≥4★
+            force = 4 if (count == 10 and i == 9) else None
+            results.append(draw_one_operator(cur, force_min_rarity=force))
+        since = _gacha_pity_get(cur, "since_last_6star", 0)
+        total = _gacha_pity_get(cur, "total_pulls", 0)
+        balance = get_resource(cur, "orundum")
+    return {
+        "data": {
+            "results": results,
+            "cost": cost,
+            "balance_orundum": balance,
+            "pity": {
+                "total_pulls": total,
+                "since_last_6star": since,
+                "guaranteed_in": max(1, (OPERATOR_PITY_HARD + 1) - since),
+            },
+        }
+    }
+
+
+@app.get("/api/gacha/operator/records")
+async def gacha_operator_records():
+    with db_cursor() as cur:
+        rows = cur.execute(
+            "SELECT operator_id, name, rarity, copies, tokens FROM operator_records "
+            "ORDER BY rarity DESC, name ASC"
+        ).fetchall()
+        since = _gacha_pity_get(cur, "since_last_6star", 0)
+        total = _gacha_pity_get(cur, "total_pulls", 0)
+    # 附上立绘 / 信物图标，图鉴列表也带图
+    operators = []
+    for r in rows:
+        d = dict(r)
+        asset = CHAR_ASSETS.get((d.get("operator_id") or "")[6:], {})
+        d["portrait"] = asset.get("portrait")
+        d["token_icon"] = asset.get("token")
+        operators.append(d)
+    return {
+        "data": {
+            "operators": operators,
+            "featured": featured_operators(),
+            "pity": {
+                "total_pulls": total,
+                "since_last_6star": since,
+                "guaranteed_in": max(1, (OPERATOR_PITY_HARD + 1) - since),
+            },
+        }
+    }
+
+
+# ============================================================
+#  时装（皮肤）商店：用「至纯源石」购买，价格档位对齐明日方舟原版
+#   15 源石：无特效，仅静态立绘
+#   18 源石：在 15 档基础上替换技能特效
+#   21 源石：在 18 档基础上改为动态立绘
+#   24 源石：在 21 档基础上追加入场动画 + 全套新语音
+#   27 源石：双形态动态立绘 + 新语音（原版最高档）
+#  只列出「已持有」干员的时装——和原版一致：没有这名干员就穿不了他的皮肤。
+# ============================================================
+SKIN_TIER_LABEL = {
+    15: "静态立绘",
+    18: "特效时装",
+    21: "动态立绘",
+    24: "动态立绘 · 全新语音",
+    27: "双形态 · 全新语音",
+}
+# 各星级干员可能出现的档位（越稀有越容易出豪华皮）
+SKIN_TIERS_BY_RARITY = {
+    6: [21, 24, 24, 27],
+    5: [18, 21, 21, 24],
+    4: [15, 18, 18, 21],
+    3: [15, 18],
+    2: [15],
+}
+# 每位干员生成的时装数量
+SKIN_COUNT_BY_RARITY = {6: 2, 5: 2, 4: 1, 3: 1, 2: 1}
+SKIN_SERIES = [
+    "珊瑚海岸", "漆黑预言", "静谧之夜", "缄默荣誉", "荒野求生", "城市行者",
+    "破晓时分", "夜航星", "长夜将尽", "白沙之约", "深蓝之心", "绯红之诗",
+    "雪境巡礼", "沙海遗珍", "云端之上", "机械之心", "花与剑", "旧日回响",
+    "边境之歌", "霜华之姿", "暗巷行者", "星海漫游", "假日时光", "铁血余晖",
+    "孤星轨迹", "薄暮追猎", "极地远征", "春日序曲", "秋日私语", "幻夜华章",
+]
+
+
+def _stable_index(seed: str, mod: int) -> int:
+    """用 md5 做稳定哈希，保证同一皮肤每次启动价格/外观都一致（不能用内置 hash）。"""
+    return int(hashlib.md5(seed.encode("utf-8")).hexdigest(), 16) % mod
+
+
+def build_skins_for_operator(op: dict) -> list:
+    """为一名干员生成他的时装列表（确定性，重启不变）。
+
+    优先使用官方 skin_table 里的**真实皮肤**（真实名称 + 真实立绘）；
+    该干员没有收录皮肤时，才退回按系列名生成的占位时装。
+    """
+    rarity = op["rarity"]
+    tiers = SKIN_TIERS_BY_RARITY.get(rarity, [15, 18])
+    real_ids = SKINS_BY_CHAR.get(op.get("char_id") or op["id"][6:], [])
+    skins = []
+    if real_ids:
+        for i, sid in enumerate(real_ids):
+            s = SKIN_ASSETS[sid]
+            price = tiers[_stable_index(f"{sid}:price", len(tiers))]
+            skins.append({
+                "skin_id": sid,
+                "operator_id": op["id"],
+                "operator_name": op["name"],
+                "rarity": rarity,
+                "skin_name": s["name"],
+                "series": s.get("group") or "",
+                "image": s.get("file"),
+                "tier_label": SKIN_TIER_LABEL[price],
+                "cost": price,
+            })
+        return skins
+    # 无收录皮肤：退回生成式占位
+    n = SKIN_COUNT_BY_RARITY.get(rarity, 1)
+    for i in range(n):
+        price = tiers[_stable_index(f"{op['id']}:{i}:price", len(tiers))]
+        series = SKIN_SERIES[_stable_index(f"{op['id']}:{i}:series", len(SKIN_SERIES))]
+        skins.append({
+            "skin_id": f"{op['id']}#{i}",
+            "operator_id": op["id"],
+            "operator_name": op["name"],
+            "rarity": rarity,
+            "skin_name": series,
+            "series": "",
+            "image": (op.get("portrait")),
+            "tier_label": SKIN_TIER_LABEL[price],
+            "cost": price,
+        })
+    return skins
+
+
+def build_skin_shop(owned_op_ids: set, limit: int = 18) -> list:
+    """时装商店的「货架」：每日轮换一批真实皮肤。
+
+    原版的时装商店本来就会摆出你还没有的干员的皮肤——买得到、穿不上。
+    这里同样处理：未持有干员的时装 unlocked=False，前端只给预览不给下单，
+    并且标上「获得该干员后可购买」，商店才不会是空货架。
+    """
+    ids = sorted(SKIN_ASSETS.keys())
+    if not ids:
+        return []
+    shop = []
+    for sid in _rotate(ids, _daily_key("skinshop"), len(ids)):
+        s = SKIN_ASSETS.get(sid) or {}
+        cid = s.get("charId") or ""
+        meta = CHARACTER_BY_ID.get(cid)
+        if not meta or not s.get("file"):
+            continue
+        op = OPERATOR_POOL_BY_CHAR.get(cid)
+        rarity = meta["rarity"]
+        tiers = SKIN_TIERS_BY_RARITY.get(rarity, [15, 18])
+        price = tiers[_stable_index(f"{sid}:price", len(tiers))]
+        shop.append({
+            "skin_id": sid,
+            "operator_id": (op or {}).get("id") or f"mat_p_{cid}",
+            "operator_name": meta["name"],
+            "rarity": rarity,
+            "skin_name": s.get("name") or "时装",
+            "series": s.get("group") or "",
+            "image": s.get("file"),
+            "tier_label": SKIN_TIER_LABEL[price],
+            "cost": price,
+            "owned": False,
+            "unlocked": bool(op and op["id"] in owned_op_ids),
+        })
+        if len(shop) >= limit:
+            break
+    shop.sort(key=lambda x: (-x["rarity"], -x["cost"]))
+    return shop
+
+
+@app.get("/api/skins")
+async def list_skins():
+    """时装商店：已持有干员的时装可下单；再附一条每日轮换的货架做预览。"""
+    pool_by_id = {op["id"]: op for op in OPERATOR_POOL}
+    with db_cursor() as cur:
+        owned_ops = cur.execute(
+            "SELECT operator_id, name, rarity, copies FROM operator_records WHERE copies > 0"
+        ).fetchall()
+        owned_skins = {r["skin_id"] for r in cur.execute("SELECT skin_id FROM skins_owned").fetchall()}
+        stone = get_resource(cur, "source_stone")
+    owned_ids = {r["operator_id"] for r in owned_ops}
+    skins = []
+    for r in owned_ops:
+        op = pool_by_id.get(r["operator_id"]) or {
+            "id": r["operator_id"], "name": r["name"], "rarity": r["rarity"], "profession": ""}
+        for s in build_skins_for_operator(op):
+            s["owned"] = s["skin_id"] in owned_skins
+            s["unlocked"] = True
+            skins.append(s)
+    owned_skin_ids = {s["skin_id"] for s in skins}
+    skins.sort(key=lambda s: (-s["rarity"], -s["cost"], s["operator_name"]))
+    # 货架里剔掉已经在「可购买」区出现过的，避免同一件皮肤出现两次
+    shop = [s for s in build_skin_shop(owned_ids) if s["skin_id"] not in owned_skin_ids]
+    return {"data": {"skins": skins, "shop": shop, "source_stone": stone,
+                     "owned_count": len(owned_skins), "operator_count": len(owned_ops)}}
+
+
+class SkinPurchaseRequest(BaseModel):
+    skin_id: str
+
+
+@app.post("/api/skins/purchase")
+async def purchase_skin(req: SkinPurchaseRequest):
+    pool_by_id = {op["id"]: op for op in OPERATOR_POOL}
+    # 先定位这件皮肤属于谁（只允许买已持有干员的皮肤）
+    target = None
+    with db_cursor() as cur:
+        for r in cur.execute(
+                "SELECT operator_id, name, rarity FROM operator_records WHERE copies > 0").fetchall():
+            op = pool_by_id.get(r["operator_id"]) or {
+                "id": r["operator_id"], "name": r["name"], "rarity": r["rarity"], "profession": ""}
+            for s in build_skins_for_operator(op):
+                if s["skin_id"] == req.skin_id:
+                    target = s
+                    break
+            if target:
+                break
+    if not target:
+        raise HTTPException(status_code=404, detail="未持有该干员，无法购买其时装")
+
+    with db_cursor() as cur:
+        if cur.execute("SELECT 1 FROM skins_owned WHERE skin_id=?", (req.skin_id,)).fetchone():
+            raise HTTPException(status_code=400, detail="已拥有该时装")
+        stone = get_resource(cur, "source_stone")
+        if stone < target["cost"]:
+            raise HTTPException(status_code=400, detail=f"源石不足（需要 {target['cost']}）")
+        add_resource(cur, "source_stone", -target["cost"], "skin_purchase", None)
+        cur.execute(
+            "INSERT INTO skins_owned (skin_id, operator_id, operator_name, skin_name, cost_source_stone) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (req.skin_id, target["operator_id"], target["operator_name"],
+             target["skin_name"], target["cost"]),
+        )
+        balance = get_resource(cur, "source_stone")
+    return {"data": {"purchased": target, "source_stone": balance}}
 
 
 @app.post("/api/achievements/draw")

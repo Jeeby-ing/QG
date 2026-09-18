@@ -65,8 +65,11 @@ const state = {
 
 const DOM = {};
 const API_BASE = '/api';
-const EXCHANGE_RATES = { source_stone: 1000, orundum: 2 };
+// 资源兑换：唯一允许的兑换方向为 源石 → 合成玉，比例 1 源石 = 180 合成玉（明日方舟原版）。
+const EXCHANGE_RATE_STONE_TO_ORUNDUM = 180;
 const GACHA_COST_ORUNDUM = 300;
+// 干员寻访（抽卡）：单次 600 合成玉，十连 6000（明日方舟原版标准）。
+const OPERATOR_GACHA_COST = 600;
 
 // ── 共享资源图标 SVG（唯一真实来源，三处复用：顶部栏 / 奖励弹窗 / 主页面板）──
 // 渐变 ID 用 rs 前缀（resource-shared），避免与页面其他 SVG 冲突
@@ -230,6 +233,9 @@ function cacheDOM() {
     DOM.badgeNotifName = document.getElementById('badgeNotifName');
     DOM.levelUpOverlay = document.getElementById('levelUpOverlay');
     DOM.levelUpText = document.getElementById('levelUpText');
+    DOM.levelUpLevel = document.getElementById('levelUpLevel');
+    DOM.levelUpOldLevel = document.getElementById('levelUpOldLevel');
+    DOM.levelUpSparks = document.getElementById('levelUpSparks');
     DOM.particleContainer = document.getElementById('particleContainer');
     DOM.rewardDetails = document.getElementById('rewardDetails');
     DOM.randomDropSection = document.getElementById('randomDropSection');
@@ -272,7 +278,6 @@ function cacheDOM() {
     DOM.dateTasksClose = document.getElementById('dateTasksClose');
     DOM.exchangeBtn = document.getElementById('exchangeBtn');
     DOM.exchangeModal = document.getElementById('exchangeModal');
-    DOM.exchangeTarget = document.getElementById('exchangeTarget');
     DOM.exchangeAmount = document.getElementById('exchangeAmount');
     DOM.exchangeConfirm = document.getElementById('exchangeConfirm');
     DOM.exchangeCancel = document.getElementById('exchangeCancel');
@@ -287,6 +292,25 @@ function cacheDOM() {
     DOM.gachaResult = document.getElementById('gachaResult');
     DOM.gachaCloseHint = document.getElementById('gachaCloseHint');
     DOM.gachaOrundumBalance = document.getElementById('gachaOrundumBalance');
+    DOM.operatorGachaBtn = document.getElementById('operatorGachaBtn');
+    DOM.operatorGachaModal = document.getElementById('operatorGachaModal');
+    DOM.operatorGachaClose = document.getElementById('operatorGachaClose');
+    DOM.operatorGachaCancel = document.getElementById('operatorGachaCancel');
+    DOM.operatorGachaSingle = document.getElementById('operatorGachaSingle');
+    DOM.operatorGachaTen = document.getElementById('operatorGachaTen');
+    DOM.operatorGachaOrundumBalance = document.getElementById('operatorGachaOrundumBalance');
+    DOM.operatorGachaPity = document.getElementById('operatorGachaPity');
+    DOM.operatorGachaResult = document.getElementById('operatorGachaResult');
+    DOM.operatorGachaStage = document.getElementById('operatorGachaStage');
+    DOM.operatorFeatured = document.getElementById('operatorFeatured');
+    DOM.operatorTokenList = document.getElementById('operatorTokenList');
+    DOM.skinShopBtn = document.getElementById('skinShopBtn');
+    DOM.skinShopModal = document.getElementById('skinShopModal');
+    DOM.skinShopClose = document.getElementById('skinShopClose');
+    DOM.skinShopCancel = document.getElementById('skinShopCancel');
+    DOM.skinShopList = document.getElementById('skinShopList');
+    DOM.skinShopBalance = document.getElementById('skinShopBalance');
+    DOM.skinFilterRow = document.getElementById('skinFilterRow');
     DOM.dragIndicator = document.getElementById('dragIndicator');
     DOM.toastContainer = document.getElementById('toastContainer');
     DOM.confirmModal = document.getElementById('confirmModal');
@@ -473,7 +497,6 @@ function bindEvents() {
     DOM.exchangeCancel.addEventListener('click', closeAllModals);
     DOM.exchangeClose.addEventListener('click', closeAllModals);
     DOM.exchangeConfirm.addEventListener('click', handleExchange);
-    DOM.exchangeTarget.addEventListener('change', updateExchangeCost);
     DOM.exchangeAmount.addEventListener('input', updateExchangeCost);
 
     DOM.gachaBtn.addEventListener('click', () => { openModal('gachaModal'); updateGachaBalance(); updateGachaCostText(); });
@@ -483,6 +506,26 @@ function bindEvents() {
     DOM.gachaClose.addEventListener('click', closeAllModals);
     DOM.gachaConfirm.addEventListener('click', handleGacha);
     DOM.gachaCloseHint.addEventListener('click', closeAllModals);
+
+    // 干员寻访（抽卡）
+    if (DOM.operatorGachaBtn) DOM.operatorGachaBtn.addEventListener('click', openOperatorGacha);
+    DOM.operatorGachaCancel.addEventListener('click', closeAllModals);
+    DOM.operatorGachaClose.addEventListener('click', closeAllModals);
+    DOM.operatorGachaSingle.addEventListener('click', () => handleOperatorGacha(1));
+    DOM.operatorGachaTen.addEventListener('click', () => handleOperatorGacha(10));
+
+    // 时装商店
+    if (DOM.skinShopBtn) DOM.skinShopBtn.addEventListener('click', openSkinShop);
+    if (DOM.skinShopClose) DOM.skinShopClose.addEventListener('click', closeAllModals);
+    if (DOM.skinShopCancel) DOM.skinShopCancel.addEventListener('click', closeAllModals);
+    if (DOM.skinFilterRow) DOM.skinFilterRow.addEventListener('click', e => {
+        const btn = e.target.closest('.skin-filter-btn');
+        if (!btn) return;
+        DOM.skinFilterRow.querySelectorAll('.skin-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        skinFilter = btn.dataset.rarity;
+        renderSkins();
+    });
 
     DOM.pomodoroStopBtn.addEventListener('click', stopPomodoro);
 
@@ -1629,6 +1672,9 @@ function createTaskCard(task) {
 
     const main = document.createElement('div');
     main.className = 'task-main';
+    const topRow = document.createElement('div');
+    topRow.className = 'task-top-row';
+    // 星级徽章原先独占一行（36px 高 + 8px 下边距），现改为与标题同行，直接省掉一整行高度
     const stars = document.createElement('div');
     stars.className = 'task-stars';
     const starBg = document.createElement('div');
@@ -1637,9 +1683,7 @@ function createTaskCard(task) {
         starBg.appendChild(createStarElement());
     }
     stars.appendChild(starBg);
-    main.appendChild(stars);
-    const topRow = document.createElement('div');
-    topRow.className = 'task-top-row';
+    topRow.appendChild(stars);
     const title = document.createElement('span');
     title.className = 'task-title';
     title.textContent = task.title;
@@ -1667,11 +1711,16 @@ function createTaskCard(task) {
     // 稀有度框（优先级 → 方舟素材稀有度边框：1→r6金 / 2→r5 / 3→r4 / 4→r3 / 5→r2 / 6→r1）
     // 稀有度框已移除：星级（★）已是优先级的直观展示，圆形角标与卡片风格冲突
     main.appendChild(topRow);
+    // 描述与分类标签放进独立的「元信息行」：两者固定同一行、互不换行，
+    // 描述超长时省略号截断，标签恒定贴在该行右侧，避免长描述把标签挤到下一行造成凌乱。
+    const metaRow = document.createElement('div');
+    metaRow.className = 'task-meta-row';
     if (task.description) {
         const desc = document.createElement('div');
         desc.className = 'task-desc';
         desc.textContent = task.description;
-        main.appendChild(desc);
+        desc.title = task.description;
+        metaRow.appendChild(desc);
     }
     if (task.tags && task.tags.length) {
         const tagsDiv = document.createElement('div');
@@ -1695,8 +1744,9 @@ function createTaskCard(task) {
             }
             tagsDiv.appendChild(tagSpan);
         });
-        main.appendChild(tagsDiv);
+        metaRow.appendChild(tagsDiv);
     }
+    if (metaRow.childNodes.length) main.appendChild(metaRow);
     if (task.progress_mode === 'count' && task.target_value) {
         const countDiv = document.createElement('div');
         countDiv.className = 'count-controls';
@@ -1761,6 +1811,24 @@ function createTaskCard(task) {
     progressSection.appendChild(progressBar);
     progressSection.appendChild(progressText);
     card.appendChild(progressSection);
+
+    // 快捷完成：常驻按钮，不必点开任务详情即可完成
+    if (task.status !== 'done' && task.status !== 'cancelled') {
+        const quick = document.createElement('div');
+        quick.className = 'task-quick';
+        const quickDoneBtn = document.createElement('button');
+        quickDoneBtn.className = 'quick-complete-btn';
+        quickDoneBtn.innerHTML = '<i class="fa-solid fa-check"></i>';
+        quickDoneBtn.title = '快捷完成';
+        quickDoneBtn.setAttribute('aria-label', '快捷完成');
+        quickDoneBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (window._suppressClick) return;
+            completeTaskAndHandleReward(task.id);
+        });
+        quick.appendChild(quickDoneBtn);
+        card.appendChild(quick);
+    }
 
     const actions = document.createElement('div');
     actions.className = 'task-actions';
@@ -2339,14 +2407,68 @@ function renderProfileBadges(){ const grid=DOM.profileBadgesGrid; grid.innerHTML
     }});
 }
 
-function renderGiftPacks(){ const grid=DOM.giftPacksGrid; grid.innerHTML='';
-    state.giftPacks.forEach(pack=>{ if(pack.purchased) return;
-        const card=document.createElement('div'); card.className='gift-pack-card';
-        card.innerHTML=`
-            <div class="gift-pack-name">${escapeHtml(pack.name)}</div>
-            <div class="gift-pack-desc">${escapeHtml(pack.description)}</div>
-            <div class="gift-pack-cost">${pack.cost_source_stone} <span style="font-size:0.85em;opacity:0.7">源石</span></div>`;
-        card.addEventListener('click',()=>purchaseGiftPack(pack.id)); grid.appendChild(card);
+/* ===== 礼包卡片 =====
+   礼包有两种内容格式（后端生成时并存）：
+     fixed/resources + materials : {"resources":{...},"materials":[{type,amount}]}
+     fixed + random              : {"fixed":{...},"random":["mat_xxx:3", ...]}
+   这里统一解析成「资源 + 素材」两组，用真实图标铺成内容条——
+   只写三行文字太素，看不出包里到底有啥。 */
+const GP_RES_NAME = { exp:'经验值', source_stone:'源石', lungmen:'龙门币', orundum:'合成玉', sanity:'理智' };
+const GP_RES_ORDER = ['source_stone', 'orundum', 'lungmen', 'exp', 'sanity'];
+let WH_NAME_MAP = null;
+function matNameOf(key){
+    if (!WH_NAME_MAP){ WH_NAME_MAP = {}; WAREHOUSE_CATALOG.forEach(x => { WH_NAME_MAP[x.key] = x.name; }); }
+    return WH_NAME_MAP[key] || key;
+}
+function parsePackContents(pack){
+    let cfg = pack.content_config;
+    if (typeof cfg === 'string'){ try { cfg = JSON.parse(cfg); } catch(e){ cfg = {}; } }
+    cfg = cfg || {};
+    const res = Object.assign({}, cfg.resources || {}, cfg.fixed || {});
+    const mats = [];
+    (cfg.materials || []).forEach(m => mats.push({ key: m.type, amount: Number(m.amount) || 1 }));
+    (cfg.random || []).forEach(s => {
+        const parts = String(s).split(':');
+        const k = parts[0], n = parseInt(parts[1], 10) || 1;
+        if (!k) return;
+        if (GP_RES_NAME[k]) res[k] = (res[k] || 0) + n;
+        else mats.push({ key: k, amount: n });
+    });
+    return { res, mats };
+}
+function renderGiftPacks(){
+    const grid = DOM.giftPacksGrid; if (!grid) return;
+    grid.innerHTML = '';
+    const avail = (state.giftPacks || []).filter(p => !p.purchased);
+    if (!avail.length){
+        grid.innerHTML = '<div class="gp-empty">补给包已全部购买，等待下一轮补给</div>';
+        return;
+    }
+    avail.forEach(pack => {
+        const { res, mats } = parsePackContents(pack);
+        const chips = [];
+        GP_RES_ORDER.forEach(k => {
+            const v = res[k];
+            if (!v) return;
+            chips.push(`<span class="gp-chip"><img src="static/icons/${k}.png" alt="" onerror="this.style.visibility='hidden'">` +
+                `<b>${formatWhNum(v)}</b><i>${GP_RES_NAME[k]}</i></span>`);
+        });
+        mats.forEach(m => chips.push(
+            `<span class="gp-chip"><img src="static/icons/${m.key}.png" alt="" onerror="this.style.visibility='hidden'">` +
+            `<b>×${m.amount}</b><i>${escapeHtml(matNameOf(m.key))}</i></span>`));
+        const card = document.createElement('div');
+        card.className = `gift-pack-card gp-r${pack.rarity || 1}`;
+        card.innerHTML =
+            '<span class="gp-ribbon"></span>' +
+            '<div class="gp-head">' +
+                `<span class="gp-name">${escapeHtml(pack.name)}</span>` +
+                `<span class="gp-price"><i class="fa-solid fa-gem"></i>${pack.cost_source_stone}</span>` +
+            '</div>' +
+            `<div class="gp-desc">${escapeHtml(pack.description || '')}</div>` +
+            `<div class="gp-contents">${chips.join('') || '<span class="gp-chip-empty">内容物生成中</span>'}</div>` +
+            '<button class="gp-buy">购买</button>';
+        card.addEventListener('click', () => purchaseGiftPack(pack.id));
+        grid.appendChild(card);
     });
 }
 
@@ -2402,31 +2524,30 @@ function updateUserInfo() {
     DOM.userLevel.textContent = `Lv.${lp.level}`;
 }
 
-/* ===== 等级 / 经验曲线（对标明日方舟博士等级） =====
-   采用明日方舟真实「升级所需声望」曲线：分段线性、斜率随等级递增——
-   即凸曲线（导函数本身递增，升级越来越难，但中段平缓、后期陡升）。
-   真实数据点（每级所需经验）：
-     L1 500, L2 800, L3 1240,
-     L4–L34 每级 +80,  L35–L51 每级 +300,
-     L52–L65 每级 +500, L66–L100 每级 +1000,
-     L101–L120 每级 +2000（120 为原上限，之后按 +2000 外推）。
-   SCALE 为整体缩放：默认 0.05。
-     注：Quest-log 是真实任务系统，经验得来远比游戏内刷关稀疏，每点经验更珍贵，
-     所以整体比真实方舟（SCALE≈1）松得多——取 0.05 让升级节奏对低频经验友好。
-     调 SCALE：调大 → 更接近真实方舟（更难/更慢）；调小 → 更易/更快。
-     FLOOR 为单级最低经验下限（避免前期每级都卡成同一个数、毫无区分）。 */
+/* ===== 等级 / 经验曲线 =====
+   二次曲线：need(L) = BASE + LIN*(L-1) + QUAD*(L-1)^2
+   为什么换掉原来的方舟原表 ×0.05：
+     原表 L4~L34 每级只 +80，乘 0.05 后每级仅 +4 经验 —— 增速几乎为 0，
+     且 L21 只要 130 经验，做一两个任务就升级，完全没有成长感。
+   二次曲线的单级需求随等级加速上升（取整到 5 的倍数）：
+     L1=60, L2=80, L5=155, L10=320, L20=800, L30=1480, L50=3440, L100=11840
+     每级增量从 ~20 一路涨到 ~100+，后期越来越难，增速肉眼可见。
+   调参：BASE↑ 整体更难；LIN↑ 中期更快变难；QUAD↑ 后期更陡。
+   注意：改曲线会让既有经验对应的等级重新标定（等级数会下降），属正常现象。
+   参考：1800 经验 → 旧曲线 L21（每级仅 130），新曲线 L11（每级约 360）。 */
 const AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000];
-const LEVEL_SCALE = 0.05;
-const LEVEL_FLOOR = 30;
+/* 曲线说明见上方「等级 / 经验曲线」注释块。
+   改动这几个常量时必须同步 main.py 的 _LEVEL_BASE/_LEVEL_LIN/_LEVEL_QUAD/_LEVEL_ROUND/_LEVEL_FLOOR，
+   否则前端显示等级与后端升级检测会不一致。 */
+const LEVEL_BASE = 60;
+const LEVEL_LIN = 20;
+const LEVEL_QUAD = 1.0;
+const LEVEL_STEP = 5;
+const LEVEL_FLOOR = 50;
 function levelExpForLevel(level){
-    let need;
-    if (level >= 1 && level <= AK_EXP_TABLE.length) {
-        need = AK_EXP_TABLE[level - 1];
-    } else {
-        // 超出原表：从 L120(100000) 起每级 +2000 外推
-        need = 100000 + (level - 120) * 2000;
-    }
-    return Math.max(LEVEL_FLOOR, Math.round(need * LEVEL_SCALE / 10) * 10);
+    const n = Math.max(0, level - 1);
+    const need = LEVEL_BASE + LEVEL_LIN * n + LEVEL_QUAD * n * n;
+    return Math.max(LEVEL_FLOOR, Math.round(need / LEVEL_STEP) * LEVEL_STEP);
 }
 function levelProgress(exp){
     let level = 1, total = 0;
@@ -3294,7 +3415,12 @@ async function claimReward(){
             closeAllModals();
             if(modalContainer){ modalContainer.style.transition='none'; modalContainer.style.transform=''; modalContainer.style.opacity=''; }
             state.rewardModalAnimating=false;
-            loadResources(); loadTransactions(); loadTasks(); updateTrackingPanel();
+            loadResources(); loadTransactions(); loadTasks(); updateTrackingPanel(); loadInventory();
+            // 明确提示素材已入库，避免"领了奖励但感觉仓库没变化"
+            const matCnt = (result && result.materials) ? result.materials.length : 0;
+            if (matCnt > 0) showToast(`仓库已收入 ${matCnt} 种素材`);
+            const matCount = (result && result.materials && result.materials.length) || 0;
+            if (matCount > 0) showToast(`仓库已收入 ${matCount} 种素材`);
             const sorted=filterTasks(state.flatTasks); const currentIndex=sorted.findIndex(t=>t.id==taskId);
             if(currentIndex!==-1&&currentIndex+1<sorted.length){ const nextTaskId=sorted[currentIndex+1].id;
                 const nextCard=document.querySelector(`.task-card[data-task-id="${nextTaskId}"]`);
@@ -4093,20 +4219,297 @@ function showPackRewardModal(granted){
 
 async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); const rewards=result.rewards; if(rewards&&rewards.length){ showPackRewardModal(rewards); } else showToast('领取成功'); } }
 
-function updateExchangeCost(){ const target=DOM.exchangeTarget.value; const amount=parseFloat(DOM.exchangeAmount.value)||0; let cost=0;
-    if(target==='source_stone') cost=amount*EXCHANGE_RATES.source_stone; else if(target==='orundum') cost=amount*EXCHANGE_RATES.orundum;
-    DOM.exchangeCostDisplay.textContent=`所需龙门币：${cost}`; }
-function updateExchangeBalance(){ const lungmen=state.resources.lungmen?.current_value||0; DOM.exchangeLungmenBalance.textContent=`当前持有龙门币：${lungmen}`; }
-function updateExchangeRateText(){ DOM.exchangeRateText.textContent = `使用龙门币兑换其他资源（汇率：1源石=${EXCHANGE_RATES.source_stone}龙门币，1合成玉=${EXCHANGE_RATES.orundum}龙门币）`; }
-async function handleExchange(){ const targetType=DOM.exchangeTarget.value; const amount=parseFloat(DOM.exchangeAmount.value);
+function updateExchangeCost(){ const amount=parseFloat(DOM.exchangeAmount.value)||0; const gained=amount*EXCHANGE_RATE_STONE_TO_ORUNDUM;
+    DOM.exchangeCostDisplay.textContent=`消耗源石：${amount}　→　获得合成玉：${gained}（×${EXCHANGE_RATE_STONE_TO_ORUNDUM}）`; }
+function updateExchangeBalance(){ const stone=state.resources.source_stone?.current_value||0; DOM.exchangeLungmenBalance.textContent=`当前持有源石：${stone}`; }
+function updateExchangeRateText(){ DOM.exchangeRateText.textContent = `唯一允许的兑换：源石 → 合成玉（1 源石 = ${EXCHANGE_RATE_STONE_TO_ORUNDUM} 合成玉）。龙门币与源石不可被兑换出去。`; }
+async function handleExchange(){ const amount=parseFloat(DOM.exchangeAmount.value);
     if(isNaN(amount)||amount<=0){ showToast('请输入有效数量'); return; }
-    const result=await apiPost('/resources/exchange',{target_type:targetType,amount}); if(result){ await loadResources(); await loadTransactions(); await loadRealityRewards(); closeAllModals(); showToast('兑换成功'); } }
+    const result=await apiPost('/resources/exchange',{from_type:'source_stone',to_type:'orundum',amount}); if(result){ await loadResources(); await loadTransactions(); await loadRealityRewards(); closeAllModals(); showToast('兑换成功'); } }
 function updateGachaBalance(){ const orundum=state.resources.orundum?.current_value||0; DOM.gachaOrundumBalance.textContent=`当前持有合成玉：${orundum}`; }
 function updateGachaCostText(){ DOM.gachaCostText.textContent = `消耗 ${GACHA_COST_ORUNDUM} 合成玉进行一次抽取`; }
 async function handleGacha(){ const result=await apiPost('/achievements/draw'); if(result){ DOM.gachaResult.innerHTML='';
     if(result.name){ const div=document.createElement('div'); div.className='reward-item'; div.textContent=`获得蚀刻章：${result.name}`; DOM.gachaResult.appendChild(div); loadAchievements(); }
     else DOM.gachaResult.textContent='未获得新蚀刻章';
     await loadResources(); await loadTransactions(); await loadRealityRewards(); showToast('抽取完成'); setTimeout(()=>closeAllModals(),3000); } }
+
+/* ===== 干员寻访（抽卡）：专门产出干员信物 ===== */
+function openOperatorGacha(){
+    openModal('operatorGachaModal');
+    updateOperatorGachaBalance();
+    DOM.operatorGachaResult.innerHTML = '';
+    loadOperatorRecords();
+}
+function updateOperatorGachaBalance(){
+    const orundum = state.resources.orundum?.current_value || 0;
+    if (DOM.operatorGachaOrundumBalance) DOM.operatorGachaOrundumBalance.textContent = `当前持有合成玉：${orundum}`;
+}
+function updateOperatorGachaPity(pity){
+    if (!DOM.operatorGachaPity || !pity) return;
+    DOM.operatorGachaPity.textContent = `累计寻访 ${pity.total_pulls} 次　·　距上次 6★ 已 ${pity.since_last_6star} 抽（再 ${pity.guaranteed_in} 抽内必出 6★）`;
+}
+let gachaBusy = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function setGachaButtons(enabled){
+    [DOM.operatorGachaSingle, DOM.operatorGachaTen].forEach(b => { if (b) b.disabled = !enabled; });
+}
+/* 抽卡演出：源石充能 → 逐张翻牌。6★ 额外金色光爆。 */
+async function renderOperatorGachaResults(results){
+    const box = DOM.operatorGachaResult;
+    box.innerHTML = '';
+    results.forEach((r, i) => {
+        const card = document.createElement('div');
+        card.className = `op-card rarity-${r.rarity}`;
+        card.style.animationDelay = `${i * 0.07}s`;
+        const stars = '★'.repeat(r.rarity);
+        const art = r.portrait ? `/static/${r.portrait}` : '';
+        const tokIcon = r.token_icon ? `/static/${r.token_icon}` : '';
+        // 新干员 → NEW 徽章；重复 → 信物图标 + 数量
+        const tag = r.is_new
+            ? '<span class="op-tag-new">NEW</span>'
+            : `<span class="op-tag-token">${tokIcon ? `<img class="op-token-icon" src="${tokIcon}" alt="">` : '<i class="fa-solid fa-certificate"></i>'}+${r.token_gain}</span>`;
+        card.innerHTML =
+            '<div class="op-card-inner">' +
+                '<div class="op-card-face op-card-back"><i class="fa-solid fa-gem"></i></div>' +
+                `<div class="op-card-face op-card-front rarity-${r.rarity}">` +
+                    `<div class="op-card-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+                        (art ? '' : '<i class="fa-solid fa-user-astronaut"></i>') +
+                        `<div class="op-card-stars">${stars}</div>` +
+                        `<div class="op-card-rarity-tag">${r.rarity}★</div>` +
+                    '</div>' +
+                    `<div class="op-card-info">` +
+                        `<div class="op-card-name">${escapeHtml(r.name)}</div>` +
+                        `<div class="op-card-tag">${tag}</div>` +
+                    '</div>' +
+                '</div>' +
+            '</div>';
+        box.appendChild(card);
+        setTimeout(() => {
+            card.classList.add('flipped');
+            if (r.rarity >= 6) card.classList.add('just-got');
+        }, 240 + i * 105);
+    });
+    await sleep(240 + results.length * 105 + 620);
+}
+async function handleOperatorGacha(count){
+    const cost = OPERATOR_GACHA_COST * count;
+    const orundum = state.resources.orundum?.current_value || 0;
+    if (orundum < cost){ showToast('合成玉不足'); return; }
+    if (gachaBusy) return;
+    gachaBusy = true; setGachaButtons(false);
+    const stage = DOM.operatorGachaStage;
+    DOM.operatorGachaResult.innerHTML = '';
+    if (stage) stage.classList.remove('hidden');       // 源石充能
+    const minCharge = sleep(1150);                     // 与请求并行，保证动画至少演满
+    let result = null;
+    try {
+        // 注意：apiPost 已解包 json.data，这里直接用 result，不能再取 .data
+        result = await apiPost('/gacha/operator', { count });
+    } catch (e) { /* 下面统一处理 */ }
+    await minCharge;
+    if (stage) stage.classList.add('hidden');
+    try {
+        if (!result || !result.results){ showToast('寻访失败，请重试'); return; }
+        await renderOperatorGachaResults(result.results);
+        updateOperatorGachaBalance();
+        updateOperatorGachaPity(result.pity);
+        await loadResources(); await loadTransactions(); await loadRealityRewards();
+        await loadOperatorRecords();
+        showToast(`寻访完成，消耗合成玉 ${result.cost}`);
+    } finally {
+        gachaBusy = false; setGachaButtons(true);
+    }
+}
+
+/* ===== 时装商店（源石购买，价格档位对齐原版） ===== */
+let skinFilter = 'all';
+let skinCache = [];
+let skinShelf = [];          // 每日轮换的货架（可能含未持有干员的时装）
+async function openSkinShop(){
+    openModal('skinShopModal');
+    await loadSkins();
+}
+async function loadSkins(){
+    const data = await apiGet('/skins');
+    if (!data) return;
+    skinCache = data.skins || [];
+    skinShelf = data.shop || [];
+    if (DOM.skinShopBalance) DOM.skinShopBalance.textContent = `当前持有源石：${data.source_stone}`;
+    renderSkins();
+}
+/* 单张时装的卡片。unlocked=false 表示这件皮肤的主人还没抽到 —— 只给预览不给下单。 */
+function buildSkinCard(s, stone){
+    const card = document.createElement('div');
+    card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}`;
+    const canBuy = s.unlocked !== false;
+    const btn = s.owned
+        ? '<span class="skin-owned-tag">已拥有</span>'
+        : (canBuy
+            ? `<button class="skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}>购买</button>`
+            : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>');
+    const img = s.image ? `/static/${s.image}` : '';
+    card.innerHTML =
+        `<div class="skin-art"${img ? ` style="background-image:url('${img}')"` : ''}>` +
+            (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
+            `<span class="skin-rarity">${'★'.repeat(s.rarity)}</span>` +
+            (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i>已拥有</span>' : '') +
+            (s.unlocked === false ? '<span class="skin-lock-badge"><i class="fa-solid fa-lock"></i></span>' : '') +
+        '</div>' +
+        `<div class="skin-card-body">` +
+            `<div class="skin-card-top"><span class="skin-op-name">${escapeHtml(s.operator_name)}</span>` +
+            (s.series ? `<span class="skin-series">${escapeHtml(s.series)}</span>` : '') + '</div>' +
+            `<div class="skin-name">${escapeHtml(s.skin_name)}</div>` +
+            `<div class="skin-tier">${escapeHtml(s.tier_label)}</div>` +
+            `<div class="skin-card-bottom"><span class="skin-price"><i class="fa-solid fa-gem"></i>${s.cost}</span>${btn}</div>` +
+        '</div>';
+    return card;
+}
+function renderSkins(){
+    const list = DOM.skinShopList; if (!list) return;
+    const stone = state.resources.source_stone?.current_value || 0;
+    const pass = s => skinFilter === 'owned'
+        ? s.owned
+        : (skinFilter === 'all' || String(s.rarity) === skinFilter);
+    const items = skinCache.filter(pass);
+    const shelf = skinShelf.filter(pass);
+    list.innerHTML = '';
+
+    const addSection = (kicker, note, arr, locked) => {
+        if (!arr.length) return;
+        const head = document.createElement('div');
+        head.className = 'skin-section-head';
+        head.innerHTML = `<span class="skin-section-kicker">${kicker}</span>` +
+            (note ? `<span class="skin-section-note">${note}</span>` : '');
+        list.appendChild(head);
+        const grid = document.createElement('div');
+        grid.className = 'skin-section-grid';
+        arr.forEach(s => grid.appendChild(buildSkinCard(s, stone)));
+        list.appendChild(grid);
+    };
+
+    // 没有可购买的时装时，明确告诉用户还差哪一步，但货架照样铺满（不至于白屏）
+    if (!items.length && !shelf.length){
+        const empty = document.createElement('div');
+        empty.className = 'skin-empty';
+        empty.textContent = '该筛选条件下没有时装';
+        list.appendChild(empty);
+        return;
+    }
+    // 没有可购买的时装时，明确说清原因，别让用户以为是坏了
+    if (!items.length && shelf.length){
+        const hint = document.createElement('div');
+        hint.className = 'skin-empty-buy';
+        hint.innerHTML = '<i class="fa-solid fa-circle-info"></i>' +
+            '<span>还没有可购买的时装——先去「干员寻访」抽到干员，他的时装就能下单了。下面的货架可以先看个眼缘。</span>';
+        list.appendChild(hint);
+    }
+    addSection('可购买', items.length ? `${items.length} 件属于已持有干员` : '', items, false);
+    addSection('商店货架 · 每日轮换', '未持有干员的时装只可预览，抽到干员后即可购买', shelf, true);
+
+    list.querySelectorAll('.skin-buy-btn').forEach(b => {
+        b.addEventListener('click', () => handleSkinPurchase(b.dataset.skin));
+    });
+}
+async function handleSkinPurchase(skinId){
+    const data = await apiPost('/skins/purchase', { skin_id: skinId });
+    if (!data) return;
+    showToast(`已购买「${data.purchased.skin_name}」`);
+    await loadResources(); await loadTransactions();
+    await loadSkins();
+}
+/* 本期精选卡池：把每日轮换的干员立绘铺出来。
+   抽卡记录为空时，这里是弹窗里唯一有画面的地方 —— 所以不能省。 */
+function renderOperatorFeatured(featured){
+    const box = DOM.operatorFeatured;
+    if (!box) return;
+    box.innerHTML = '';
+    if (!featured) return;
+    const hero = (featured.six || [])[0];
+    const five = featured.five || [];
+    const four = featured.four || [];
+    if (!hero && !five.length && !four.length) return;
+
+    const head = document.createElement('div');
+    head.className = 'op-featured-head';
+    head.innerHTML = '<span class="op-featured-kicker">本 期 精 选</span>' +
+        `<span class="op-featured-date">${escapeHtml(featured.date || '')} · 每日轮换</span>`;
+    box.appendChild(head);
+
+    if (hero){
+        const art = hero.portrait ? `/static/${hero.portrait}` : '';
+        const tok = hero.token_icon ? `/static/${hero.token_icon}` : '';
+        const el = document.createElement('div');
+        el.className = 'op-hero';
+        el.innerHTML =
+            `<div class="op-hero-art"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
+            '<div class="op-hero-veil"></div>' +
+            '<div class="op-hero-info">' +
+                '<span class="op-hero-rarity">' + '★'.repeat(hero.rarity) + '</span>' +
+                `<span class="op-hero-name">${escapeHtml(hero.name)}</span>` +
+                '<span class="op-hero-sub">' +
+                    (tok ? `<img class="op-hero-token" src="${tok}" alt="">` : '') +
+                    '<span>寻访获得后信物自动入库</span>' +
+                '</span>' +
+            '</div>';
+        box.appendChild(el);
+    }
+
+    const chips = (title, arr, cls) => {
+        if (!arr.length) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'op-featured-row';
+        const t = document.createElement('span');
+        t.className = 'op-featured-row-title';
+        t.textContent = title;
+        wrap.appendChild(t);
+        const strip = document.createElement('div');
+        strip.className = 'op-featured-strip';
+        arr.forEach(o => {
+            const art = o.portrait ? `/static/${o.portrait}` : '';
+            const c = document.createElement('div');
+            c.className = `op-chip rarity-${o.rarity} ${cls}`;
+            c.innerHTML =
+                `<span class="op-chip-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+                    (art ? '' : '<i class="fa-solid fa-user"></i>') +
+                    `<span class="op-chip-star">${o.rarity}★</span>` +
+                '</span>' +
+                `<span class="op-chip-name">${escapeHtml(o.name)}</span>`;
+            strip.appendChild(c);
+        });
+        wrap.appendChild(strip);
+        box.appendChild(wrap);
+    };
+    chips('五星 · 概率提升', five, 'md');
+    chips('四星 · 常驻', four, 'sm');
+}
+
+async function loadOperatorRecords(){
+    // apiGet 同样已解包，直接用返回值
+    const data = await apiGet('/gacha/operator/records');
+    if (!data) return;
+    const { operators, pity } = data;
+    updateOperatorGachaPity(pity);
+    renderOperatorFeatured(data.featured);
+    const list = DOM.operatorTokenList;
+    if (!list) return;
+    list.innerHTML = '';
+    if (!operators.length){ list.innerHTML = '<div class="wh-empty">尚未寻访到干员，去抽卡试试吧</div>'; return; }
+    operators.forEach(o => {
+        const row = document.createElement('div');
+        row.className = `op-token-row rarity-${o.rarity}`;
+        const star = '★'.repeat(o.rarity);
+        const art = o.portrait ? `/static/${o.portrait}` : '';
+        const tok = o.token_icon ? `/static/${o.token_icon}` : '';
+        row.innerHTML =
+            `<span class="op-row-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+                (art ? '' : '<i class="fa-solid fa-user"></i>') + '</span>' +
+            `<span class="op-row-main"><span class="op-name">${escapeHtml(o.name)}</span>` +
+            `<span class="op-star">${star}</span></span>` +
+            `<span class="op-count">持有 ×${o.copies}</span>` +
+            `<span class="op-token-badge">${tok ? `<img class="op-token-icon" src="${tok}" alt="">` : ''}信物 ×${o.tokens}</span>`;
+        list.appendChild(row);
+    });
+}
 
 function openModal(id){ const modal = document.getElementById(id); if(modal){ modal.classList.add('show'); modal.classList.remove('hidden'); } DOM.modalOverlay.classList.add('show'); }
 function closeAllModals(){
@@ -4154,6 +4557,14 @@ async function openWarehouse(){
         renderWarehouse(data && data.data ? data.data : {currencies:{}, materials:[]});
         openModal('warehouseModal');
     } catch(e){ console.error('[warehouse]', e); if (typeof showToast === 'function') showToast('仓库加载失败'); }
+}
+
+// 领取奖励后刷新仓库数据（素材进了 inventory，仓库需同步）
+async function loadInventory(){
+    try {
+        const d = await apiGet('/api/inventory');
+        if (d && d.data) state.inventory = d.data;
+    } catch(e){ /* 静默失败，不影响主流程 */ }
 }
 
 function renderWarehouse(data){
@@ -4397,9 +4808,36 @@ async function onCategoryFilterChange(){
 }
 function updateTagFilter(){ /* 已废弃：分类改为受管下拉 filterCategory，由 renderCategoryFilter 渲染 */ }
 function updateTrackingPanelIfNeeded(){ if(state.trackingTaskId) updateTrackingPanel(); }
+function spawnLevelUpSparks(){
+    const box = DOM.levelUpSparks; if (!box) return;
+    box.innerHTML = '';
+    const N = 22;
+    for (let i = 0; i < N; i++){
+        const s = document.createElement('div');
+        s.className = 'lu-spark';
+        const ang = (Math.PI * 2 * i) / N + Math.random() * 0.25;
+        const dist = 110 + Math.random() * 70;
+        s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+        s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+        s.style.animationDelay = (0.12 + Math.random() * 0.2) + 's';
+        box.appendChild(s);
+    }
+}
 function checkLevelUp(){ const currentLevel=calculateLevel(state.resources.exp?.current_value||0);
-    if(currentLevel>state.lastLevel&&state.lastLevel!==0){ state.lastLevel=currentLevel; DOM.levelUpText.textContent='理智已回满'; DOM.levelUpOverlay.classList.add('show');
-        setTimeout(()=>DOM.levelUpOverlay.classList.remove('show'),2000); loadResources(); }
+    if(currentLevel>state.lastLevel&&state.lastLevel!==0){ const oldLevel=state.lastLevel; state.lastLevel=currentLevel;
+        if (DOM.levelUpOldLevel) DOM.levelUpOldLevel.textContent = `Lv.${oldLevel}`;
+        if (DOM.levelUpLevel) DOM.levelUpLevel.textContent = `Lv.${currentLevel}`;
+        // 理智条：显示回满后的实际值，比干巴巴一句「理智已回满」更有信息量
+        const sanity = state.resources.sanity?.current_value || 0;
+        const sanityMax = state.resources.sanity?.max_value || state.resources.sanity?.limit_value || 0;
+        DOM.levelUpText.textContent = sanityMax
+            ? `理智回满　${Math.round(sanity)} / ${Math.round(sanityMax)}`
+            : `理智回满　${Math.round(sanity)}`;
+        spawnLevelUpSparks();
+        DOM.levelUpOverlay.classList.remove('show');   // 重置动画
+        void DOM.levelUpOverlay.offsetWidth;           // 强制重排，保证重复升级也能重播
+        DOM.levelUpOverlay.classList.add('show');
+        setTimeout(()=>DOM.levelUpOverlay.classList.remove('show'),3000); loadResources(); }
     else if(state.lastLevel===0) state.lastLevel=currentLevel; }
 function checkNewUnlocks(){ const storedIds=JSON.parse(localStorage.getItem('unlockedAchievementIds')||'[]');
     const newUnlocks=state.unlockedAchievements.filter(u=>!storedIds.includes(u.achievement_id));

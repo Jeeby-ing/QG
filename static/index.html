@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260907-209">
+    <link rel="stylesheet" href="static/style.css?v=20260918-218">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -319,8 +319,10 @@
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon sanity-icon" data-res-icon-profile="sanity"></span><span class="res-badge" id="profileSanity">120/120</span></div><span class="res-label">理智</span></div>
                         </div>
                         <div class="profile-actions">
-                            <button class="btn btn-secondary btn-medium" id="exchangeBtn"><i class="fa-solid fa-exchange-alt"></i><span>龙门币兑换</span></button>
+                            <button class="btn btn-secondary btn-medium" id="exchangeBtn"><i class="fa-solid fa-exchange-alt"></i><span>资源兑换</span></button>
                             <button class="btn btn-secondary btn-medium" id="warehouseBtn"><i class="fa-solid fa-box-open"></i><span>仓库</span></button>
+                            <button class="btn btn-secondary btn-medium" id="operatorGachaBtn"><i class="fa-solid fa-crosshairs"></i><span>干员寻访</span></button>
+                            <button class="btn btn-secondary btn-medium" id="skinShopBtn"><i class="fa-solid fa-shirt"></i><span>时装商店</span></button>
                         </div>
                     </div>
                     <div class="profile-badges"><h3 class="section-subtitle">已解锁蚀刻章</h3><div class="profile-badges-grid" id="profileBadgesGrid"></div></div>
@@ -481,12 +483,12 @@
         <!-- 兑换弹窗 -->
         <div class="modal-container hidden" id="exchangeModal">
             <div class="modal">
-                <div class="modal-header"><h3 class="modal-title">龙门币兑换</h3><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h3 class="modal-title">资源兑换</h3><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body">
-                    <p class="micro-text" id="exchangeRateText">使用龙门币兑换其他资源（汇率：1源石=1000龙门币，1合成玉=2龙门币）</p>
+                    <p class="micro-text" id="exchangeRateText">唯一允许的兑换：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。龙门币与源石不可被兑换出去。</p>
                     <div class="resource-balance-display" id="exchangeLungmenBalance"></div>
-                    <div class="form-group"><label class="form-label">目标资源</label><select class="form-select" id="exchangeTarget"><option value="source_stone">源石</option><option value="orundum">合成玉</option></select></div>
-                    <div class="form-group"><label class="form-label">兑换数量</label><input type="number" class="form-input" id="exchangeAmount" min="0.1" step="0.1" value="1"></div>
+                    <div class="form-group"><label class="form-label">兑换方向</label><div class="form-static">源石 → 合成玉</div></div>
+                    <div class="form-group"><label class="form-label">消耗源石数量</label><input type="number" class="form-input" id="exchangeAmount" min="1" step="1" value="1"></div>
                     <div class="exchange-cost-display" id="exchangeCostDisplay"></div>
                     <div class="form-actions"><button class="btn btn-secondary" id="exchangeCancel">取消</button><button class="btn btn-primary" id="exchangeConfirm">兑换</button></div>
                 </div>
@@ -503,6 +505,54 @@
                     <div class="form-actions"><button class="btn btn-secondary" id="gachaCancel">取消</button><button class="btn btn-primary" id="gachaConfirm">抽取</button></div>
                     <div id="gachaResult" class="gacha-result"></div>
                     <div class="gacha-close-hint" id="gachaCloseHint">点击右上角关闭或点击此处关闭</div>
+                </div>
+            </div>
+        </div>
+        <!-- 干员寻访（抽卡）弹窗 -->
+        <div class="modal-container hidden" id="operatorGachaModal">
+            <div class="modal modal-gacha modal-op-gacha">
+                <div class="modal-header"><h3 class="modal-title">干员寻访</h3><button class="icon-btn modal-close" id="operatorGachaClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body gacha-body">
+                    <p class="micro-text" id="operatorGachaCostText">消耗 600 合成玉 / 次（十连 6000，第 10 抽保底 ≥4★；出率 6★2% / 5★8% / 4★50% / 3★40%，50 抽后软保底，99 抽必出 6★）</p>
+                    <div class="resource-balance-display" id="operatorGachaOrundumBalance"></div>
+                    <div class="gacha-pity-display" id="operatorGachaPity"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" id="operatorGachaCancel">取消</button>
+                        <button class="btn btn-primary" id="operatorGachaSingle">单抽 (600)</button>
+                        <button class="btn btn-primary" id="operatorGachaTen">十连 (6000)</button>
+                    </div>
+                    <!-- 本期精选卡池：每日轮换的真实干员立绘，抽卡前先把卡池铺满 -->
+                    <div class="op-featured" id="operatorFeatured"></div>
+                    <!-- 抽卡演出：源石充能 → 光爆 → 逐张翻牌 -->
+                    <div class="gacha-stage hidden" id="operatorGachaStage">
+                        <div class="gacha-crystal"><i class="fa-solid fa-gem"></i></div>
+                        <div class="gacha-stage-halo"></div>
+                        <div class="gacha-stage-text">寻访中…</div>
+                    </div>
+                    <div id="operatorGachaResult" class="gacha-result op-gacha-grid"></div>
+                    <h4 class="section-subtitle" id="operatorTokenTitle">已寻访干员 / 信物</h4>
+                    <div id="operatorTokenList" class="op-token-list"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 时装商店弹窗（源石购买，价格档位对齐明日方舟原版） -->
+        <div class="modal-container hidden" id="skinShopModal">
+            <div class="modal modal-skin-shop">
+                <div class="modal-header"><h3 class="modal-title">时装商店</h3><button class="icon-btn modal-close" id="skinShopClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body">
+                    <p class="micro-text" id="skinShopHint">原版定价：15 静态立绘 / 18 特效 / 21 动态 / 24 动态+新语音 / 27 双形态。只有已持有的干员才能购买其时装。</p>
+                    <div class="resource-balance-display" id="skinShopBalance"></div>
+                    <div class="skin-filter-row" id="skinFilterRow">
+                        <button class="skin-filter-btn active" data-rarity="all">全部</button>
+                        <button class="skin-filter-btn" data-rarity="6">6★</button>
+                        <button class="skin-filter-btn" data-rarity="5">5★</button>
+                        <button class="skin-filter-btn" data-rarity="4">4★</button>
+                        <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
+                    </div>
+                    <div id="skinShopList" class="skin-shop-list"></div>
+                    <div class="form-actions">
+                        <button class="btn btn-secondary" id="skinShopCancel">关闭</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -555,13 +605,46 @@
             </div>
         </div>
         <div class="level-up-overlay" id="levelUpOverlay">
-            <div class="level-up-content"><div class="level-up-icon"><i class="fa-solid fa-arrow-up"></i></div><h2>等级提升！</h2><p id="levelUpText">理智已回满</p></div>
+            <div class="level-up-stage">
+                <div class="lu-vignette"></div>
+                <div class="lu-rays"></div>
+                <div class="lu-ring"></div>
+                <div class="lu-ring lu-ring-2"></div>
+                <div class="lu-ring lu-ring-3"></div>
+                <div class="lu-burst"></div>
+
+                <div class="lu-core">
+                    <div class="lu-core-ring"></div>
+                    <div class="lu-core-ring lu-core-ring-2"></div>
+                    <div class="lu-core-inner"><i class="fa-solid fa-chevron-up"></i></div>
+                </div>
+
+                <div class="lu-banner">
+                    <span class="lu-banner-line"></span>
+                    <span class="lu-kicker">LEVEL UP</span>
+                    <span class="lu-banner-line"></span>
+                </div>
+
+                <div class="lu-levels">
+                    <span class="lu-level-old" id="levelUpOldLevel">Lv.?</span>
+                    <span class="lu-level-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                    <span class="lu-level-new" id="levelUpLevel">Lv.?</span>
+                </div>
+
+                <div class="lu-sanity">
+                    <span class="lu-sanity-icon"><i class="fa-solid fa-bolt"></i></span>
+                    <span class="lu-sanity-bar"><span class="lu-sanity-fill"></span></span>
+                    <span class="lu-sanity-text" id="levelUpText">理智已回满</span>
+                </div>
+
+                <div class="lu-sparks" id="levelUpSparks"></div>
+            </div>
         </div>
         <div class="particle-container" id="particleContainer"></div>
     </div>
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260907-209"></script>
+    <script src="static/app.js?v=20260918-221"></script>
 </body>
 </html>

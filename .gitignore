@@ -49,3 +49,9 @@ data/wallpaper_mobile/
 
 # ===== AI 会话数据（本地记忆，非源码） =====
 .workbuddy/
+
+# ===== 前端无头验证产生的临时文件（不入库） =====
+.tmp_edge_profile/
+.tmp_edge_p2/
+.tmp_*/
+__tmp_*
