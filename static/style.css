@@ -1701,8 +1701,16 @@ body.focus-mode .tracking-expanded {
     position: fixed; top: 50%; left: 50%;
     transform: translate(-50%, -50%) scale(0.9);
     z-index: 1001;
-    width: 600px; max-width: 95vw; max-height: 90vh;
-    overflow: auto;
+    width: 600px; max-width: 95vw;
+    /* --modal-max-h 由容器声明、.modal 继承：
+       parent 没有显式 height，所以孩子写 max-height:100% 是不生效的，
+       只能这样把「同一个上限」喂给两层，避免子层超限被容器的 overflow 裁掉。 */
+    --modal-max-h: 90vh;
+    max-height: var(--modal-max-h);
+    /* 原来是 overflow:auto —— 整条 .modal 在容器里滚动，内容长的弹窗
+       （新建/编辑任务约 1800px）会把标题栏和「保存」按钮一起滚到屏幕外，
+       看起来就像窗口被裁了。改成容器不滚，滚动交给 .modal-body。 */
+    overflow: hidden;
     display: none;
     transition: transform 0.2s ease;
     box-sizing: border-box;
@@ -1727,6 +1735,9 @@ body.focus-mode .tracking-expanded {
     overflow:hidden;
     display:flex; flex-direction:column;
     width: 100%; max-width: 100%; box-sizing: border-box;
+    /* 继承容器给出的同一个高度上限：超出的内容由 .modal-body 内部滚动，
+       而不是整条弹窗被容器裁掉（头尾永远可见）。 */
+    max-height: var(--modal-max-h, 90vh);
 }
 .modal-detail { width:520px; }
 .modal-badge { width:400px !important; }
@@ -1750,7 +1761,10 @@ body.focus-mode .tracking-expanded {
     text-shadow: 0 0 12px rgba(232,184,24,0.3);
 }
 .modal-title { font-size:20px; font-weight:600; }
-.modal-body { padding:20px; overflow-y:auto; }
+/* flex:1 1 auto + min-height:0 —— 让 .modal-body 吸收剩余高度并成为唯一的滚动区
+   （min-height:0 是必须的：flex 子项默认 min-height:auto 会拒绝收缩，滚动就不会出现）。
+   --modal-pad 与 padding 同时声明，供 sticky 操作栏做左右拉满用。 */
+.modal-body { padding:20px; --modal-pad:20px; overflow-y:auto; flex:1 1 auto; min-height:0; }
 
 .reward-settlement-modal { transition:transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s ease; }
 
@@ -2637,8 +2651,10 @@ body.focus-mode .tracking-expanded {
 /* 寻访弹窗需要更宽：十连要横排 5 张卡 */
 /* 注意：.modal-container 默认宽 600px。这里若再写死 640px，会横向溢出 40px
    （over=40，内容被 overflow 裁掉，还顺带把「本期精选」的日期挤成一条竖线）。
-   所以宽度统一交给容器，弹窗自己只声明 100%。 */
-#operatorGachaModal { width:660px; max-width:95vw; }
+   所以宽度统一交给容器，弹窗自己只声明 100%。
+   用 min() 而不是 max-width：窄屏（≤768px）要能跟随 .modal-container 的 92vw 一起收窄，
+   否则 ID 选择器会盖掉媒体查询、弹窗贴到屏幕两边。 */
+#operatorGachaModal { width:min(660px, 92vw); max-width:92vw; }
 .modal-op-gacha { width:100%; }
 /* 卡片改为立绘比例后整体更高，给结果区加滚动上限，避免十连撑爆弹窗 */
 .modal-op-gacha .modal-body { max-height:76vh; overflow-y:auto; overflow-x:hidden; }
@@ -3869,11 +3885,11 @@ body.wallpaper-video .bg-layer {
     .count-input { width:36px; font-size:11px; padding:1px 3px; }
     .count-target { font-size:11px; }
 
-    .modal-container { width:92vw; max-width:92vw; max-height:85vh; }
+    .modal-container { width:92vw; max-width:92vw; max-height:85vh; --modal-max-h:85vh; }
     .modal { border-radius:14px; }
     .modal-header { padding:10px 14px; }
     .modal-title { font-size:18px; }
-    .modal-body { padding:14px; }
+    .modal-body { padding:14px; --modal-pad:14px; }
     .modal-reward { width:100%; }
     .reward-grid { gap: 14px; }
     .reward-circle-card { width: 90px; }
@@ -4339,8 +4355,8 @@ body.selection-mode .task-card .select-checkbox.checked i { opacity:1; transform
    若只把 1180px 给内层 .modal，会被 600px 容器裁剪、产生横向滚动条。
    max-height 直接给 .modal-warehouse（parent 没有显式 height，max-height:100% 不会生效），
    这样 flex body 才能获得确定高度并出现纵向滚动条。 */
-#warehouseModal.modal-container { width:1180px; max-width:94vw; max-height:88vh; overflow:hidden; }
-.modal-warehouse { width:100%; max-width:100%; max-height:88vh; display:flex; flex-direction:column; }
+#warehouseModal.modal-container { width:min(1180px, 94vw); max-width:94vw; max-height:88vh; --modal-max-h:88vh; overflow:hidden; }
+.modal-warehouse { width:100%; max-width:100%; max-height:var(--modal-max-h); display:flex; flex-direction:column; }
 /* 仅保留「纵向」滚动：固定标题栏 + 内容区纵向滚动，杜绝横向滚动 */
 .modal-warehouse .modal-body { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
 
@@ -4371,13 +4387,19 @@ body.selection-mode .task-card .select-checkbox.checked i { opacity:1; transform
 
 .wh-section-title { font-size:15px; font-weight:600; color:var(--text-secondary-1); margin:4px 0 10px; display:flex; align-items:center; gap:10px; }
 .wh-progress { font-size:12px; font-weight:600; color:var(--highlight-gold-2); }
-.wh-currencies { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.wh-currencies {
+    /* minmax(0,1fr) 而不是 1fr：1fr 的隐含最小尺寸是 min-content，
+       窄屏下三张卡片的「图标+数字」最小宽度加起来会超过容器，
+       于是卡片被挤出右边界、modal-body 出现 20px 横向裁切。 */
+    display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:16px;
+}
 .wh-cur-card { display:flex; align-items:center; gap:12px; background:var(--glass-2); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:12px 14px; transition:transform 0.12s ease, box-shadow 0.12s ease; }
 .wh-cur-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.3); border-color:rgba(255,255,255,0.16); }
 .wh-cur-icon { width:40px; height:40px; flex:0 0 40px; display:flex; align-items:center; justify-content:center; }
 .wh-cur-icon img { width:100%; height:100%; object-fit:contain; }
 .wh-cur-icon svg { width:36px; height:36px; }
-.wh-cur-info { display:flex; flex-direction:column; }
+.wh-cur-info { display:flex; flex-direction:column; min-width:0; }
+.wh-cur-val, .wh-cur-name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .wh-cur-val { font-size:18px; font-weight:700; color:var(--text-primary); }
 .wh-cur-name { font-size:12px; color:var(--text-secondary-1); }
 
@@ -4784,3 +4806,39 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     background:rgba(74,163,255,0.09); border:1px solid rgba(74,163,255,0.24);
 }
 .skin-empty-buy i { color:#7FC4FF; margin-top:2px; }
+
+
+/* ============================================================
+   新建 / 编辑任务弹窗：操作栏钉在底部
+   这个表单有 20+ 个字段，内容高约 1800px，而弹窗最高只有 88~90vh。
+   之前整条 .modal 在外层容器里滚动 —— 滚到一半时「创建任务 / 保存」按钮
+   被推出屏幕，用户会以为窗口被裁了（实际是被滚走了）。
+   现在改成 modal 限高 + .modal-body 内滚，操作栏 sticky 贴在滚动区底部，
+   任何滚动位置都能直接点到保存。（用 sticky 而不是挪 DOM，避免破坏 form 提交结构。）
+   ============================================================ */
+/* .modal-body 的 20px 下内边距会让 sticky 操作栏够不到滚动区真正的底边
+   （sticky 受 containing block 限制，最多只能贴到 form 的底部），
+   结果底边会露出一条 20px 的滚动内容。这里去掉下边距，
+   间距改由操作栏自己的 padding-bottom 提供。 */
+#taskModal .modal-body { padding-bottom: 0; }
+
+#taskModal .form-actions {
+    position: sticky; bottom: 0; z-index: 5;
+    /* 左右拉满：抵消 .modal-body 的内边距，避免两侧露出一条滚动的缝。
+       用变量而不是写死 -20px，窄屏下 padding 变 14px 时不会撑出横向溢出。 */
+    margin: 24px calc(var(--modal-pad, 20px) * -1) 0;
+    padding: 14px var(--modal-pad, 20px) 18px;
+    background: linear-gradient(180deg,
+        rgba(30,30,34,0) 0%,
+        rgba(30,30,34,0.86) 38%,
+        rgba(30,30,34,0.97) 100%);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border-top: 1px solid rgba(255,255,255,0.09);
+}
+
+
+/* 窄屏下三列货币卡会挤成一团，直接改单列堆叠 */
+@media (max-width: 480px) {
+    .wh-currencies { grid-template-columns:1fr; }
+}

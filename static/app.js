@@ -2416,9 +2416,39 @@ function renderProfileBadges(){ const grid=DOM.profileBadgesGrid; grid.innerHTML
 const GP_RES_NAME = { exp:'经验值', source_stone:'源石', lungmen:'龙门币', orundum:'合成玉', sanity:'理智' };
 const GP_RES_ORDER = ['source_stone', 'orundum', 'lungmen', 'exp', 'sanity'];
 let WH_NAME_MAP = null;
+let WH_NAME_MAP_N = -1;
+
+// 历史遗留的掉落 key：早期掉落池用过无 mat_ 前缀、且与现行官方目录不同名的编码，
+// 直接查目录会查不到 → 仓库/奖励弹窗会退化成「未知素材 + 宝箱图标」。
+// 这里做一次别名归一，把旧 key 映射到现行目录里的等价物。
+const WH_LEGACY_ALIAS = {
+    MTL_ALCOHOL_T:  'mat_MTL_SL_ALCOHOL1',   // 扭转醇
+    MTL_DEVICE_MOD: 'mat_MTL_SL_BOSS2',      // 装置
+    MTL_POLYESTER:  'mat_MTL_SL_RUSH2',      // 聚酸酯
+};
+
+// 统一的「掉落 key → 目录条目」解析：兼容带/不带 mat_ 前缀 + 旧别名。
+// 全站（仓库、奖励弹窗、领取提示）都走这一个入口，避免各处各写一套判断。
+function whCatalogItem(key){
+    if (!key || !WAREHOUSE_CATALOG.length) return null;
+    const cands = [key, key.startsWith('mat_') ? key.slice(4) : `mat_${key}`];
+    if (WH_LEGACY_ALIAS[key]) cands.push(WH_LEGACY_ALIAS[key]);
+    for (const k of cands){
+        const it = WAREHOUSE_CATALOG.find(x => x.key === k);
+        if (it) return it;
+    }
+    return null;
+}
+
 function matNameOf(key){
-    if (!WH_NAME_MAP){ WH_NAME_MAP = {}; WAREHOUSE_CATALOG.forEach(x => { WH_NAME_MAP[x.key] = x.name; }); }
-    return WH_NAME_MAP[key] || key;
+    // 目录是异步加载的：早于目录就绪调用会缓存出空表，所以按目录长度重新建表
+    if (!WH_NAME_MAP || WH_NAME_MAP_N !== WAREHOUSE_CATALOG.length){
+        WH_NAME_MAP = {};
+        WAREHOUSE_CATALOG.forEach(x => { WH_NAME_MAP[x.key] = x.name; });
+        WH_NAME_MAP_N = WAREHOUSE_CATALOG.length;
+    }
+    const it = whCatalogItem(key);
+    return (it && it.name) || WH_NAME_MAP[key] || key;
 }
 function parsePackContents(pack){
     let cfg = pack.content_config;
@@ -3272,6 +3302,9 @@ function updateTrackingTimer(){ if(state.trackingTaskId&&state.trackingStartTime
 
 async function openRewardModal(taskId){
     rewardModalOpenTaskId = taskId;
+    // 掉落素材要靠仓库目录反查中文名/图标；目录是异步加载的，这里先确保就绪，
+    // 否则用户没开过仓库就点奖励 → 随机掉落会显示成原始 key + 宝箱占位图。
+    await loadWarehouseCatalog();
     const titleEl = document.querySelector('#rewardModal .modal-title');
     if(titleEl) titleEl.textContent = '任务奖励';
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
@@ -3326,11 +3359,9 @@ async function openRewardModal(taskId){
                 const whRarityColor=['#9E9E9E','#8BC34A','#29B6F6','#AB47BC','#FFCA28','#FF7043'];
                 const resolveDrop=(rt)=>{
                     if(rb[rt]) return rb[rt];
-                    const keyCandidates = [rt, rt.startsWith('mat_') ? rt.slice(4) : `mat_${rt}`];
-                    for (const k of keyCandidates) {
-                        const it=WAREHOUSE_CATALOG.find(x=>x.key===k);
-                        if(it) return [it.name, whRarityColor[it.r]||'#FFCA28', it.key];
-                    }
+                    // 统一走 whCatalogItem：兼容无 mat_ 前缀的历史 key
+                    const it = whCatalogItem(rt);
+                    if(it) return [it.name, whRarityColor[it.r]||'#FFCA28', it.key];
                     return null;
                 };
                 if(typeof drop==='string'){ const parts=drop.split(':'); if(parts.length>=2){ const rt=parts[0]; dVal=parseInt(parts[1])||1; const entry=resolveDrop(rt); if(entry){ dName=entry[0]; dColor=entry[1]; dKey=entry[2]; } else dName=rt; } else dName=drop; }
@@ -3416,11 +3447,12 @@ async function claimReward(){
             if(modalContainer){ modalContainer.style.transition='none'; modalContainer.style.transform=''; modalContainer.style.opacity=''; }
             state.rewardModalAnimating=false;
             loadResources(); loadTransactions(); loadTasks(); updateTrackingPanel(); loadInventory();
-            // 明确提示素材已入库，避免"领了奖励但感觉仓库没变化"
-            const matCnt = (result && result.materials) ? result.materials.length : 0;
-            if (matCnt > 0) showToast(`仓库已收入 ${matCnt} 种素材`);
-            const matCount = (result && result.materials && result.materials.length) || 0;
-            if (matCount > 0) showToast(`仓库已收入 ${matCount} 种素材`);
+            // 明确提示素材已入库（带中文名），避免"领了奖励但感觉仓库没变化"
+            const mats = (result && Array.isArray(result.materials)) ? result.materials : [];
+            if (mats.length){
+                const parts = mats.map(m => `${matNameOf(m.type)}×${Math.floor(Number(m.amount) || 0)}`);
+                showToast(`仓库入库：${parts.join('、')}`);
+            }
             const sorted=filterTasks(state.flatTasks); const currentIndex=sorted.findIndex(t=>t.id==taskId);
             if(currentIndex!==-1&&currentIndex+1<sorted.length){ const nextTaskId=sorted[currentIndex+1].id;
                 const nextCard=document.querySelector(`.task-card[data-task-id="${nextTaskId}"]`);
@@ -4174,11 +4206,8 @@ function showPackRewardModal(granted){
     const whRarityColor = ['#9E9E9E','#8BC34A','#29B6F6','#AB47BC','#FFCA28','#FF7043'];
     const resolve = (rt) => {
         if(rb[rt]) return rb[rt];
-        const keyCandidates = [rt, rt.startsWith('mat_') ? rt.slice(4) : `mat_${rt}`];
-        for (const k of keyCandidates) {
-            const it = WAREHOUSE_CATALOG.find(x => x.key === k);
-            if(it) return [it.name, whRarityColor[it.r] || '#FFCA28', it.key];
-        }
+        const it = whCatalogItem(rt);
+        if(it) return [it.name, whRarityColor[it.r] || '#FFCA28', it.key];
         return null;
     };
     const grid = document.createElement('div'); grid.className = 'reward-grid';
@@ -4553,8 +4582,12 @@ function formatWhNum(n){ n = Number(n) || 0; return Math.floor(n).toLocaleString
 async function openWarehouse(){
     try {
         await loadWarehouseCatalog();
-        const data = await apiGet('/api/inventory');
-        renderWarehouse(data && data.data ? data.data : {currencies:{}, materials:[]});
+        // 注意：apiGet 内部已经拼了 API_BASE('/api')，这里只能写 '/inventory'。
+        // 之前写成 '/api/inventory' → 实际请求 /api/api/inventory → 404 → 返回 null，
+        // 仓库整仓回落成空对象：龙门币/源石/合成玉全 0、素材 0/564。
+        // 另外 apiGet 已 return json.data ?? json，拿到的就是 {currencies, materials}，不用再取 .data。
+        const data = await apiGet('/inventory');
+        renderWarehouse(data && data.currencies ? data : {currencies:{}, materials:[]});
         openModal('warehouseModal');
     } catch(e){ console.error('[warehouse]', e); if (typeof showToast === 'function') showToast('仓库加载失败'); }
 }
@@ -4562,8 +4595,12 @@ async function openWarehouse(){
 // 领取奖励后刷新仓库数据（素材进了 inventory，仓库需同步）
 async function loadInventory(){
     try {
-        const d = await apiGet('/api/inventory');
-        if (d && d.data) state.inventory = d.data;
+        const d = await apiGet('/inventory');
+        if (!d || !d.currencies) return;
+        state.inventory = d;
+        // 仓库弹窗开着时立即重绘，避免"领了奖励但仓库还是旧数字"
+        const wh = document.getElementById('warehouseModal');
+        if (wh && wh.classList.contains('show')) renderWarehouse(d);
     } catch(e){ /* 静默失败，不影响主流程 */ }
 }
 
