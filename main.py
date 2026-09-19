@@ -406,6 +406,63 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+_APP_VERSION_CACHE: Optional[dict] = None
+
+
+def app_version_info() -> dict:
+    """版本号从 Git 自动生成：vYY.MM.DD.<提交数>，不用再手工敲 V1.0。
+
+    没有 git 或不在仓库里时退回「今天日期 + 0」，前端照样有东西显示。
+    """
+    global _APP_VERSION_CACHE
+    if _APP_VERSION_CACHE is not None:
+        return _APP_VERSION_CACHE
+    repo = os.path.dirname(os.path.abspath(__file__))
+    info = {
+        "build": 0,
+        "commit": "local",
+        "date": datetime.now().strftime("%Y-%m-%d"),
+        "subject": "",
+    }
+
+    def _git(*args: str) -> str:
+        try:
+            # Windows 下 git 输出是 UTF-8，但 Python 默认用 locale(GBK) 解码，
+            # 中文提交信息会变乱码；显式按 UTF-8 解并容错。
+            proc = subprocess.run(["git", *args], cwd=repo, capture_output=True,
+                                  timeout=6)
+            if proc.returncode != 0:
+                return ""
+            try:
+                return proc.stdout.decode("utf-8").strip()
+            except UnicodeDecodeError:
+                return proc.stdout.decode("utf-8", errors="replace").strip()
+        except Exception:
+            return ""
+
+    count = _git("rev-list", "--count", "HEAD")
+    commit = _git("rev-parse", "--short", "HEAD")
+    date = _git("show", "-s", "--format=%cd", "--date=format:%Y-%m-%d", "HEAD")
+    subject = _git("show", "-s", "--format=%s", "HEAD")
+    if count.isdigit():
+        info["build"] = int(count)
+    if commit:
+        info["commit"] = commit
+    if date:
+        info["date"] = date
+    if subject:
+        info["subject"] = subject
+
+    try:
+        d = datetime.strptime(info["date"], "%Y-%m-%d")
+    except ValueError:
+        d = datetime.now()
+    info["version"] = f"v{d.year % 100:02d}.{d.month:02d}.{d.day:02d}.{info['build']}"
+    info["label"] = f"{info['version']}+{info['commit']}"
+    _APP_VERSION_CACHE = info
+    return info
+
+
 # ---------- 等级 / 经验曲线（与前端 static/app.js 保持一致） ----------
 # 明日方舟真实「升级所需声望」曲线；SCALE 越小升级越快，FLOOR 为单级最低经验。
 _AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000]
@@ -912,7 +969,8 @@ def handle_task_completion(cur, task_id: int):
     streak = calculate_streak_days(cur)
     check_achievement(cur, 'streak_days', streak, task_id)
     if task["repeat_type"]:
-        create_repeat_copy(cur, task_id)
+        # 只推进「下次重置时刻」，不生成副本；到点由 sweep_repeat_tasks 就地归位
+        advance_repeat_schedule(cur, task_id)
     if task["parent_id"]:
         update_parent_progress(cur, task["parent_id"])
 
@@ -954,7 +1012,127 @@ def calculate_streak_days(cur):
     return streak
 
 
-def create_repeat_copy(cur, task_id: int):
+"""重复任务的重置规则：以本地时间凌晨 04:00 为日界线。
+
+和明日方舟的日常刷新一致——04:00 之前算「前一天」，04:00 之后才进入新的一天。
+旧实现把 repeat_next_date 记成「完成时间 + 24 小时」，于是 18 号晚上 19:28 打完的
+日常要到 19 号 19:28 才刷新，第二天早上根本没法做。现在统一按周期边界判断。
+"""
+REPEAT_RESET_HOUR = 4
+
+
+def _local_now() -> datetime:
+    """带本地时区的当前时间（服务器上就是北京时间）。"""
+    return datetime.now().astimezone()
+
+
+def period_start(repeat_type: str, ref: Optional[datetime] = None) -> datetime:
+    """ref 所在的「当前周期」起点（本地时区，04:00）。
+
+    每日：最近的 04:00；每周：本周一 04:00；每月：1 号 04:00。
+    """
+    ref = ref or _local_now()
+    if ref.tzinfo is None:
+        ref = ref.astimezone()
+    anchor = ref - timedelta(hours=REPEAT_RESET_HOUR)
+    if repeat_type == 'weekly':
+        anchor = anchor - timedelta(days=anchor.weekday())
+    elif repeat_type == 'monthly':
+        anchor = anchor.replace(day=1)
+    return anchor.replace(hour=REPEAT_RESET_HOUR, minute=0, second=0, microsecond=0)
+
+
+def next_reset_at(repeat_type: str, interval: Optional[int] = None,
+                  ref: Optional[datetime] = None) -> datetime:
+    """ref 之后的下一个重置时刻（本地时区）。"""
+    base = period_start(repeat_type, ref)
+    if repeat_type == 'weekly':
+        return base + timedelta(weeks=1)
+    if repeat_type == 'monthly':
+        month, year = base.month + 1, base.year
+        if month > 12:
+            month, year = 1, year + 1
+        return base.replace(year=year, month=month)
+    if repeat_type == 'custom':
+        return base + timedelta(days=max(1, interval or 1))
+    return base + timedelta(days=1)
+
+
+def _as_aware(dt_str: Optional[str]) -> Optional[datetime]:
+    """把库里的 ISO 时间字符串转成带时区的 datetime（旧的没带时区的按 UTC 处理）。"""
+    if not dt_str:
+        return None
+    try:
+        dt = datetime.fromisoformat(dt_str)
+    except Exception:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
+def _repeat_is_due(row, now_local: datetime) -> bool:
+    """这条重复任务是否已经跨过了它的重置点（该归位了）。"""
+    completed = _as_aware(row["completed_at"])
+    if completed is None:
+        return False
+    repeat_type = row["repeat_type"]
+    if repeat_type == 'custom':
+        due = completed + timedelta(days=max(1, row["repeat_interval"] or 1))
+        return due <= now_local
+    return completed < period_start(repeat_type, now_local)
+
+
+def sweep_repeat_tasks(cur) -> int:
+    """把所有跨过重置点的重复任务归位：状态回「待办」、进度清零、清掉上一轮的掉落。
+
+    由 /api/tasks 与 /api/tasks/tree 自动调用，所以只要打开页面就会自动刷新，
+    不依赖任何后台定时器。
+    """
+    now_local = _local_now()
+    cur.execute("""
+        SELECT id, repeat_type, repeat_interval, status, completed_at, progress_mode,
+               parent_id, is_tracked
+        FROM tasks
+        WHERE deleted = 0 AND archived = 0 AND repeat_type IS NOT NULL
+          AND status IN ('done', 'cancelled')
+    """)
+    due_rows = [r for r in cur.fetchall() if _repeat_is_due(r, now_local)]
+    if not due_rows:
+        return 0
+    for row in due_rows:
+        nxt = next_reset_at(row["repeat_type"], row["repeat_interval"], now_local)
+        cur.execute("""
+            UPDATE tasks
+               SET status = 'todo',
+                   progress = 0,
+                   current_value = CASE WHEN progress_mode = 'count' THEN 0 ELSE current_value END,
+                   completed_at = NULL,
+                   drop_config = NULL,
+                   reward_claimed = 0,
+                   repeat_next_date = ?,
+                   updated_at = ?
+             WHERE id = ?
+        """, (nxt.isoformat(), now_iso(), row["id"]))
+        if row["parent_id"]:
+            update_parent_progress(cur, row["parent_id"])
+    return len(due_rows)
+
+
+def advance_repeat_schedule(cur, task_id: int):
+    """任务完成时只把「下次重置时刻」推到下一个 04:00，不再生成副本。
+
+    归位由 sweep_repeat_tasks 按周期边界统一处理，副本方案会和重置互相打架。
+    """
+    cur.execute("SELECT repeat_type, repeat_interval FROM tasks WHERE id = ?", (task_id,))
+    task = cur.fetchone()
+    if task is None or not task["repeat_type"]:
+        return
+    nxt = next_reset_at(task["repeat_type"], task["repeat_interval"])
+    cur.execute("UPDATE tasks SET repeat_next_date = ? WHERE id = ?", (nxt.isoformat(), task_id))
+
+
+def _legacy_create_repeat_copy(cur, task_id: int):
+    """【已停用】旧的「完成即生成副本」实现，保留仅为兼容历史数据。
+    新逻辑见 advance_repeat_schedule + sweep_repeat_tasks。"""
     cur.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
     task = cur.fetchone()
     if task["repeat_next_date"]:
@@ -1415,15 +1593,24 @@ async def http_exception_handler(request, exc):
 
 
 # ---------- API 路由 ----------
+@app.get("/api/version")
+async def get_version():
+    """版本号由 Git 自动生成（提交日期 + 提交数），不再手工维护 V1.0。"""
+    return {"data": app_version_info()}
+
+
 @app.get("/api/tasks/tree")
 async def get_task_tree(include_archived: bool = False, include_deleted: bool = False):
     with db_cursor() as cur:
+        # 每次读任务前先按 04:00 日界线归位重复任务，这样「打开页面 = 自动刷新日常」
+        sweep_repeat_tasks(cur)
         tree = build_task_tree(cur, include_archived=include_archived, include_deleted=include_deleted)
     return {"data": tree}
 
 
 @app.get("/api/tasks")
 async def get_tasks(
+        sweep: bool = True,
         status: Optional[str] = None,
         priority: Optional[int] = None,
         tag: Optional[str] = None,
@@ -1435,6 +1622,8 @@ async def get_tasks(
         include_deleted: bool = False,
 ):
     with db_cursor() as cur:
+        if sweep:
+            sweep_repeat_tasks(cur)
         query = "SELECT * FROM tasks WHERE 1=1"
         params = []
         if not include_deleted:
@@ -2061,8 +2250,79 @@ async def complete_task(task_id: int):
     return {"data": {"id": task_id, "status": "done"}}
 
 
+def _grant_task_rewards(cur, task):
+    """给单个任务结算奖励：基础资源 + 掉落素材入仓，并标记为已领取。
+
+    返回 (rewards, materials, old_exp, new_exp)，抽出复用是为了让「父任务一并领取
+    所有子任务奖励」走完全相同的发奖路径，不会漏也不会重复。
+    """
+    task_id = task["id"]
+    if task["reward_exp"] != 0:
+        reward_exp = task["reward_exp"]
+    else:
+        reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
+        cur.execute(
+            "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
+            (task_id,))
+        child_count = cur.fetchone()[0]
+        reward_exp += child_count * 10
+    if task["reward_lungmen"] != 0:
+        reward_lungmen = task["reward_lungmen"]
+    else:
+        reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
+    rewards = {
+        'exp': reward_exp,
+        'lungmen': reward_lungmen,
+        'source_stone': task["reward_source_stone"],
+        'orundum': task["reward_orundum"],
+    }
+    drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
+    rewards['source_stone'] += drop_rewards['source_stone']
+    rewards['orundum'] += drop_rewards['orundum']
+    rewards['lungmen'] += drop_rewards['lungmen']
+    # 掉落素材进入仓库，并把实际入库明细返回给前端用于提示
+    materials = add_drops_to_inventory(cur, task["drop_config"])
+    for res_type, amount in rewards.items():
+        if amount > 0:
+            add_resource(cur, res_type, amount, f'task_reward_{task_id}', task_id)
+    cur.execute("UPDATE tasks SET reward_claimed = 1, updated_at = ? WHERE id = ?", (now_iso(), task_id))
+    old_exp = get_resource(cur, 'exp') - rewards['exp']
+    new_exp = get_resource(cur, 'exp')
+    check_and_apply_level_up(cur, old_exp, new_exp)
+    return rewards, materials
+
+
+def collect_descendant_ids(cur, task_id: int) -> list:
+    """某任务下所有子孙任务 id（默认不含自身）。"""
+    out: list = []
+    frontier = [task_id]
+    while frontier:
+        cur.execute(
+            "SELECT id FROM tasks WHERE parent_id IN (%s)" % ','.join('?' * len(frontier)),
+            frontier)
+        kids = [r["id"] for r in cur.fetchall()]
+        if not kids:
+            break
+        out.extend(kids)
+        frontier = kids
+    return out
+
+
+def claim_with_children_enabled(cur) -> bool:
+    """设置里「领取父任务时一并领取子任务奖励」，默认开启。"""
+    try:
+        cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+        row = cur.fetchone()
+        if not row:
+            return True
+        cfg = json.loads(row[0] or '{}')
+        return bool(cfg.get("claim_with_children", True))
+    except Exception:
+        return True
+
+
 @app.post("/api/tasks/{task_id}/claim-reward")
-async def claim_reward(task_id: int):
+async def claim_reward(task_id: int, with_children: Optional[bool] = None):
     with db_cursor() as cur:
         cur.execute("SELECT * FROM tasks WHERE id = ? AND deleted = 0", (task_id,))
         task = cur.fetchone()
@@ -2072,41 +2332,37 @@ async def claim_reward(task_id: int):
             raise HTTPException(status_code=400, detail="任务未完成")
         if task["reward_claimed"]:
             raise HTTPException(status_code=400, detail="奖励已领取")
-        # 基础奖励
-        if task["reward_exp"] != 0:
-            reward_exp = task["reward_exp"]
-        else:
-            reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
-            cur.execute(
-                "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
-                (task_id,))
-            child_count = cur.fetchone()[0]
-            reward_exp += child_count * 10
-        if task["reward_lungmen"] != 0:
-            reward_lungmen = task["reward_lungmen"]
-        else:
-            reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
-        rewards = {
-            'exp': reward_exp,
-            'lungmen': reward_lungmen,
-            'source_stone': task["reward_source_stone"],
-            'orundum': task["reward_orundum"],
-        }
-        drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
-        rewards['source_stone'] += drop_rewards['source_stone']
-        rewards['orundum'] += drop_rewards['orundum']
-        rewards['lungmen'] += drop_rewards['lungmen']
-        # 掉落素材进入仓库，并把实际入库明细返回给前端用于提示
-        materials = add_drops_to_inventory(cur, task["drop_config"])
-        # 没有奖励也标记为已领取
-        for res_type, amount in rewards.items():
-            if amount > 0:
-                add_resource(cur, res_type, amount, f'task_reward_{task_id}', task_id)
-        cur.execute("UPDATE tasks SET reward_claimed = 1, updated_at = ? WHERE id = ?", (now_iso(), task_id))
-        old_exp = get_resource(cur, 'exp') - rewards['exp']
-        new_exp = get_resource(cur, 'exp')
-        check_and_apply_level_up(cur, old_exp, new_exp)
-    return {"data": {"id": task_id, "claimed": True, "rewards": rewards, "materials": materials}}
+
+        # 一并领取：父任务先领，再把所有已完成且未领取的子孙任务一起领掉（每个只发一次）
+        cascade = claim_with_children_enabled(cur) if with_children is None else bool(with_children)
+        targets = [task]
+        if cascade:
+            ids = collect_descendant_ids(cur, task_id)
+            if ids:
+                ph = ','.join('?' * len(ids))
+                cur.execute(
+                    f"SELECT * FROM tasks WHERE id IN ({ph}) AND deleted = 0 "
+                    f"AND status = 'done' AND reward_claimed = 0", ids)
+                targets.extend(cur.fetchall())
+
+        total = {'exp': 0, 'lungmen': 0, 'source_stone': 0, 'orundum': 0}
+        materials = []
+        detail = []
+        for t in targets:
+            r, m = _grant_task_rewards(cur, t)
+            for k in total:
+                total[k] += r.get(k, 0) or 0
+            materials.extend(m or [])
+            detail.append({"id": t["id"], "title": t["title"], "rewards": r})
+
+    return {"data": {
+        "id": task_id,
+        "claimed": True,
+        "rewards": total,
+        "materials": materials,
+        "claimed_count": len(targets),
+        "detail": detail,
+    }}
 
 
 @app.post("/api/tasks/claim-all")
@@ -2604,8 +2860,11 @@ CHARACTER_BY_ID = _load_character_by_id()
 
 
 def _daily_key(salt: str) -> str:
-    """每天换一批的种子：让「精选卡池 / 时装货架」每天都有新鲜感。"""
-    return f"{salt}:{datetime.now().strftime('%Y%m%d')}"
+    """每天换一批的种子：让「精选卡池 / 时装货架」每天都有新鲜感。
+
+    同样以凌晨 04:00 为分界，和任务重置保持同一天。
+    """
+    return f"{salt}:{period_start('daily').strftime('%Y%m%d')}"
 
 
 def _rotate(seq: list, seed: str, n: int) -> list:
@@ -2630,7 +2889,7 @@ def featured_operators() -> dict:
         "six": pick(6, 1),
         "five": pick(5, 4),
         "four": pick(4, 6),
-        "date": datetime.now().strftime("%Y-%m-%d"),
+        "date": period_start('daily').strftime("%Y-%m-%d"),
     }
 
 
@@ -3117,20 +3376,12 @@ async def import_data(data: ImportData):
             progress_mode = 'count' if target_value is not None else 'manual'
 
             if repeat_type and not repeat_next_date and status != 'done':
-                now = datetime.now(timezone.utc)
-                if repeat_type == 'daily':
-                    repeat_next_date = (now + timedelta(days=1)).isoformat()
-                elif repeat_type == 'weekly':
-                    repeat_next_date = (now + timedelta(weeks=1)).isoformat()
-                elif repeat_type == 'monthly':
-                    month = now.month + 1
-                    year = now.year
-                    if month > 12:
-                        month = 1
-                        year += 1
-                    repeat_next_date = now.replace(year=year, month=month).isoformat()
-                elif repeat_type == 'custom':
-                    repeat_next_date = (now + timedelta(days=repeat_interval or 1)).isoformat()
+                # 统一按「下一次 04:00 刷新」计算，和 sweep_repeat_tasks 的判定一致
+                if repeat_type not in ('daily', 'weekly', 'monthly', 'custom'):
+                    repeat_type_for_next = 'daily'
+                else:
+                    repeat_type_for_next = repeat_type
+                repeat_next_date = next_reset_at(repeat_type_for_next, repeat_interval).isoformat()
 
             if status == 'done':
                 completed_at = provided_completed_at or now_iso()
@@ -3387,6 +3638,8 @@ async def update_settings(settings: Dict[str, Any]):
         "theme",
         "username",
         "categories",
+        # 领取父任务时是否一并领取所有子任务奖励（默认开）
+        "claim_with_children",
     }
     invalid_keys = set(settings.keys()) - allowed_keys
     if invalid_keys:

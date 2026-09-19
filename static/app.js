@@ -493,7 +493,12 @@ function bindEvents() {
 
     DOM.dateTasksClose.addEventListener('click', closeAllModals);
 
-    DOM.exchangeBtn.addEventListener('click', () => { openModal('exchangeModal'); updateExchangeCost(); updateExchangeBalance(); updateExchangeRateText(); });
+    DOM.exchangeBtn.addEventListener('click', () => {
+        openModal('exchangeModal');
+        if (DOM.exchangeAmount) DOM.exchangeAmount.value = 1;
+        updateExchangeBalance(); updateExchangeCost(); updateExchangeRateText();
+    });
+    bindExchangeStepper();
     DOM.exchangeCancel.addEventListener('click', closeAllModals);
     DOM.exchangeClose.addEventListener('click', closeAllModals);
     DOM.exchangeConfirm.addEventListener('click', handleExchange);
@@ -513,11 +518,34 @@ function bindEvents() {
     DOM.operatorGachaClose.addEventListener('click', closeAllModals);
     DOM.operatorGachaSingle.addEventListener('click', () => handleOperatorGacha(1));
     DOM.operatorGachaTen.addEventListener('click', () => handleOperatorGacha(10));
+    // 整套演出支持点击跳过
+    const gachaStageEl = document.getElementById('ghStage');
+    if (gachaStageEl) gachaStageEl.addEventListener('click', ghSkipShow);
+    // 概率详情同样收进 ⓘ
+    const ghInfoBtn = document.getElementById('operatorGachaInfoBtn');
+    const ghInfoPanel = document.getElementById('operatorGachaInfoPanel');
+    if (ghInfoBtn && ghInfoPanel) {
+        ghInfoBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            ghInfoPanel.classList.toggle('open');
+            ghInfoBtn.classList.toggle('active', ghInfoPanel.classList.contains('open'));
+        });
+    }
 
     // 时装商店
     if (DOM.skinShopBtn) DOM.skinShopBtn.addEventListener('click', openSkinShop);
     if (DOM.skinShopClose) DOM.skinShopClose.addEventListener('click', closeAllModals);
     if (DOM.skinShopCancel) DOM.skinShopCancel.addEventListener('click', closeAllModals);
+    // 定价说明收进 ⓘ 按钮：默认不显示，点开才展开
+    const skinInfoBtn = document.getElementById('skinShopInfoBtn');
+    const skinInfoPanel = document.getElementById('skinShopInfoPanel');
+    if (skinInfoBtn && skinInfoPanel) {
+        skinInfoBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            const open = skinInfoPanel.classList.toggle('open');
+            skinInfoBtn.classList.toggle('active', open);
+        });
+    }
     if (DOM.skinFilterRow) DOM.skinFilterRow.addEventListener('click', e => {
         const btn = e.target.closest('.skin-filter-btn');
         if (!btn) return;
@@ -655,7 +683,23 @@ function renderResourceIcons(){
     });
 }
 
+/* ===== 版本号：由后端从 Git 自动生成（vYY.MM.DD.提交数），不再写死 V1.0 =====
+   顶栏、启动画面两处共用同一个值。 */
+async function loadAppVersion(){
+    const info = await apiGet('/version');
+    if (!info || !info.version) return;
+    const label = document.getElementById('logoVersion');
+    if (label){
+        label.textContent = info.version;
+        label.title = `构建 ${info.build} · ${info.commit}\n${info.date}${info.subject ? ' · ' + info.subject : ''}`;
+    }
+    const boot = document.getElementById('bootVersion');
+    if (boot) boot.textContent = `${info.version} // LOCAL`;
+    document.documentElement.dataset.appVersion = info.version;
+}
+
 async function initApp() {
+    loadAppVersion();                 // 版本号不阻塞首屏
     await loadSettings();
     await loadVoiceManifest();
     ArkLoader.progress(15, 'LOADING SETTINGS...');
@@ -1396,14 +1440,8 @@ function renderCampaignSection() {
         // 星级
         const stars = document.createElement('div');
         stars.className = isRoot ? 'campaign-stars' : 'campaign-child-stars';
-        for (let i = 0; i < Math.min(task.priority, 6); i++) {
-            const s = document.createElement('span');
-            s.className = 'star'; s.textContent = '★'; s.style.transform = 'rotate(15deg)';
-            s.style.display = 'inline-block'; s.style.color = 'var(--highlight-gold-1)';
-            s.style.fontSize = isRoot ? '14px' : '12px';
-            s.style.textShadow = '0 2px 4px rgba(0,0,0,0.6), 0 0 4px rgba(232,184,24,0.6)';
-            stars.appendChild(s);
-        }
+        stars.innerHTML = goldStars(Math.min(task.priority, 6), isRoot ? '' : 'xs');
+        stars.title = `优先级 ${task.priority}`;
         card.appendChild(stars);
 
         // 标题（可点击打开详情）
@@ -1614,6 +1652,18 @@ function isBlocked(task) {
 }
 
 // ===== 创建星星元素 (统一15°倾斜) =====
+/* ===== 星级渲染（全局统一） =====
+   明日方舟的稀有度只有「数量」差异，星星一律金色、单颗倾斜。
+   以前按 3绿/4蓝/5紫/6金 分色，视觉上很花；现在统一成一条金色斜星。
+   返回 HTML 字符串，直接拼进模板即可。 */
+function goldStars(rarity, extraClass = '') {
+    const n = Math.max(0, Math.min(6, parseInt(rarity, 10) || 0));
+    const cls = 'g-star' + (extraClass ? ' ' + extraClass : '');
+    let html = '';
+    for (let i = 0; i < n; i++) html += `<i class="${cls}"></i>`;
+    return `<span class="g-stars">${html}</span>`;
+}
+
 function createStarElement() {
     const star = document.createElement('span');
     star.className = 'star';
@@ -1643,11 +1693,23 @@ function createTaskCard(task) {
     }
     if (task.status === 'done') card.draggable = false;
 
-    // 已完成装饰角标（低调）
-    if (task.status === 'done') {
+    /* 可领取 = 已完成 + 奖励还没领 + 确实有奖励。
+       这类卡片本身就是「领取按钮」：点卡片上任何非按钮区域即领奖，
+       不再单独摆一个「领取奖励」按钮（它左侧还带着一颗没人看得懂的小菱形）。 */
+    const claimable = task.status === 'done' && !task.reward_claimed && hasActualReward(task);
+
+    if (claimable) {
+        card.classList.add('claimable');
+        const claimBadge = document.createElement('div');
+        claimBadge.className = 'task-claim-badge';
+        claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
+        card.appendChild(claimBadge);
+    } else if (task.status === 'done') {
+        // 已完成且奖励已领：绿圈对勾（勾在圆里居中，不再顶到上沿）
         const completedBadge = document.createElement('div');
         completedBadge.className = 'task-completed-badge';
-        completedBadge.textContent = 'completed';
+        completedBadge.innerHTML = '<i class="fa-solid fa-check"></i>';
+        completedBadge.title = '已完成';
         card.appendChild(completedBadge);
     }
 
@@ -1677,12 +1739,10 @@ function createTaskCard(task) {
     // 星级徽章原先独占一行（36px 高 + 8px 下边距），现改为与标题同行，直接省掉一整行高度
     const stars = document.createElement('div');
     stars.className = 'task-stars';
-    const starBg = document.createElement('div');
-    starBg.className = `star-bg priority-${task.priority}`;
-    for (let i = 0; i < task.priority; i++) {
-        starBg.appendChild(createStarElement());
-    }
-    stars.appendChild(starBg);
+    /* 全站统一：星星只靠「数量」表达强度，一律金色单颗倾斜。
+       优先级数值仍然留在 data-priority / title 里，筛选用得到、悬停也看得到。 */
+    stars.innerHTML = goldStars(task.priority);
+    stars.title = `优先级 ${task.priority}`;
     topRow.appendChild(stars);
     const title = document.createElement('span');
     title.className = 'task-title';
@@ -1695,6 +1755,12 @@ function createTaskCard(task) {
         collapseBtn.title = collapsed ? '展开子任务' : '折叠子任务';
         collapseBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleCollapse(task.id); });
         topRow.appendChild(collapseBtn);
+    } else {
+        // 子任务没有折叠箭头 —— 但必须占住同样的宽度，
+        // 否则父任务标题和子任务标题会错开一格的宽度（看起来"缩进不整齐"的元凶之一）
+        const spacer = document.createElement('span');
+        spacer.className = 'task-collapse-spacer';
+        topRow.appendChild(spacer);
     }
     topRow.appendChild(title);
     const lineTag = document.createElement('span');
@@ -1840,14 +1906,6 @@ function createTaskCard(task) {
         trackBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTrackingForTask(task.id); });
         actions.appendChild(trackBtn);
     }
-    if (task.status === 'done' && !task.reward_claimed && hasActualReward(task)) {
-        const claimBtn = document.createElement('button');
-        claimBtn.className = 'claim-btn';
-        claimBtn.innerHTML = '<i class="fa-solid fa-gift"></i> 领取奖励';
-        claimBtn.title = '领取奖励';
-        claimBtn.addEventListener('click', (e) => { e.stopPropagation(); openRewardModal(task.id); });
-        actions.appendChild(claimBtn);
-    }
     const editBtn = document.createElement('button');
     editBtn.className = 'action-btn';
     editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
@@ -1886,9 +1944,48 @@ function createTaskCard(task) {
     card.addEventListener('click', () => {
         if (window._suppressClick) return;
         if (state.selectionMode) { toggleSelectTask(task); return; }
+        // 可领取的卡片：点哪儿都算领奖（按钮/输入框都在上面 stopPropagation 掉了）
+        if (claimable) { claimTaskFromCard(task.id, card); return; }
         if (!isBlocked(task)) openTaskDetail(task.id);
     });
     return card;
+}
+
+/* ===== 整卡领取奖励 =====
+   点完成卡片的任意位置 → 直接发奖 → 把「一共领到了什么」铺成方舟风格圆形资源卡。
+   父任务会连同所有已完成子任务一起结算（后端 claim-reward 默认级联，可在设置里关掉）。 */
+async function claimTaskFromCard(taskId, cardEl){
+    if (state.rewardModalAnimating) return;
+    const task = state.flatTasks.find(t => t.id === taskId);
+    if (!task || task.reward_claimed) return;
+    state.rewardModalAnimating = true;
+    cardEl?.classList.add('claiming');
+    if (cardEl) { try { spawnParticlesGatherThenFly(cardEl); } catch (e) {} }
+    let result = null;
+    try { result = await apiPost(`/tasks/${taskId}/claim-reward`); } catch (e) {}
+    state.rewardModalAnimating = false;
+    if (!result){ showToast('领取失败，请重试'); return; }
+
+    await loadResources(); await loadTransactions(); await loadTasks();
+    if (typeof updateTrackingPanel === 'function') updateTrackingPanel();
+    try { loadInventory(); } catch (e) {}
+
+    const granted = [];
+    const rw = result.rewards || {};
+    ['exp', 'lungmen', 'source_stone', 'orundum'].forEach(k => {
+        if ((rw[k] || 0) > 0) granted.push({ key: k, amount: rw[k] });
+    });
+    (result.materials || []).forEach(m => granted.push({ key: m.type, amount: m.amount }));
+
+    if (granted.length){
+        showPackRewardModal(granted);
+        const titleEl = document.querySelector('#rewardModal .modal-title');
+        if (titleEl) titleEl.textContent = (result.claimed_count > 1)
+            ? `奖励已领取 · 含 ${result.claimed_count} 个任务`
+            : '奖励已领取';
+    } else {
+        showToast('奖励已领取');
+    }
 }
 
 function hasActualReward(task) {
@@ -2340,7 +2437,8 @@ function renderCalendar() {
         tasks.forEach(t=>{
             const priorityColor = getPriorityColor(t.priority);
             const statusIcon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '▶' : t.status === 'paused' ? '⏸' : '';
-            const priorityStars = '★'.repeat(t.priority);
+            /* 日历里的优先级星星也走同一套金星：金色 + 单颗倾斜，只堆数量 */
+            const priorityStars = goldStars(t.priority, 'xs');
             const title = escapeHtml(t.title);
             if(t.task_line==='main') {
                 html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">
@@ -2477,26 +2575,33 @@ function renderGiftPacks(){
     avail.forEach(pack => {
         const { res, mats } = parsePackContents(pack);
         const chips = [];
+        // 货币类：只留图标 + 数量，名字靠 title 提示——方舟里没人把「合成玉」三个字贴在图标下面
         GP_RES_ORDER.forEach(k => {
             const v = res[k];
             if (!v) return;
-            chips.push(`<span class="gp-chip"><img src="static/icons/${k}.png" alt="" onerror="this.style.visibility='hidden'">` +
-                `<b>${formatWhNum(v)}</b><i>${GP_RES_NAME[k]}</i></span>`);
+            const name = GP_RES_NAME[k];
+            chips.push(`<span class="gp-chip is-res" title="${name}">` +
+                `<img src="static/icons/${k}.png" alt="${name}" onerror="this.style.visibility='hidden'">` +
+                `<b>${formatWhNum(v)}</b></span>`);
         });
-        mats.forEach(m => chips.push(
-            `<span class="gp-chip"><img src="static/icons/${m.key}.png" alt="" onerror="this.style.visibility='hidden'">` +
-            `<b>×${m.amount}</b><i>${escapeHtml(matNameOf(m.key))}</i></span>`));
+        // 素材类：图标不一致，保留短名（截断 + 悬浮看全名）
+        mats.forEach(m => {
+            const name = matNameOf(m.key);
+            chips.push(`<span class="gp-chip is-mat" title="${escapeHtml(name)}">` +
+                `<img src="static/icons/${m.key}.png" alt="" onerror="this.style.visibility='hidden'">` +
+                `<b>×${m.amount}</b><i>${escapeHtml(name)}</i></span>`);
+        });
         const card = document.createElement('div');
         card.className = `gift-pack-card gp-r${pack.rarity || 1}`;
         card.innerHTML =
             '<span class="gp-ribbon"></span>' +
             '<div class="gp-head">' +
                 `<span class="gp-name">${escapeHtml(pack.name)}</span>` +
-                `<span class="gp-price"><i class="fa-solid fa-gem"></i>${pack.cost_source_stone}</span>` +
+                `<span class="gp-price" title="售价 ${pack.cost_source_stone} 源石">${resIconHTML('source_stone')}<b>${pack.cost_source_stone}</b></span>` +
             '</div>' +
             `<div class="gp-desc">${escapeHtml(pack.description || '')}</div>` +
             `<div class="gp-contents">${chips.join('') || '<span class="gp-chip-empty">内容物生成中</span>'}</div>` +
-            '<button class="gp-buy">购买</button>';
+            '<button class="game-btn gp-buy" type="button"><span>购 买</span></button>';
         card.addEventListener('click', () => purchaseGiftPack(pack.id));
         grid.appendChild(card);
     });
@@ -3018,10 +3123,21 @@ function refreshTaskCard(taskId) {
     if (input) input.value = task.current_value;
     const thumb = card.querySelector('.progress-thumb');
     if (thumb) thumb.style.left = `${percent}%`;
-    card.className = `task-card status-${task.status} ${(task.children && task.children.length) ? 'parent-task' : 'child-task'}${isBlocked(task) ? ' dependency-blocked' : ''}`;
+    const claimable = task.status === 'done' && !task.reward_claimed && hasActualReward(task);
+    card.className = `task-card status-${task.status} ${(task.children && task.children.length) ? 'parent-task' : 'child-task'}`
+        + `${isBlocked(task) ? ' dependency-blocked' : ''}`
+        + `${claimable ? ' claimable' : ''}`
+        + `${state.selectionMode ? ' selecting' : ''}`
+        + `${state.selectedIds && state.selectedIds.has(task.id) ? ' selected' : ''}`;
     card.dataset.status = task.status;
-    const claim = card.querySelector('.claim-btn');
-    if (claim) claim.style.display = (task.status === 'done' && !task.reward_claimed && hasActualReward(task)) ? '' : 'none';
+    if (claimable && !card.querySelector('.task-claim-badge')) {
+        const claimBadge = document.createElement('div');
+        claimBadge.className = 'task-claim-badge';
+        claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
+        card.appendChild(claimBadge);
+    } else if (!claimable) {
+        card.querySelector('.task-claim-badge')?.remove();
+    }
 }
 
 async function updateCount(taskId, delta){
@@ -3172,17 +3288,8 @@ function updateTrackingPanel(){
     chain.forEach((p,index)=>{ const span=document.createElement('span'); span.textContent=p.title; span.addEventListener('click',()=>openTaskDetail(p.id));
         DOM.trackingParentChain.appendChild(span); if(index<chain.length-1) DOM.trackingParentChain.appendChild(document.createTextNode(' > ')); });
     // 追踪面板星星 - 统一15°倾斜
-    DOM.trackingStars.innerHTML='';
-    for (let i = 0; i < task.priority; i++) {
-        const star = document.createElement('span');
-        star.className = 'star';
-        star.textContent = '★';
-        star.style.transform = 'rotate(15deg)';
-        star.style.display = 'inline-block';
-        star.style.color = 'var(--highlight-gold-1)';
-        star.style.textShadow = '0 2px 4px rgba(0,0,0,0.6), 0 0 6px rgba(232,184,24,0.5)';
-        DOM.trackingStars.appendChild(star);
-    }
+    DOM.trackingStars.innerHTML = goldStars(task.priority, 'lg');
+    DOM.trackingStars.title = `优先级 ${task.priority}`;
     DOM.trackingTaskLine.textContent=task.task_line==='main'?'主线':'支线'; DOM.trackingTaskLine.className=`task-line-badge ${task.task_line}`;
     DOM.trackingTitle.textContent=task.title; DOM.trackingDesc.textContent=task.description||'';
     DOM.trackingTitle.onclick = () => openTaskDetail(task.id);
@@ -3821,7 +3928,7 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
     wpRefreshBtn.addEventListener('click', renderWp);
     renderWp();
 
-    const settingDefs=[ {key:'tracking_panel_collapsed',label:'追踪面板收起',type:'checkbox'}, {key:'focus_mode',label:'专注模式默认开启',type:'checkbox'}, {key:'quick_track',label:'快捷追踪按钮',type:'checkbox'}, {key:'show_side_when_tracking_main',label:'追踪主线时显示支线',type:'checkbox'}, {key:'show_main_when_tracking_side',label:'追踪支线时显示主线',type:'checkbox'}, {key:'show_sanity',label:'理智显示开关',type:'checkbox'} ];
+    const settingDefs=[ {key:'tracking_panel_collapsed',label:'追踪面板收起',type:'checkbox'}, {key:'focus_mode',label:'专注模式默认开启',type:'checkbox'}, {key:'quick_track',label:'快捷追踪按钮',type:'checkbox'}, {key:'claim_with_children',label:'领取父任务时一并领取子任务奖励',type:'checkbox'}, {key:'show_side_when_tracking_main',label:'追踪主线时显示支线',type:'checkbox'}, {key:'show_main_when_tracking_side',label:'追踪支线时显示主线',type:'checkbox'}, {key:'show_sanity',label:'理智显示开关',type:'checkbox'} ];
     settingDefs.forEach(def=>{
         const container = document.createElement('div');
         container.className = 'switch-container';
@@ -3832,7 +3939,8 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
         switchWrapper.className = 'switch';
         const input = document.createElement('input');
         input.type = 'checkbox';
-        input.checked = !!settings[def.key];
+        // claim_with_children 后端默认开（设置里没存过 = 开），不能按 "" 当 false 显示
+        input.checked = (def.key === 'claim_with_children') ? settings[def.key] !== false : !!settings[def.key];
         input.dataset.key = def.key;
         input.addEventListener('change', async (e) => {
             await apiPut('/settings', {[def.key]: e.target.checked});
@@ -4070,8 +4178,9 @@ async function openTaskDetail(taskId){
     const heroStars=document.createElement('div');
     heroStars.className='task-detail-stars';
     const starPlate=document.createElement('div');
-    starPlate.className=`star-bg priority-${task.priority}`;
-    for(let i=0;i<task.priority;i++) starPlate.appendChild(createStarElement());
+    starPlate.className='star-bg';
+    starPlate.innerHTML=goldStars(task.priority);
+    starPlate.title=`优先级 ${task.priority}`;
     heroStars.appendChild(starPlate);
     const heroTitle=document.createElement('div');
     heroTitle.className='task-detail-title';
@@ -4248,15 +4357,65 @@ function showPackRewardModal(granted){
 
 async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); const rewards=result.rewards; if(rewards&&rewards.length){ showPackRewardModal(rewards); } else showToast('领取成功'); } }
 
-function updateExchangeCost(){ const amount=parseFloat(DOM.exchangeAmount.value)||0; const gained=amount*EXCHANGE_RATE_STONE_TO_ORUNDUM;
-    DOM.exchangeCostDisplay.textContent=`消耗源石：${amount}　→　获得合成玉：${gained}（×${EXCHANGE_RATE_STONE_TO_ORUNDUM}）`; }
-function updateExchangeBalance(){ const stone=state.resources.source_stone?.current_value||0; DOM.exchangeLungmenBalance.textContent=`当前持有源石：${stone}`; }
-function updateExchangeRateText(){ DOM.exchangeRateText.textContent = `唯一允许的兑换：源石 → 合成玉（1 源石 = ${EXCHANGE_RATE_STONE_TO_ORUNDUM} 合成玉）。龙门币与源石不可被兑换出去。`; }
+function updateExchangeCost(){
+    const amount = Math.max(0, parseFloat(DOM.exchangeAmount?.value) || 0);
+    const gained = amount * EXCHANGE_RATE_STONE_TO_ORUNDUM;
+    const el = DOM.exchangeCostDisplay;
+    if (!el) return;
+    el.innerHTML =
+        '<span class="ex-preview-side">' + resIconHTML('source_stone') + `<b>${amount}</b></span>` +
+        '<i class="fa-solid fa-arrow-right-long ex-preview-arrow"></i>' +
+        '<span class="ex-preview-side ok">' + resIconHTML('orundum') + `<b>${formatWhNum(gained)}</b></span>` +
+        `<span class="ex-preview-rate">×${EXCHANGE_RATE_STONE_TO_ORUNDUM}</span>`;
+    const btn = DOM.exchangeConfirm;
+    if (btn) btn.disabled = amount <= 0;
+}
+function updateExchangeBalance(){
+    const stone = state.resources.source_stone?.current_value || 0;
+    const orundum = state.resources.orundum?.current_value || 0;
+    if (DOM.exchangeLungmenBalance)
+        DOM.exchangeLungmenBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('source_stone', stone)}`;
+    const to = document.getElementById('exchangeOwnTo');
+    if (to) to.innerHTML = resAmountHTML('orundum', orundum);
+    const from = document.getElementById('exchangeOwnFrom');
+    if (from) from.innerHTML = resAmountHTML('source_stone', stone);
+    const maxBtn = document.getElementById('exchangeMaxBtn');
+    if (maxBtn) maxBtn.textContent = `最大 ${Math.floor(stone)}`;
+}
+function updateExchangeRateText(){
+    DOM.exchangeRateText.textContent =
+        `唯一允许的兑换：源石 → 合成玉（1 源石 = ${EXCHANGE_RATE_STONE_TO_ORUNDUM} 合成玉）。龙门币与源石不可被兑换出去。`;
+}
+/* 兑换数量步进器：−10 / −1 / 输入 / +1 / +10 / 最大 */
+function bindExchangeStepper(){
+    const row = document.getElementById('exchangeStepper');
+    const input = DOM.exchangeAmount;
+    if (!row || !input) return;
+    const stoneOwned = () => Math.floor(state.resources.source_stone?.current_value || 0);
+    const setAmount = v => {
+        const n = Math.max(1, Math.min(Math.max(1, stoneOwned()), Math.floor(v) || 1));
+        input.value = n;
+        updateExchangeCost();
+    };
+    row.querySelectorAll('[data-step]').forEach(b => {
+        b.addEventListener('click', () => setAmount((parseFloat(input.value) || 0) + parseFloat(b.dataset.step)));
+    });
+    const maxBtn = document.getElementById('exchangeMaxBtn');
+    if (maxBtn) maxBtn.addEventListener('click', () => setAmount(stoneOwned()));
+    input.addEventListener('input', updateExchangeCost);
+}
 async function handleExchange(){ const amount=parseFloat(DOM.exchangeAmount.value);
     if(isNaN(amount)||amount<=0){ showToast('请输入有效数量'); return; }
     const result=await apiPost('/resources/exchange',{from_type:'source_stone',to_type:'orundum',amount}); if(result){ await loadResources(); await loadTransactions(); await loadRealityRewards(); closeAllModals(); showToast('兑换成功'); } }
-function updateGachaBalance(){ const orundum=state.resources.orundum?.current_value||0; DOM.gachaOrundumBalance.textContent=`当前持有合成玉：${orundum}`; }
-function updateGachaCostText(){ DOM.gachaCostText.textContent = `消耗 ${GACHA_COST_ORUNDUM} 合成玉进行一次抽取`; }
+function updateGachaBalance(){
+    const orundum = state.resources.orundum?.current_value || 0;
+    if (DOM.gachaOrundumBalance)
+        DOM.gachaOrundumBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('orundum', orundum)}`;
+}
+function updateGachaCostText(){
+    if (DOM.gachaCostText)
+        DOM.gachaCostText.innerHTML = `消耗 ${resAmountHTML('orundum', GACHA_COST_ORUNDUM)} 进行一次抽取`;
+}
 async function handleGacha(){ const result=await apiPost('/achievements/draw'); if(result){ DOM.gachaResult.innerHTML='';
     if(result.name){ const div=document.createElement('div'); div.className='reward-item'; div.textContent=`获得蚀刻章：${result.name}`; DOM.gachaResult.appendChild(div); loadAchievements(); }
     else DOM.gachaResult.textContent='未获得新蚀刻章';
@@ -4269,81 +4428,239 @@ function openOperatorGacha(){
     DOM.operatorGachaResult.innerHTML = '';
     loadOperatorRecords();
 }
+/* 内联资源小图标：任何「有图标的东西」都优先摆图标，而不是写中文名。
+   传 type（exp/lungmen/source_stone/orundum/sanity 或素材 key）。 */
+const RES_ICON_FILE = { exp:'exp', lungmen:'lungmen', source_stone:'source_stone', orundum:'orundum', sanity:'sanity' };
+function resIconHTML(type, cls){
+    const file = RES_ICON_FILE[type] || type;
+    const name = (typeof GP_RES_NAME !== 'undefined' && GP_RES_NAME[type]) || matNameOf(type) || type;
+    return `<img class="res-ico${cls ? ' ' + cls : ''}" src="static/icons/${file}.png" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" onerror="this.style.display='none'">`;
+}
+/* 图标 + 数量。数量用等宽字体，方便和旁边的图标左对齐成列。 */
+function resAmountHTML(type, value, cls){
+    return `<span class="res-amt${cls ? ' ' + cls : ''}">${resIconHTML(type)}<b>${formatWhNum(value)}</b></span>`;
+}
+
 function updateOperatorGachaBalance(){
     const orundum = state.resources.orundum?.current_value || 0;
-    if (DOM.operatorGachaOrundumBalance) DOM.operatorGachaOrundumBalance.textContent = `当前持有合成玉：${orundum}`;
+    if (DOM.operatorGachaOrundumBalance)
+        DOM.operatorGachaOrundumBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('orundum', orundum)}`;
 }
 function updateOperatorGachaPity(pity){
     if (!DOM.operatorGachaPity || !pity) return;
-    DOM.operatorGachaPity.textContent = `累计寻访 ${pity.total_pulls} 次　·　距上次 6★ 已 ${pity.since_last_6star} 抽（再 ${pity.guaranteed_in} 抽内必出 6★）`;
+    DOM.operatorGachaPity.innerHTML =
+        `<span class="gh-pity-item">累计寻访 <b>${pity.total_pulls}</b> 次</span>` +
+        `<span class="gh-pity-sep"></span>` +
+        `<span class="gh-pity-item">距上次 ${goldStars(6, 'xs')} 已 <b>${pity.since_last_6star}</b> 抽` +
+        `<span class="gh-pity-sub">再 ${pity.guaranteed_in} 抽内必出</span></span>`;
 }
 let gachaBusy = false;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 function setGachaButtons(enabled){
     [DOM.operatorGachaSingle, DOM.operatorGachaTen].forEach(b => { if (b) b.disabled = !enabled; });
 }
-/* 抽卡演出：源石充能 → 逐张翻牌。6★ 额外金色光爆。 */
+
+/* ── 寻访结果卡（静态展示用，与演出共用同一套卡片外观） ── */
+function opResultCardHTML(r){
+    const art = r.portrait ? `/static/${r.portrait}` : '';
+    const tokIcon = r.token_icon ? `/static/${r.token_icon}` : '';
+    const tag = r.is_new
+        ? '<span class="op-tag-new">NEW</span>'
+        : `<span class="op-tag-token">${tokIcon ? `<img class="op-token-icon" src="${tokIcon}" alt="">` : ''}信物 +${r.token_gain}</span>`;
+    return '<div class="op-card-inner">' +
+        '<div class="op-card-face op-card-back"><i class="fa-solid fa-gem"></i></div>' +
+        `<div class="op-card-face op-card-front rarity-${r.rarity}">` +
+            `<div class="op-card-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+                (art ? '' : '<i class="fa-solid fa-user-astronaut"></i>') +
+                `<div class="op-card-stars">${goldStars(r.rarity)}</div>` +
+            '</div>' +
+            '<div class="op-card-info">' +
+                `<div class="op-card-name">${escapeHtml(r.name)}</div>` +
+                `<div class="op-card-tag">${tag}</div>` +
+            '</div>' +
+        '</div>' +
+    '</div>';
+}
+
+/* ============================================================
+   寻访演出（对齐明日方舟原版观感）
+   阶段一：PRTS 连接 + 扫描线 + 光带横扫
+   阶段二：卡片逐张翻牌，5★/6★ 各自打出对应颜色的光柱
+   阶段三：6★ 触发全屏金色光爆
+   任意时刻点击覆盖层 = 跳过
+   ============================================================ */
+let ghTimers = [];
+let ghSkipped = false;
+function ghAfter(ms, fn){ ghTimers.push(setTimeout(fn, ms)); }
+function ghClearTimers(){ ghTimers.forEach(clearTimeout); ghTimers = []; }
+function ghEl(id){ return document.getElementById(id); }
+
+function ghBuildCard(r){
+    const card = document.createElement('div');
+    card.className = `gh-card rar-${r.rarity}`;
+    const art = r.portrait ? `/static/${r.portrait}` : '';
+    const tokIcon = r.token_icon ? `/static/${r.token_icon}` : '';
+    const tag = r.is_new
+        ? '<span class="gh-tag new">NEW</span>'
+        : `<span class="gh-tag dupe">${tokIcon ? `<img src="${tokIcon}" alt="">` : ''}+${r.token_gain}</span>`;
+    card.innerHTML =
+        '<span class="gh-pillar"></span>' +
+        '<div class="gh-card-in">' +
+            '<div class="gh-face gh-back"><span class="gh-back-mark"></span></div>' +
+            '<div class="gh-face gh-front">' +
+                `<div class="gh-art"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
+                '<div class="gh-front-veil"></div>' +
+                `<div class="gh-front-body">` +
+                    `<span class="gh-front-stars">${goldStars(r.rarity)}</span>` +
+                    `<span class="gh-front-name">${escapeHtml(r.name)}</span>` +
+                    tag +
+                '</div>' +
+            '</div>' +
+        '</div>' +
+        `<span class="gh-burst">${goldStars(r.rarity, 'lg')}</span>`;
+    return card;
+}
+
+/* 阶段一：拉起舞美 + PRTS 连接。返回一个 Promise，代表连接演出走完。
+   调用方可以拿它和 /gacha/operator 请求并行跑，省掉等待时间。 */
+function ghStartStage(){
+    const stage = ghEl('ghStage');
+    const reveal = ghEl('ghReveal');
+    const bootText = ghEl('ghBootText');
+    const bootBar = ghEl('ghBootBar');
+    ghClearTimers();
+    ghSkipped = false;
+    if (reveal) reveal.innerHTML = '';
+    if (!stage) return sleep(1200);
+    stage.className = 'gh-stage showing boot';
+    stage.classList.remove('hidden');
+    if (bootBar) bootBar.style.width = '0%';
+    return (async () => {
+        ghAfter(60, () => { if (bootBar) bootBar.style.width = '100%'; });
+        const lines = ['正在建立连接…', 'PRTS 数据链路同步中…', '寻访数据解析中…'];
+        for (const t of lines){
+            if (ghSkipped) return;
+            if (bootText) bootText.textContent = t;
+            await sleep(ghPace(430));
+        }
+        await sleep(ghSkipped ? 0 : 210);
+    })();
+}
+// 跳过时把剩下的等待压成 0，演出立刻收尾
+function ghPace(ms){ return ghSkipped ? 0 : ms; }
+
+async function playGachaShow(results, bootPromise){
+    const stage = ghEl('ghStage');
+    if (!stage){ return; }
+    const reveal = ghEl('ghReveal');
+    await (bootPromise || sleep(0));
+    if (ghSkipped) return;
+    stage.classList.remove('boot');
+    stage.classList.add('reveal');
+
+    const cards = [];
+    results.forEach(r => {
+        const c = ghBuildCard(r);
+        reveal.appendChild(c);
+        cards.push(c);
+    });
+    await sleep(60);
+    if (ghSkipped) { cards.forEach(c => c.classList.add('shown', 'flipped')); return; }
+    cards.forEach(c => c.classList.add('shown'));
+
+    // ── 阶段二：逐张翻牌 ──
+    const flipGap = results.length > 6 ? 155 : 260;
+    cards.forEach((c, i) => {
+        ghAfter(320 + i * flipGap, () => {
+            if (ghSkipped) return;
+            c.classList.add('flipped');
+            const rar = parseInt(c.className.match(/rar-(\d)/)?.[1] || '3', 10);
+            if (rar >= 5){
+                stage.classList.add(rar >= 6 ? 'flare-six' : 'flare-five');
+                ghAfter(rar >= 6 ? 760 : 380, () => stage.classList.remove('flare-five', 'flare-six'));
+            }
+            if (rar >= 6) c.classList.add('hit-six');
+        });
+    });
+    const total = 320 + (cards.length - 1) * flipGap + 720;
+    await sleep(total);
+    if (ghSkipped) return;
+    // 展示完自动收起；也可以点一下立刻收
+    await sleep(1600);
+    if (!ghSkipped) ghCloseShow();
+}
+
+function ghSkipShow(){
+    if (ghSkipped) return;
+    ghSkipped = true;
+    ghClearTimers();
+    const stage = ghEl('ghStage');
+    if (!stage) return;
+    stage.classList.remove('boot', 'flare-five', 'flare-six');
+    stage.classList.add('reveal');
+    stage.querySelectorAll('.gh-card').forEach(c => { c.classList.add('shown', 'flipped'); });
+    setTimeout(ghCloseShow, 620);
+}
+
+function ghCloseShow(){
+    ghClearTimers();
+    const stage = ghEl('ghStage');
+    if (!stage) return;
+    stage.classList.add('closing');
+    setTimeout(() => {
+        stage.className = 'gh-stage hidden';
+        const reveal = ghEl('ghReveal');
+        if (reveal) reveal.innerHTML = '';
+    }, 260);
+}
+
+/* 静态结果列表（演出结束后留在弹窗里，方便回看抽到了什么） */
 async function renderOperatorGachaResults(results){
     const box = DOM.operatorGachaResult;
     box.innerHTML = '';
     results.forEach((r, i) => {
         const card = document.createElement('div');
         card.className = `op-card rarity-${r.rarity}`;
-        card.style.animationDelay = `${i * 0.07}s`;
-        const stars = '★'.repeat(r.rarity);
-        const art = r.portrait ? `/static/${r.portrait}` : '';
-        const tokIcon = r.token_icon ? `/static/${r.token_icon}` : '';
-        // 新干员 → NEW 徽章；重复 → 信物图标 + 数量
-        const tag = r.is_new
-            ? '<span class="op-tag-new">NEW</span>'
-            : `<span class="op-tag-token">${tokIcon ? `<img class="op-token-icon" src="${tokIcon}" alt="">` : '<i class="fa-solid fa-certificate"></i>'}+${r.token_gain}</span>`;
-        card.innerHTML =
-            '<div class="op-card-inner">' +
-                '<div class="op-card-face op-card-back"><i class="fa-solid fa-gem"></i></div>' +
-                `<div class="op-card-face op-card-front rarity-${r.rarity}">` +
-                    `<div class="op-card-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
-                        (art ? '' : '<i class="fa-solid fa-user-astronaut"></i>') +
-                        `<div class="op-card-stars">${stars}</div>` +
-                        `<div class="op-card-rarity-tag">${r.rarity}★</div>` +
-                    '</div>' +
-                    `<div class="op-card-info">` +
-                        `<div class="op-card-name">${escapeHtml(r.name)}</div>` +
-                        `<div class="op-card-tag">${tag}</div>` +
-                    '</div>' +
-                '</div>' +
-            '</div>';
+        card.style.animationDelay = `${i * 0.05}s`;
+        card.innerHTML = opResultCardHTML(r);
         box.appendChild(card);
         setTimeout(() => {
             card.classList.add('flipped');
             if (r.rarity >= 6) card.classList.add('just-got');
-        }, 240 + i * 105);
+        }, 40 + i * 60);
     });
-    await sleep(240 + results.length * 105 + 620);
+    await sleep(40 + results.length * 60 + 320);
 }
+
 async function handleOperatorGacha(count){
     const cost = OPERATOR_GACHA_COST * count;
     const orundum = state.resources.orundum?.current_value || 0;
     if (orundum < cost){ showToast('合成玉不足'); return; }
     if (gachaBusy) return;
     gachaBusy = true; setGachaButtons(false);
-    const stage = DOM.operatorGachaStage;
     DOM.operatorGachaResult.innerHTML = '';
-    if (stage) stage.classList.remove('hidden');       // 源石充能
-    const minCharge = sleep(1150);                     // 与请求并行，保证动画至少演满
+    closeAllModals();                     // 演出走全屏，弹窗先让位
+    // 阶段一（PRTS 连接）与后端请求并行跑，动画至少演满，但不额外增加等待
+    const boot = ghStartStage();
     let result = null;
     try {
         // 注意：apiPost 已解包 json.data，这里直接用 result，不能再取 .data
         result = await apiPost('/gacha/operator', { count });
     } catch (e) { /* 下面统一处理 */ }
-    await minCharge;
-    if (stage) stage.classList.add('hidden');
     try {
-        if (!result || !result.results){ showToast('寻访失败，请重试'); return; }
+        if (!result || !result.results){
+            await boot;
+            ghCloseShow();
+            showToast('寻访失败，请重试');
+            return;
+        }
+        await playGachaShow(result.results, boot);
         await renderOperatorGachaResults(result.results);
         updateOperatorGachaBalance();
         updateOperatorGachaPity(result.pity);
         await loadResources(); await loadTransactions(); await loadRealityRewards();
         await loadOperatorRecords();
+        openModal('operatorGachaModal');   // 演出结束回到寻访界面看结果
         showToast(`寻访完成，消耗合成玉 ${result.cost}`);
     } finally {
         gachaBusy = false; setGachaButtons(true);
@@ -4363,7 +4680,8 @@ async function loadSkins(){
     if (!data) return;
     skinCache = data.skins || [];
     skinShelf = data.shop || [];
-    if (DOM.skinShopBalance) DOM.skinShopBalance.textContent = `当前持有源石：${data.source_stone}`;
+    if (DOM.skinShopBalance)
+        DOM.skinShopBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('source_stone', data.source_stone)}`;
     renderSkins();
 }
 /* 单张时装的卡片。unlocked=false 表示这件皮肤的主人还没抽到 —— 只给预览不给下单。 */
@@ -4372,16 +4690,16 @@ function buildSkinCard(s, stone){
     card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}`;
     const canBuy = s.unlocked !== false;
     const btn = s.owned
-        ? '<span class="skin-owned-tag">已拥有</span>'
+        ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
         : (canBuy
-            ? `<button class="skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}>购买</button>`
+            ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
             : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>');
     const img = s.image ? `/static/${s.image}` : '';
     card.innerHTML =
         `<div class="skin-art"${img ? ` style="background-image:url('${img}')"` : ''}>` +
             (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
-            `<span class="skin-rarity">${'★'.repeat(s.rarity)}</span>` +
-            (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i>已拥有</span>' : '') +
+            `<span class="skin-rarity">${goldStars(s.rarity)}</span>` +
+            (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i></span>' : '') +
             (s.unlocked === false ? '<span class="skin-lock-badge"><i class="fa-solid fa-lock"></i></span>' : '') +
         '</div>' +
         `<div class="skin-card-body">` +
@@ -4389,7 +4707,7 @@ function buildSkinCard(s, stone){
             (s.series ? `<span class="skin-series">${escapeHtml(s.series)}</span>` : '') + '</div>' +
             `<div class="skin-name">${escapeHtml(s.skin_name)}</div>` +
             `<div class="skin-tier">${escapeHtml(s.tier_label)}</div>` +
-            `<div class="skin-card-bottom"><span class="skin-price"><i class="fa-solid fa-gem"></i>${s.cost}</span>${btn}</div>` +
+            `<div class="skin-card-bottom">${resAmountHTML('source_stone', s.cost, 'skin-price')}${btn}</div>` +
         '</div>';
     return card;
 }
@@ -4473,7 +4791,7 @@ function renderOperatorFeatured(featured){
             `<div class="op-hero-art"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
             '<div class="op-hero-veil"></div>' +
             '<div class="op-hero-info">' +
-                '<span class="op-hero-rarity">' + '★'.repeat(hero.rarity) + '</span>' +
+                '<span class="op-hero-rarity">' + goldStars(hero.rarity, 'lg') + '</span>' +
                 `<span class="op-hero-name">${escapeHtml(hero.name)}</span>` +
                 '<span class="op-hero-sub">' +
                     (tok ? `<img class="op-hero-token" src="${tok}" alt="">` : '') +
@@ -4500,7 +4818,7 @@ function renderOperatorFeatured(featured){
             c.innerHTML =
                 `<span class="op-chip-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
                     (art ? '' : '<i class="fa-solid fa-user"></i>') +
-                    `<span class="op-chip-star">${o.rarity}★</span>` +
+                    `<span class="op-chip-star">${goldStars(o.rarity, 'xs')}</span>` +
                 '</span>' +
                 `<span class="op-chip-name">${escapeHtml(o.name)}</span>`;
             strip.appendChild(c);
@@ -4526,16 +4844,15 @@ async function loadOperatorRecords(){
     operators.forEach(o => {
         const row = document.createElement('div');
         row.className = `op-token-row rarity-${o.rarity}`;
-        const star = '★'.repeat(o.rarity);
         const art = o.portrait ? `/static/${o.portrait}` : '';
         const tok = o.token_icon ? `/static/${o.token_icon}` : '';
         row.innerHTML =
             `<span class="op-row-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
                 (art ? '' : '<i class="fa-solid fa-user"></i>') + '</span>' +
             `<span class="op-row-main"><span class="op-name">${escapeHtml(o.name)}</span>` +
-            `<span class="op-star">${star}</span></span>` +
-            `<span class="op-count">持有 ×${o.copies}</span>` +
-            `<span class="op-token-badge">${tok ? `<img class="op-token-icon" src="${tok}" alt="">` : ''}信物 ×${o.tokens}</span>`;
+            `<span class="op-star">${goldStars(o.rarity, 'xs')}</span></span>` +
+            `<span class="op-count">持有 <b>${o.copies}</b></span>` +
+            `<span class="op-token-badge">${tok ? `<img class="op-token-icon" src="${tok}" alt="">` : ''}<b>${o.tokens}</b></span>`;
         list.appendChild(row);
     });
 }
