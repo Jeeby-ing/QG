@@ -1440,7 +1440,7 @@ function renderCampaignSection() {
         // 星级
         const stars = document.createElement('div');
         stars.className = isRoot ? 'campaign-stars' : 'campaign-child-stars';
-        stars.innerHTML = goldStars(Math.min(task.priority, 6), isRoot ? '' : 'xs');
+        stars.innerHTML = goldStars(Math.min(task.priority, 6));
         stars.title = `优先级 ${task.priority}`;
         card.appendChild(stars);
 
@@ -2438,7 +2438,7 @@ function renderCalendar() {
             const priorityColor = getPriorityColor(t.priority);
             const statusIcon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '▶' : t.status === 'paused' ? '⏸' : '';
             /* 日历里的优先级星星也走同一套金星：金色 + 单颗倾斜，只堆数量 */
-            const priorityStars = goldStars(t.priority, 'xs');
+            const priorityStars = goldStars(t.priority);
             const title = escapeHtml(t.title);
             if(t.task_line==='main') {
                 html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">
@@ -3288,7 +3288,7 @@ function updateTrackingPanel(){
     chain.forEach((p,index)=>{ const span=document.createElement('span'); span.textContent=p.title; span.addEventListener('click',()=>openTaskDetail(p.id));
         DOM.trackingParentChain.appendChild(span); if(index<chain.length-1) DOM.trackingParentChain.appendChild(document.createTextNode(' > ')); });
     // 追踪面板星星 - 统一15°倾斜
-    DOM.trackingStars.innerHTML = goldStars(task.priority, 'lg');
+    DOM.trackingStars.innerHTML = goldStars(task.priority);
     DOM.trackingStars.title = `优先级 ${task.priority}`;
     DOM.trackingTaskLine.textContent=task.task_line==='main'?'主线':'支线'; DOM.trackingTaskLine.className=`task-line-badge ${task.task_line}`;
     DOM.trackingTitle.textContent=task.title; DOM.trackingDesc.textContent=task.description||'';
@@ -4451,7 +4451,7 @@ function updateOperatorGachaPity(pity){
     DOM.operatorGachaPity.innerHTML =
         `<span class="gh-pity-item">累计寻访 <b>${pity.total_pulls}</b> 次</span>` +
         `<span class="gh-pity-sep"></span>` +
-        `<span class="gh-pity-item">距上次 ${goldStars(6, 'xs')} 已 <b>${pity.since_last_6star}</b> 抽` +
+        `<span class="gh-pity-item">距上次 ${goldStars(6)} 已 <b>${pity.since_last_6star}</b> 抽` +
         `<span class="gh-pity-sub">再 ${pity.guaranteed_in} 抽内必出</span></span>`;
 }
 let gachaBusy = false;
@@ -4517,7 +4517,7 @@ function ghBuildCard(r){
                 '</div>' +
             '</div>' +
         '</div>' +
-        `<span class="gh-burst">${goldStars(r.rarity, 'lg')}</span>`;
+        `<span class="gh-burst">${goldStars(r.rarity)}</span>`;
     return card;
 }
 
@@ -4698,6 +4698,7 @@ function buildSkinCard(s, stone){
     card.innerHTML =
         `<div class="skin-art"${img ? ` style="background-image:url('${img}')"` : ''}>` +
             (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
+            (img ? '<span class="skin-zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></span>' : '') +
             `<span class="skin-rarity">${goldStars(s.rarity)}</span>` +
             (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i></span>' : '') +
             (s.unlocked === false ? '<span class="skin-lock-badge"><i class="fa-solid fa-lock"></i></span>' : '') +
@@ -4713,6 +4714,7 @@ function buildSkinCard(s, stone){
 }
 function renderSkins(){
     const list = DOM.skinShopList; if (!list) return;
+    bindSkinPreview();
     const stone = state.resources.source_stone?.current_value || 0;
     const pass = s => skinFilter === 'owned'
         ? s.owned
@@ -4764,6 +4766,52 @@ async function handleSkinPurchase(skinId){
     await loadResources(); await loadTransactions();
     await loadSkins();
 }
+/* 时装大图预览：点立绘弹出全屏大图 */
+let skinLightbox = null;
+function ensureSkinLightbox(){
+    if (skinLightbox) return skinLightbox;
+    skinLightbox = document.createElement('div');
+    skinLightbox.id = 'skinLightbox';
+    skinLightbox.className = 'skin-lightbox hidden';
+    skinLightbox.innerHTML =
+        '<div class="skin-lightbox-backdrop"></div>' +
+        '<div class="skin-lightbox-stage">' +
+            '<img class="skin-lightbox-img" alt="时装预览">' +
+            '<div class="skin-lightbox-cap"></div>' +
+            '<button class="icon-btn skin-lightbox-close" type="button" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button>' +
+        '</div>';
+    document.body.appendChild(skinLightbox);
+    skinLightbox.querySelector('.skin-lightbox-backdrop').addEventListener('click', closeSkinPreview);
+    skinLightbox.querySelector('.skin-lightbox-close').addEventListener('click', closeSkinPreview);
+    return skinLightbox;
+}
+function openSkinPreview(imgUrl, opName, skinName){
+    const box = ensureSkinLightbox();
+    box.querySelector('.skin-lightbox-img').src = imgUrl;
+    box.querySelector('.skin-lightbox-cap').textContent = `${opName} · ${skinName}`;
+    box.classList.remove('hidden');
+    requestAnimationFrame(() => box.classList.add('show'));
+}
+function closeSkinPreview(){
+    if (!skinLightbox) return;
+    skinLightbox.classList.remove('show');
+    setTimeout(() => skinLightbox.classList.add('hidden'), 200);
+}
+function bindSkinPreview(){
+    if (!DOM.skinShopList || DOM.skinShopList.dataset.previewBound) return;
+    DOM.skinShopList.dataset.previewBound = '1';
+    DOM.skinShopList.addEventListener('click', (e) => {
+        const art = e.target.closest('.skin-art');
+        if (!art) return;
+        const bg = art.style.backgroundImage;
+        const m = bg && bg.match(/url\(["']?(.*?)["']?\)/);
+        if (!m) return;
+        const card = art.closest('.skin-card');
+        const op = card && card.querySelector('.skin-op-name') ? card.querySelector('.skin-op-name').textContent : '';
+        const nm = card && card.querySelector('.skin-name') ? card.querySelector('.skin-name').textContent : '';
+        openSkinPreview(m[1], op, nm);
+    });
+}
 /* 本期精选卡池：把每日轮换的干员立绘铺出来。
    抽卡记录为空时，这里是弹窗里唯一有画面的地方 —— 所以不能省。 */
 function renderOperatorFeatured(featured){
@@ -4791,7 +4839,7 @@ function renderOperatorFeatured(featured){
             `<div class="op-hero-art"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
             '<div class="op-hero-veil"></div>' +
             '<div class="op-hero-info">' +
-                '<span class="op-hero-rarity">' + goldStars(hero.rarity, 'lg') + '</span>' +
+                '<span class="op-hero-rarity">' + goldStars(hero.rarity) + '</span>' +
                 `<span class="op-hero-name">${escapeHtml(hero.name)}</span>` +
                 '<span class="op-hero-sub">' +
                     (tok ? `<img class="op-hero-token" src="${tok}" alt="">` : '') +
@@ -4818,7 +4866,7 @@ function renderOperatorFeatured(featured){
             c.innerHTML =
                 `<span class="op-chip-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
                     (art ? '' : '<i class="fa-solid fa-user"></i>') +
-                    `<span class="op-chip-star">${goldStars(o.rarity, 'xs')}</span>` +
+                    `<span class="op-chip-star">${goldStars(o.rarity)}</span>` +
                 '</span>' +
                 `<span class="op-chip-name">${escapeHtml(o.name)}</span>`;
             strip.appendChild(c);
@@ -4850,7 +4898,7 @@ async function loadOperatorRecords(){
             `<span class="op-row-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
                 (art ? '' : '<i class="fa-solid fa-user"></i>') + '</span>' +
             `<span class="op-row-main"><span class="op-name">${escapeHtml(o.name)}</span>` +
-            `<span class="op-star">${goldStars(o.rarity, 'xs')}</span></span>` +
+            `<span class="op-star">${goldStars(o.rarity)}</span></span>` +
             `<span class="op-count">持有 <b>${o.copies}</b></span>` +
             `<span class="op-token-badge">${tok ? `<img class="op-token-icon" src="${tok}" alt="">` : ''}<b>${o.tokens}</b></span>`;
         list.appendChild(row);
