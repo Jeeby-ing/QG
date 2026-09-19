@@ -5296,8 +5296,16 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .gh-stage.reveal .gh-ring, .gh-stage.reveal .gh-core { opacity:0; transition:opacity .35s ease; }
 
 .gh-flare { position:absolute; inset:0; pointer-events:none; opacity:0; }
+/* R20：补齐 4★ 的紫色光效 —— 原版十连的光效是「4★及以下紫 / 5★黄 / 6★彩虹」三档，
+   之前只做了黄和彩虹，四星翻牌是全黑的，落差很明显。 */
+.gh-stage.flare-four .gh-flare { animation:ghFlareFour .42s ease-out; }
 .gh-stage.flare-five .gh-flare { animation:ghFlareFive .55s ease-out; }
 .gh-stage.flare-six .gh-flare { animation:ghFlareSix 1s ease-out; }
+@keyframes ghFlareFour {
+    0%   { opacity:0; background:radial-gradient(circle at 50% 50%, rgba(200,170,255,0) 0%, transparent 52%); }
+    25%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(214,186,255,0.42) 0%, rgba(150,110,235,0.20) 30%, transparent 62%); }
+    100% { opacity:0; }
+}
 @keyframes ghFlareFive {
     0%   { opacity:0; background:radial-gradient(circle at 50% 50%, rgba(255,225,150,0) 0%, transparent 55%); }
     22%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,240,200,0.55) 0%, rgba(255,190,60,0.28) 28%, transparent 66%); }
@@ -5308,6 +5316,20 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     14%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.98) 0%, rgba(255,215,110,0.85) 22%, rgba(255,160,30,0.45) 48%, transparent 76%); }
     46%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,245,215,0.55) 0%, rgba(255,190,60,0.3) 40%, transparent 74%); }
     100% { opacity:0; }
+}
+
+/* 6★ 命中时的上升光粒层 */
+.gh-sparks { position:absolute; inset:0; pointer-events:none; z-index:3; overflow:hidden; }
+.gh-sparks span {
+    position:absolute; border-radius:50%;
+    box-shadow:0 0 10px currentColor;
+    opacity:0;
+    animation:ghSpark 1.1s cubic-bezier(.15,.7,.3,1) forwards;
+}
+@keyframes ghSpark {
+    0%   { opacity:0; transform:translate(0,0) scale(0.4); }
+    18%  { opacity:1; }
+    100% { opacity:0; transform:translate(var(--dx, 0), var(--dy, -200px)) scale(0.9); }
 }
 
 .gh-reveal {

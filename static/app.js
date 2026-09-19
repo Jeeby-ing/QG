@@ -4748,6 +4748,29 @@ function ghBuildCard(r){
     return card;
 }
 
+/* 6★ 出率命中时撒一把上升的光粒（对齐原版十连「彩虹光效 + 粒子」那一层）。
+   容器按需建、粒子自毁，不留残留节点。 */
+function ghSparkBurst(){
+    const stage = ghEl('ghStage'); if (!stage) return;
+    let box = stage.querySelector('.gh-sparks');
+    if (!box){ box = document.createElement('div'); box.className = 'gh-sparks'; stage.appendChild(box); }
+    const palette = ['#fff6d8', '#ffd76a', '#ff9c2a', '#8fd0ff', '#ffffff', '#ffb3d1'];
+    for (let i = 0; i < 46; i++){
+        const s = document.createElement('span');
+        const size = 3 + Math.random() * 5;
+        const color = palette[(Math.random() * palette.length) | 0];
+        s.style.width = `${size}px`; s.style.height = `${size}px`;
+        s.style.left = `${8 + Math.random() * 84}%`;
+        s.style.top = `${56 + Math.random() * 30}%`;
+        s.style.background = color; s.style.color = color;
+        s.style.setProperty('--dx', `${(Math.random() * 2 - 1) * 260}px`);
+        s.style.setProperty('--dy', `${-(120 + Math.random() * 330)}px`);
+        s.style.animationDelay = `${Math.random() * 0.22}s`;
+        box.appendChild(s);
+        ghAfter(1500, () => s.remove());
+    }
+}
+
 /* 阶段一：拉起舞美 + PRTS 连接。返回一个 Promise，代表连接演出走完。
    调用方可以拿它和 /gacha/operator 请求并行跑，省掉等待时间。 */
 function ghStartStage(){
@@ -4802,11 +4825,18 @@ async function playGachaShow(results, bootPromise){
             if (ghSkipped) return;
             c.classList.add('flipped');
             const rar = parseInt(c.className.match(/rar-(\d)/)?.[1] || '3', 10);
-            if (rar >= 5){
-                stage.classList.add(rar >= 6 ? 'flare-six' : 'flare-five');
-                ghAfter(rar >= 6 ? 760 : 380, () => stage.classList.remove('flare-five', 'flare-six'));
+            /* 三档光效对齐原版：4★及以下紫 / 5★黄 / 6★彩虹 */
+            if (rar === 4){
+                stage.classList.add('flare-four');
+                ghAfter(420, () => stage.classList.remove('flare-four'));
+            } else if (rar === 5){
+                stage.classList.add('flare-five');
+                ghAfter(380, () => stage.classList.remove('flare-five'));
+            } else if (rar >= 6){
+                stage.classList.add('flare-six');
+                ghAfter(760, () => stage.classList.remove('flare-six'));
             }
-            if (rar >= 6) c.classList.add('hit-six');
+            if (rar >= 6) { c.classList.add('hit-six'); ghSparkBurst(); }
         });
     });
     const total = 320 + (cards.length - 1) * flipGap + 720;
