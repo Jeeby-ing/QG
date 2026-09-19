@@ -4752,23 +4752,42 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
    不再靠大面积外发光撑质感。 */
 .op-hero-duo {
     display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
-    gap:10px; margin-bottom:14px;
+    gap:12px; margin-bottom:14px;
 }
 .op-duo-card {
-    position:relative; height:196px; border-radius:12px; overflow:hidden;
-    border:1px solid rgba(255,207,77,0.34);
-    background:linear-gradient(180deg, rgba(48,44,36,0.92), rgba(18,18,20,0.96));
-    box-shadow:0 8px 22px rgba(0,0,0,0.42);
+    position:relative; height:212px; border-radius:12px; overflow:hidden;
+    border:1px solid rgba(255,207,77,0.30);
+    background:linear-gradient(180deg, rgba(40,38,32,0.94), rgba(16,16,19,0.97));
+    box-shadow:0 10px 24px rgba(0,0,0,0.45);
+}
+/* 立绘是竖构图 + 透明背景，直接铺在横向卡里两侧会留下两条死黑。
+   这里先用同一张图画一层模糊底衬把两侧填满，再让清晰立绘压在上面，
+   卡面就是一个整体，而不是"中间贴了一张图"。 */
+.op-duo-blur {
+    position:absolute; inset:-8%;
+    background-size:cover; background-position:center 12%; background-repeat:no-repeat;
+    filter:blur(22px) saturate(0.9) brightness(0.62);
+    transform:scale(1.18);
+    opacity:0.55;
 }
 .op-duo-art {
-    position:absolute; inset:0;
-    background-size:auto 138%; background-position:center 4%; background-repeat:no-repeat;
+    position:absolute; inset:-5% -3%;
+    background-size:auto 130%; background-position:center 3%; background-repeat:no-repeat;
+    filter:drop-shadow(0 8px 22px rgba(0,0,0,0.6));
+    transform-origin:center 26%;
+}
+/* 「动态立绘」档位：给一点极慢的呼吸位移，静态资源也能有活气。
+   （真正的 Spine 动态立绘资源本地没有，见 README 里那条说明） */
+.op-duo-art.is-dynamic { animation:duoBreath 6.5s ease-in-out infinite alternate; }
+@keyframes duoBreath {
+    from { transform:scale(1); }
+    to   { transform:scale(1.045) translateY(-3px); }
 }
 .op-duo-scrim {
     position:absolute; inset:0;
     background:linear-gradient(180deg,
-        rgba(8,8,10,0.02) 0%, rgba(8,8,10,0.18) 40%,
-        rgba(8,8,10,0.62) 76%, rgba(8,8,10,0.93) 100%);
+        rgba(8,8,10,0.00) 0%, rgba(8,8,10,0.10) 38%,
+        rgba(8,8,10,0.58) 74%, rgba(8,8,10,0.94) 100%);
 }
 /* 四角细金线：方舟 UI 的标志性装饰，比外发光更像"材质" */
 .op-duo-card::before,
@@ -4786,11 +4805,15 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     color:#1a1508; background:linear-gradient(180deg, #ffe08a, #e8b818);
     box-shadow:0 1px 0 rgba(255,255,255,0.5) inset;
 }
+/* ⚠️ 这里原来有一条 border-top —— 它横穿整张卡，正好把立绘拦腰切开
+   （用户：「这个干员的头像被线条切开了」）。去掉边框，
+   改用一段由上到下渐深的压暗，文字自然浮在立绘上，不再有硬线。 */
 .op-duo-plate {
     position:absolute; left:0; right:0; bottom:0; z-index:4;
-    padding:11px 14px 13px;
+    padding:26px 14px 14px;
     display:flex; flex-direction:column; align-items:flex-start; gap:3px;
-    border-top:1px solid rgba(255,207,77,0.22);
+    background:linear-gradient(180deg,
+        rgba(8,8,10,0) 0%, rgba(8,8,10,0.55) 46%, rgba(8,8,10,0.86) 100%);
 }
 .op-duo-stars { font-size:13px; letter-spacing:2px; color:#FFCF4D; line-height:1; }
 .op-duo-name {
@@ -6015,67 +6038,144 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     border-color: rgba(255,255,255,0.09);
 }
 
-/* ---- 10.6 日历重做 ---- */
+/* ============================================================
+   #10.6 R21 日历重做
+   用户：「这个日历的美术太丑了，完全 0 设计」，以及
+        「光标离开的一瞬间会变成蓝色」。
+   蓝色来自 .calendar-day-add 和 hover 描边上的方舟青 #22BBFF ——
+   悬停时被 11.2 的规则改成了金色，指针一移开又还原回蓝色，
+   于是就有了"离开瞬间闪一下蓝"。这里从根上把蓝色全部去掉。
+   版面：补齐相邻月份日期、数字+完成进度成组、任务条限 3 条 + 「+N」、
+        今天金色描边、周末暖金数字、悬停暖金细线。
+   ============================================================ */
 .calendar-container { padding-bottom: 28px; }
+
+/* —— 顶部：月份导航 —— */
+.calendar-nav { display:flex; align-items:center; gap:14px; }
+.cal-title-wrap { display:flex; align-items:baseline; gap:14px; min-width:220px; }
+.cal-subtitle {
+    font-size: 12.5px; letter-spacing: 0.06em;
+    color: var(--text-muted-2);
+    font-family: var(--font-mono, inherit);
+}
+.cal-nav-btn { width:32px; height:32px; }
+.cal-today-btn { margin-left:auto; }
+
 .calendar-container .calendar-grid {
     display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 8px; padding: 14px;
-    border: 1px solid rgba(255,255,255,0.07); border-radius: 8px;
+    gap: 6px; padding: 12px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
     background:
-        linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.16)),
-        rgba(24,24,28,0.55);
-    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+        linear-gradient(180deg, rgba(255,255,255,0.028), rgba(0,0,0,0.18)),
+        rgba(22,22,26,0.55);
+    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
 }
 .calendar-container .calendar-day-header {
-    text-align: center; font-size: 11px; letter-spacing: 0.22em;
-    color: var(--text-muted-3); padding: 4px 0 9px; margin-bottom: 2px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    text-align: center; font-size: 11px; letter-spacing: 0.24em; text-indent: 0.24em;
+    color: var(--text-muted-3); padding: 2px 0 9px; margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
 }
-.calendar-container .calendar-day-header.is-weekend { color: rgba(232,184,24,0.70); }
+.calendar-container .calendar-day-header.is-weekend { color: rgba(232,184,24,0.66); }
+
+/* —— 日期格 —— */
 .calendar-container .calendar-day {
-    min-height: 104px; padding: 8px 8px 10px;
-    border: 1px solid rgba(255,255,255,0.06); border-radius: 5px;
+    min-height: 106px; padding: 7px 8px 8px;
+    border: 1px solid rgba(255,255,255,0.055); border-radius: 8px;
     background:
-        linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.10)),
-        rgba(28,28,32,0.55);
+        linear-gradient(180deg, rgba(255,255,255,0.032), rgba(0,0,0,0.12)),
+        rgba(30,30,35,0.52);
     cursor: pointer; position: relative; overflow: hidden;
-    transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+    transition: border-color .14s ease, background .14s ease, transform .14s ease, box-shadow .14s ease;
+}
+/* 顶部一道细亮线：和任务卡同一套"磨砂卡片"语汇 */
+.calendar-container .calendar-day::before {
+    content:''; position:absolute; left:8px; right:8px; top:1px; height:1px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.10) 22%, rgba(255,255,255,0.02) 78%, rgba(255,255,255,0));
+    pointer-events:none;
 }
 .calendar-container .calendar-day:hover {
     transform: translateY(-2px);
-    border-color: rgba(34,187,255,0.55);
-    box-shadow: 0 0 0 1px rgba(34,187,255,0.18), 0 6px 16px rgba(0,0,0,0.45);
+    border-color: rgba(232,184,24,0.46);
+    box-shadow: 0 0 0 1px rgba(232,184,24,0.14), 0 8px 20px rgba(0,0,0,0.5);
 }
-.calendar-container .calendar-day.other-month { opacity: 0.28; pointer-events: none; }
+.calendar-container .calendar-day.other-month {
+    opacity: 0.30; pointer-events: none;
+    background: rgba(20,20,24,0.34);
+    border-color: rgba(255,255,255,0.035);
+}
+.calendar-container .calendar-day.other-month .calendar-day-number { font-weight: 500; }
+/* 有任务：左侧一条极淡的暖色引导，而不是整格刷蓝 */
+.calendar-container .calendar-day.has-tasks {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.040), rgba(0,0,0,0.12)),
+        rgba(34,34,39,0.60);
+}
+.calendar-container .calendar-day.all-done { border-color: rgba(111,203,140,0.28); }
 .calendar-container .calendar-day.today {
-    border-color: rgba(232,184,24,0.62);
-    box-shadow: 0 0 14px rgba(232,184,24,0.18), inset 0 0 0 1px rgba(232,184,24,0.10);
+    border-color: rgba(232,184,24,0.66);
+    box-shadow: 0 0 0 1px rgba(232,184,24,0.16), 0 6px 18px rgba(0,0,0,0.45), inset 0 0 26px rgba(232,184,24,0.05);
 }
-.calendar-container .calendar-day.has-tasks { background-color: rgba(58,128,208,0.10); }
+.calendar-day-top {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:6px; margin-bottom:7px;
+}
 .calendar-day-number {
-    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
-    color: var(--text-secondary-3); margin-bottom: 6px;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.02em; line-height: 1;
+    color: var(--text-secondary-2);
     font-family: var(--font-mono, inherit);
 }
-.calendar-day.today .calendar-day-number { color: var(--highlight-gold-1); }
-/* 悬停时出现的「+」：提示这一天可以加任务 */
+.calendar-day.is-weekend .calendar-day-number { color: rgba(232,184,24,0.82); }
+.calendar-day.today .calendar-day-number {
+    color:#1c1607;
+    background: linear-gradient(180deg, #ffe08a, #e8b818);
+    border-radius: 4px; padding: 2px 6px; margin: -2px 0 -2px -2px;
+    box-shadow: 0 0 12px rgba(232,184,24,0.35);
+}
+.calendar-day-count {
+    font-size: 10px; letter-spacing: 0.04em; padding: 1px 5px; border-radius: 999px;
+    color: var(--text-muted-2);
+    background: rgba(255,255,255,0.055);
+    border: 1px solid rgba(255,255,255,0.07);
+    font-family: var(--font-mono, inherit);
+}
+.calendar-day-count.is-done { color:#9fe6bb; border-color: rgba(111,203,140,0.30); background: rgba(111,203,140,0.10); }
+
+/* 悬停时出现的「+」：金色（绝不再是方舟青），淡出也保持金色 */
 .calendar-day-add {
-    position: absolute; top: 6px; right: 6px;
-    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-    border: 1px solid rgba(34,187,255,0.5); border-radius: 2px;
-    background: rgba(34,187,255,0.10); color: #22BBFF;
-    font-size: 11px; opacity: 0; transition: opacity .16s ease;
+    position: absolute; top: 7px; right: 7px; z-index: 2;
+    width: 19px; height: 19px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(232,184,24,0.55); border-radius: 4px;
+    background: rgba(232,184,24,0.14); color: var(--highlight-gold-1);
+    font-size: 10px; opacity: 0;
+    transition: opacity .12s ease, background .12s ease, border-color .12s ease;
 }
 .calendar-day:hover .calendar-day-add { opacity: 1; }
+/* 有任务时，右上角被进度胶囊占着，「+」挪到数字那一行右侧让位 */
+.calendar-day.has-tasks:hover .calendar-day-count { opacity: 0; }
+.calendar-day.has-tasks .calendar-day-add { top: 6px; right: 6px; }
+
 .calendar-task-indicator {
     display: flex; align-items: center; gap: 4px;
-    margin: 2px 0; padding: 3px 5px;
-    background: rgba(0,0,0,0.36); border-radius: 3px;
-    border-left: 2px solid rgba(255,255,255,0.14);
+    margin: 2px 0; padding: 3px 6px 3px 4px;
+    background: rgba(0,0,0,0.34); border-radius: 4px;
+    border-left: 2px solid rgba(255,255,255,0.16);
     font-size: 10.5px; overflow: hidden;
+    color: var(--text-secondary-2);
 }
-.calendar-task-indicator:hover { background: rgba(255,255,255,0.09); }
+.calendar-task-indicator:hover { background: rgba(255,255,255,0.10); }
+.calendar-task-indicator.status-done { opacity: 0.62; }
+.calendar-task-indicator.status-done .calendar-task-title { text-decoration: line-through; text-decoration-color: rgba(159,230,187,0.55); }
+.calendar-task-indicator.status-in_progress { border-left-color: rgba(107,166,232,0.9); }
+.calendar-task-indicator.status-paused { border-left-color: rgba(226,188,70,0.9); }
+.calendar-task-icon { flex:0 0 auto; font-size: 7px; color: rgba(232,184,24,0.85); }
+.calendar-task-icon.is-side { width: 3px; height: 3px; }
+.calendar-task-bar { flex:0 0 auto; width: 2px; height: 11px; border-radius: 1px; opacity: 0.9; }
 .calendar-task-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-more {
+    display:block; margin-top:3px; padding-left:4px;
+    font-size: 10px; letter-spacing: 0.05em;
+    color: var(--text-muted-3);
+}
 
 /* 某天的任务面板 */
 .dt-head {
@@ -6323,4 +6423,137 @@ button:focus-visible,
 .skin-section-head .skin-section-kicker.is-limited {
     color:#d9b3ff;
     border-color:rgba(190,130,240,0.45);
+}
+
+/* ============================================================
+   #12 R22 第二批反馈
+   ============================================================ */
+
+/* ---- 12.1 礼包货架排满：4 列 → 8 个礼包正好 4+4，不再出现右下角缺角 ---- */
+.pc-pack-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1560px) { .pc-pack-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 860px)  { .pc-pack-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- 12.2 资源兑换（采购中心子页，原主页弹窗） ---- */
+.ex-panel-body {
+    max-width: 720px; margin: 8px auto 0;
+    padding: 20px 22px 22px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(0,0,0,0.16)), rgba(24,24,28,0.5);
+    backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+}
+.ex-panel-body .ex-stage { margin-top: 4px; }
+
+/* ---- 12.3 时装「动态」标记 + 预览里的呼吸位移 ----
+   注意：本地只有静态立绘（assets-source 里没有任何 Spine/.skel 资源），
+   所以这里的"动"是 CSS 位移，不等于原版的动态立绘演出。 */
+.skin-art.is-dynamic { background-position: center 12%; }
+.skin-dyn-badge {
+    position: absolute; left: 8px; bottom: 8px; z-index: 3;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em;
+    color: #ffe6a8;
+    background: rgba(20,16,8,0.62);
+    border: 1px solid rgba(255,207,77,0.42);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    pointer-events: none;
+}
+.skin-lightbox-stage.is-dynamic { animation: skinBreath 7s ease-in-out infinite alternate; }
+@keyframes skinBreath {
+    from { transform: scale(1); }
+    to   { transform: scale(1.018) translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .skin-lightbox-stage.is-dynamic,
+    .op-duo-art.is-dynamic { animation: none; }
+}
+
+/* ---- 12.4 主页「已解锁蚀刻章」：折叠区 + 带描述的小卡 ----
+   （旧版只堆了一列圆图标，用户："没有描述只有图标排列"） */
+.profile-badges.collapsible { margin-top: 22px; }
+.section-toggle {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 14px; margin-bottom: 12px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.14)), rgba(26,26,30,0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    cursor: pointer; text-align: left;
+    transition: border-color .14s ease, background .14s ease;
+}
+.section-toggle:hover { border-color: rgba(240,238,230,0.42); }
+.section-toggle .section-subtitle { margin: 0; }
+.section-toggle-caret {
+    font-size: 11px; color: var(--text-muted-2);
+    transition: transform .18s ease;
+}
+.profile-badges.collapsed .section-toggle-caret { transform: rotate(-90deg); }
+.profile-badges.collapsed .profile-badges-grid { display: none; }
+.section-toggle-count {
+    margin-left: auto; font-family: var(--font-mono, inherit);
+    font-size: 12px; color: var(--text-muted-2);
+    padding: 2px 9px; border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
+}
+
+.profile-badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 10px; }
+.profile-badge-card {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px; border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--ach-metal, #c8b78a) 26%, rgba(255,255,255,0.06));
+    background: linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.16)), rgba(26,26,30,0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+/* 勋章本体是 84px 的 .badge-medal，这里缩到卡片尺寸装得下 */
+.pbc-medal { flex: 0 0 auto; width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; }
+.pbc-medal .badge-medal { transform: scale(0.53); }
+.pbc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.pbc-name { font-size: 14px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.02em; }
+.pbc-desc { font-size: 12px; color: var(--text-muted-2); line-height: 1.45; }
+.pbc-tier {
+    flex: 0 0 auto; align-self: flex-start;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em;
+    padding: 2px 8px; border-radius: 999px;
+    color: var(--ach-metal, #c8b78a);
+    border: 1px solid color-mix(in srgb, var(--ach-metal, #c8b78a) 42%, transparent);
+    background: color-mix(in srgb, var(--ach-metal, #c8b78a) 12%, transparent);
+}
+.profile-badges-empty {
+    padding: 22px 16px; text-align: center; font-size: 13px;
+    color: var(--text-muted-3);
+    border: 1px dashed rgba(255,255,255,0.09); border-radius: 10px;
+}
+
+/* ---- 12.5 可领取的任务卡：回到「磨砂玻璃」 ----
+   旧版是亮金描边 + 26px 外发光 + 一直脉动的金色徽章，
+   在一屏任务里会连成一片金色，既不是磨砂质感、也把右侧的进度/状态压住。
+   现在改成：极淡的金色染色 + 磨砂底 + 一条金色细边，徽章改成静态玻璃小片。 */
+.task-card.claimable {
+    border-color: rgba(232,184,24,0.30);
+    background: linear-gradient(180deg, rgba(255,208,40,0.055), rgba(255,255,255,0.012)), var(--glass-2);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.task-card.claimable.status-done {
+    opacity: 1;
+    background: linear-gradient(180deg, rgba(255,208,40,0.055), rgba(255,255,255,0.012)), var(--glass-2);
+}
+.task-card.claimable:hover {
+    border-color: rgba(255,214,110,0.58);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,214,110,0.14);
+    transform: translateY(-1px);
+}
+.task-claim-badge {
+    position: absolute; top: 9px; right: 10px; z-index: 3;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 9px; border-radius: 8px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+    color: var(--highlight-gold-1);
+    background: rgba(28,24,14,0.62);
+    border: 1px solid rgba(255,207,77,0.42);
+    backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+    box-shadow: none;
+    animation: none;              /* 去掉一直脉动的光晕 */
+    pointer-events: none;
 }

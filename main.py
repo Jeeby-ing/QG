@@ -3437,10 +3437,28 @@ SKIN_TIERS_BY_RARITY = {
     2: [9],
     1: [9],
 }
-# 限定时装：档位在「动态立绘 · 全新语音」（24 源石）及以上的皮肤，
-# 对应原版里那些**不能用源石直接兑换**的活动 / 联动 / 赛季限定皮。
-# 它们不进时装商店货架，只从礼包的随机奖励里出（用户 R21 要求）。
-SKIN_LIMITED_TIER = 24
+# ------------------------------------------------------------
+# 联动限定时装
+# ------------------------------------------------------------
+# ⚠️ R21 走错了一次：当时拿「档位 ≥ 24 源石」当限定判据，结果把一大堆
+#    原版本来就能用源石直购的动态立绘皮肤（24 / 27 档）全划成了礼包限定。
+#    用户的原话：「你这好多都是本来可以买的，怎么都成了礼包限定？不对吧」。
+#    正确的判据是**皮肤所属系列**：方舟里真正不能用源石兑换的，
+#    是这些品牌联动皮（怪物猎人 / 三丽鸥 / Ave Mujica / 肯德基 …），
+#    它们本来就只能靠活动、联动兑换券拿到。普通主题活动（音律联觉、
+#    缠梦古堡、雷神开拓者 …）的皮肤原版照样是源石直购，不能算限定。
+SKIN_LIMITED_GROUPS = (
+    "怪物猎人", "三丽鸥家族", "Ave Mujica", "肯德基", "小马宝莉",
+    "轻松小熊", "WWF", "i.t", "国家地理", "中国电影资料馆",
+    "罗小黑战记", "CASC",
+)
+SKIN_LIMITED_GROUP_PREFIXES = tuple(g + "/" for g in SKIN_LIMITED_GROUPS)
+
+
+def is_limited_skin(sid: str) -> bool:
+    """这件皮肤是不是「联动限定」（原版不能源石直购 → 只从礼包随机产出）。"""
+    g = (SKIN_ASSETS.get(sid) or {}).get("group") or ""
+    return g in SKIN_LIMITED_GROUPS or g.startswith(SKIN_LIMITED_GROUP_PREFIXES)
 # 每位干员生成的时装数量
 SKIN_COUNT_BY_RARITY = {6: 2, 5: 2, 4: 1, 3: 1, 2: 1}
 SKIN_SERIES = [
@@ -3481,7 +3499,7 @@ def build_skins_for_operator(op: dict) -> list:
                 "image": s.get("file"),
                 "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
                 "cost": price,
-                "limited": price >= SKIN_LIMITED_TIER,
+                "limited": is_limited_skin(sid),
             })
         return skins
     # 无收录皮肤：退回生成式占位
@@ -3499,7 +3517,7 @@ def build_skins_for_operator(op: dict) -> list:
             "image": (op.get("portrait")),
             "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
             "cost": price,
-            "limited": price >= SKIN_LIMITED_TIER,
+            "limited": False,      # 生成式占位时装不属于任何联动系列
         })
     return skins
 
@@ -3565,7 +3583,7 @@ def _skin_shop_entry(sid: str, owned_op_ids: set) -> dict:
         "image": s.get("file"),
         "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
         "cost": price,
-        "limited": price >= SKIN_LIMITED_TIER,
+        "limited": is_limited_skin(sid),
         "owned": False,
         "unlocked": bool(op and op["id"] in owned_op_ids),
     }
@@ -3577,7 +3595,8 @@ def build_skin_shop(owned_op_ids: set, limit: int = 24) -> list:
     R21 改动（用户反馈「时装兑换里只有 456 星」）：
       · 改为**按星级配额取货** —— 1★ 到 6★ 每档都有固定件数，
         不再是从全表里按稀有度倒序切一刀（那样永远只剩 5★/6★）。
-      · 原版不能源石兑换的限定时装（27 源石档）不进货架，改走礼包随机奖励。
+      · 原版不能源石兑换的**联动限定**皮肤（怪物猎人 / 三丽鸥 / Ave Mujica…）
+        不进货架，改走礼包随机奖励。普通主题活动皮照常直购。
       · 二星档用干员自身立绘补「默认服装」，六个星级档位不再空缺。
 
     原版的时装商店本来就会摆出你还没有的干员的皮肤——买得到、穿不上。

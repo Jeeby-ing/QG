@@ -220,11 +220,14 @@ function cacheDOM() {
     DOM.graphEmpty = document.getElementById('graphEmpty');
     DOM.calendarContainer = document.getElementById('calendarContainer');
     DOM.calendarTitle = document.getElementById('calendarTitle');
+    DOM.calendarSubtitle = document.getElementById('calendarSubtitle');
+    DOM.calTodayBtn = document.getElementById('calTodayBtn');
     DOM.achievementsGrid = document.getElementById('achievementsGrid');
     DOM.profileLevel = document.getElementById('profileLevel');
     DOM.profileExpFill = document.getElementById('profileExpFill');
     DOM.profileExpText = document.getElementById('profileExpText');
     DOM.profileBadgesGrid = document.getElementById('profileBadgesGrid');
+    DOM.profileBadgesCount = document.getElementById('profileBadgesCount');
     DOM.giftPacksGrid = document.getElementById('giftPacksGrid');
     DOM.transactionsList = document.getElementById('transactionsList');
     DOM.settingsList = document.getElementById('settingsList');
@@ -462,6 +465,12 @@ function bindEvents() {
 
     DOM.calPrevMonth.addEventListener('click', () => changeMonth(-1));
     DOM.calNextMonth.addEventListener('click', () => changeMonth(1));
+    /* R21：日历「今天」——跳回本月（跨月翻页后一键回来） */
+    if (DOM.calTodayBtn) DOM.calTodayBtn.addEventListener('click', () => {
+        const now = new Date();
+        state.calendarMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        renderCalendar();
+    });
 
     // R21：连续倍率缩放，不再一次性跳一大档
     DOM.graphZoomIn.addEventListener('click', () => setGraphZoom(1.25));
@@ -504,16 +513,11 @@ function bindEvents() {
 
     DOM.dateTasksClose.addEventListener('click', closeAllModals);
 
-    DOM.exchangeBtn.addEventListener('click', () => {
-        openModal('exchangeModal');
-        if (DOM.exchangeAmount) DOM.exchangeAmount.value = 1;
-        updateExchangeBalance(); updateExchangeCost(); updateExchangeRateText();
-    });
+    /* R21：资源兑换不再是弹窗，改成采购中心的一个子页。
+       原来的「主页 → 资源兑换」按钮已删掉，统一走 pc-tab。 */
     bindExchangeStepper();
-    DOM.exchangeCancel.addEventListener('click', closeAllModals);
-    DOM.exchangeClose.addEventListener('click', closeAllModals);
-    DOM.exchangeConfirm.addEventListener('click', handleExchange);
-    DOM.exchangeAmount.addEventListener('input', updateExchangeCost);
+    if (DOM.exchangeConfirm) DOM.exchangeConfirm.addEventListener('click', handleExchange);
+    if (DOM.exchangeAmount)  DOM.exchangeAmount.addEventListener('input', updateExchangeCost);
     // 兑换规则说明：默认收起，点 ⓘ 才展开（和寻访弹窗同一套交互）
     const exInfoBtn = document.getElementById('exchangeInfoBtn');
     const exInfoPanel = document.getElementById('exchangeInfoPanel');
@@ -590,6 +594,15 @@ function bindEvents() {
     if (DOM.profileSkinEntry)  DOM.profileSkinEntry.addEventListener('click',  () => { switchView('shop'); switchShopTab('skin'); loadSkins(); });
     if (DOM.profileRealityEntry) DOM.profileRealityEntry.addEventListener('click', () => { switchView('shop'); switchShopTab('reality'); });
     if (DOM.profileGachaEntry) DOM.profileGachaEntry.addEventListener('click', () => switchView('gacha'));
+    /* R21：主页「已解锁蚀刻章」折叠开关（用户要求做成可展开收起） */
+    const badgesToggle = document.getElementById('profileBadgesToggle');
+    const badgesSection = document.getElementById('profileBadgesSection');
+    if (badgesToggle && badgesSection) {
+        badgesToggle.addEventListener('click', () => {
+            const open = badgesSection.classList.toggle('collapsed');
+            badgesToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+        });
+    }
 
     DOM.newRealityRewardBtn.addEventListener('click', () => openRealityRewardModal());
     DOM.realityRewardForm.addEventListener('submit', handleRealityRewardFormSubmit);
@@ -846,6 +859,12 @@ function renderShopPanel(){
     if (shopTab === 'reality') renderRealityRewards();
     if (shopTab === 'pack')    { renderGiftPacks(); updatePackBalance(); }
     if (shopTab === 'skin')    renderSkins();
+    if (shopTab === 'exchange') initExchange();
+}
+/* R21：资源兑换搬进采购中心后，进子页时要初始化一次（原来这是弹窗打开时做的） */
+function initExchange(){
+    if (DOM.exchangeAmount) DOM.exchangeAmount.value = 1;
+    updateExchangeBalance(); updateExchangeCost(); updateExchangeRateText();
 }
 /* 切到采购中心时：时装是默认子页，数据要主动拉一次（否则第一次进来是空货架） */
 function ensureShopData(){
@@ -2687,39 +2706,72 @@ function renderCalendar() {
     state.flatTasks.filter(t=>!t.archived&&!t.deleted).forEach(t=>{
         if(t.due_date){ const d=t.due_date.substring(0,10); if(!tasksByDate[d]) tasksByDate[d]=[]; tasksByDate[d].push(t); }
     });
+    const todayStr = new Date().toLocaleDateString('sv-SE');
+    /* R21：日历整体重做。
+       旧版是「大格子 + 左上角一个数字 + 悬停冒出来的蓝色加号」，
+       一个月里有大半格子是全空的，没有任何版面信息，观感就是"零设计"。
+       新版：
+         · 前后补齐相邻月份的日期（灰显），格子不再一片空洞；
+         · 数字左上、完成进度右上，格子顶部有一条状态色细线；
+         · 任务条最多摆 3 条，多出来的收成「+N」；
+         · 今天 = 金色数字 + 金色描边；周末数字走暖金；悬停走暖金细线（不再蓝）。 */
     let html = '<div class="calendar-grid">';
-    /* 周末两列用金色区分（方舟周常界面的做法） */
     ['日','一','二','三','四','五','六'].forEach((d,i)=>
         html += `<div class="calendar-day-header${(i===0||i===6)?' is-weekend':''}">${d}</div>`);
-    for(let i=0;i<firstDay;i++) html += '<div class="calendar-day other-month"></div>';
-    const todayStr = new Date().toLocaleDateString('sv-SE');
+    // 上月尾巴：只显示数字、不作为可点日期
+    const daysInPrev = new Date(year, month, 0).getDate();
+    for(let i = firstDay - 1; i >= 0; i--)
+        html += `<div class="calendar-day other-month"><span class="calendar-day-number">${daysInPrev - i}</span></div>`;
+
+    let monthTaskTotal = 0, monthTaskDone = 0;
+    const MAX_CHIPS = 3;
     for(let day=1; day<=daysInMonth; day++){
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const tasks = tasksByDate[dateStr] || [];
-        html += `<div class="calendar-day ${dateStr===todayStr?'today':''} ${tasks.length?'has-tasks':''}" data-date="${dateStr}">`;
-        html += `<div class="calendar-day-number">${day}</div>`;
+        const dow = new Date(year, month, day).getDay();
+        const isToday = dateStr === todayStr;
+        const doneCount = tasks.filter(t => t.status === 'done').length;
+        monthTaskTotal += tasks.length; monthTaskDone += doneCount;
+        const cls = ['calendar-day'];
+        if (isToday) cls.push('today');
+        if (tasks.length) cls.push('has-tasks');
+        if (dow === 0 || dow === 6) cls.push('is-weekend');
+        if (tasks.length && doneCount === tasks.length) cls.push('all-done');
+        html += `<div class="${cls.join(' ')}" data-date="${dateStr}">`;
+        html += '<div class="calendar-day-top">' +
+                    `<span class="calendar-day-number">${day}</span>` +
+                    (tasks.length
+                        ? `<span class="calendar-day-count${doneCount === tasks.length ? ' is-done' : ''}">${doneCount}/${tasks.length}</span>`
+                        : '') +
+                '</div>';
         html += '<span class="calendar-day-add" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>';
-        tasks.forEach(t=>{
+        tasks.slice(0, MAX_CHIPS).forEach(t=>{
             const priorityColor = getPriorityColor(t.priority);
-            const statusIcon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '▶' : t.status === 'paused' ? '⏸' : '';
-            /* 日历里的优先级星星也走同一套金星：金色 + 单颗倾斜，只堆数量 */
-            const priorityStars = goldStars(t.priority);
             const title = escapeHtml(t.title);
             const lead = t.task_line === 'main'
                 ? '<span class="calendar-task-icon"><i class="fa-solid fa-diamond"></i></span>'
-                : '';
-            html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">` +
+                : '<span class="calendar-task-icon is-side"></span>';
+            html += `<div class="calendar-task-indicator status-${t.status || 'todo'}" ` +
+                        `title="${title}（优先级 ${t.priority}）">` +
                     lead +
-                    `<span class="calendar-task-status">${statusIcon}</span>` +
                     `<span class="calendar-task-bar" style="background:${priorityColor}"></span>` +
-                    `<span class="calendar-task-stars">${priorityStars}</span>` +
                     `<span class="calendar-task-title">${title}</span>` +
                 '</div>';
         });
+        if (tasks.length > MAX_CHIPS)
+            html += `<span class="calendar-more">+${tasks.length - MAX_CHIPS} 个</span>`;
         html += '</div>';
     }
+    // 下月开头：补齐最后一行，避免右下角缺一块
+    const tail = (7 - ((firstDay + daysInMonth) % 7)) % 7;
+    for(let i = 1; i <= tail; i++)
+        html += `<div class="calendar-day other-month"><span class="calendar-day-number">${i}</span></div>`;
     html += '</div>';
     container.innerHTML = html;
+
+    if (DOM.calendarSubtitle)
+        DOM.calendarSubtitle.textContent = `本月 ${monthTaskTotal} 个任务 · 已完成 ${monthTaskDone}`;
+
     container.querySelectorAll('.calendar-day[data-date]').forEach(el=>{
         el.addEventListener('click', ()=>{ const date=el.dataset.date; if(date) showTasksForDate(date); });
     });
@@ -2863,22 +2915,39 @@ function renderAchievements(){
     });
 }
 
+/* R21：主页「已解锁蚀刻章」重做。
+   旧版只渲染了一个个圆图标 + 一条竖线（用户："没有描述只有图标排列"），
+   既不知道这是什么章，也不知道怎么拿到的。
+   现在每个章都是一张卡：勋章 + 名称 + 描述 + 档位，和采购中心里那套完全一致。 */
 function renderProfileBadges(){
-    const grid=DOM.profileBadgesGrid; if(!grid) return; grid.innerHTML='';
-    if(!state.unlockedAchievements) return;
-    state.unlockedAchievements.forEach(u=>{ const ach=state.achievements.find(a=>a.id===achIdOf(u)); if(ach){
+    const grid = DOM.profileBadgesGrid; if(!grid) return;
+    grid.innerHTML = '';
+    const unlocked = state.unlockedAchievements || [];
+    const total = state.achievements.length || 0;
+    if (DOM.profileBadgesCount) {
+        DOM.profileBadgesCount.textContent = total ? `${unlocked.length} / ${total}` : '';
+    }
+    if (!unlocked.length) {
+        grid.innerHTML = '<div class="profile-badges-empty">还没有解锁任何蚀刻章——完成任务、坚持打卡就会陆续点亮。</div>';
+        return;
+    }
+    unlocked.forEach(u => {
+        const ach = state.achievements.find(a => a.id === achIdOf(u));
+        if (!ach) return;
         const c = achBadgeConf(ach);
-        const div=document.createElement('div');
-        div.className='badge-icon profile-badge';
-        div.style.setProperty('--ach-color', c.color);
-        div.style.setProperty('--ach-metal', c.metal);
-        div.innerHTML = c.image
-            ? `<img class="badge-custom-img" src="${escapeHtml(c.image)}" alt="">`
-            : (c.text ? `<span class="badge-custom-text">${escapeHtml(c.text)}</span>`
-                      : `<i class="fa-solid ${c.icon}"></i>`);
-        div.title = ach.name;
-        grid.appendChild(div);
-    }});
+        const card = document.createElement('div');
+        card.className = 'profile-badge-card';
+        card.style.setProperty('--ach-color', c.color);
+        card.style.setProperty('--ach-metal', c.metal);
+        card.innerHTML =
+            `<span class="pbc-medal">${achMedalHTML(c)}</span>` +
+            '<span class="pbc-text">' +
+                `<span class="pbc-name">${escapeHtml(ach.name)}</span>` +
+                `<span class="pbc-desc">${escapeHtml(ach.description)}</span>` +
+            '</span>' +
+            `<span class="pbc-tier" data-tier="${escapeHtml(c.tier)}">${escapeHtml(ACH_TIER_LABEL[c.tier] || c.tier)}</span>`;
+        grid.appendChild(card);
+    });
 }
 
 /* ===== 礼包卡片 =====
@@ -4825,7 +4894,13 @@ function bindExchangeStepper(){
 }
 async function handleExchange(){ const amount=parseFloat(DOM.exchangeAmount.value);
     if(isNaN(amount)||amount<=0){ showToast('请输入有效数量'); return; }
-    const result=await apiPost('/resources/exchange',{from_type:'source_stone',to_type:'orundum',amount}); if(result){ await loadResources(); await loadTransactions(); await loadRealityRewards(); closeAllModals(); showToast('兑换成功'); } }
+    const result=await apiPost('/resources/exchange',{from_type:'source_stone',to_type:'orundum',amount});
+    if(result){
+        await loadResources(); await loadTransactions(); await loadRealityRewards();
+        // R21：不再是弹窗，兑换完留在子页并把数量复位（原来这里是 closeAllModals）
+        initExchange();
+        showToast('兑换成功');
+    } }
 function updateGachaBalance(){
     const orundum = state.resources.orundum?.current_value || 0;
     if (DOM.gachaOrundumBalance)
@@ -4865,11 +4940,12 @@ function updateOperatorGachaBalance(){
 }
 function updateOperatorGachaPity(pity){
     if (!DOM.operatorGachaPity || !pity) return;
+    /* R21：去掉「再 N 抽内必出」那行小字（用户要求）。
+       保底机制本身照旧生效，只是不再把结论写在界面上。 */
     DOM.operatorGachaPity.innerHTML =
         `<span class="gh-pity-item">累计寻访 <b>${pity.total_pulls}</b> 次</span>` +
         `<span class="gh-pity-sep"></span>` +
-        `<span class="gh-pity-item">距上次 ${goldStars(6)} 已 <b>${pity.since_last_6star}</b> 抽` +
-        `<span class="gh-pity-sub">再 ${pity.guaranteed_in} 抽内必出</span></span>`;
+        `<span class="gh-pity-item">距上次 ${goldStars(6)} 已 <b>${pity.since_last_6star}</b> 抽</span>`;
 }
 let gachaBusy = false;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -5158,11 +5234,18 @@ function buildSkinCard(s, stone){
                 ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
                 : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>'));
     const img = s.image ? `/static/${s.image}` : '';
+    /* R21：21 源石及以上是「动态立绘」档，打上标记 ——
+       预览里会给到一点动态位移，卡片上也标一下，不让档位变成看不见的事。 */
+    const isDynamic = (Number(s.cost) || 0) >= 21;
     card.innerHTML =
-        `<div class="skin-art" data-skin-id="${escapeHtml(s.skin_id || '')}"${img ? ` style="background-image:url('${img}')"` : ''}>` +
+        `<div class="skin-art${isDynamic ? ' is-dynamic' : ''}"` +
+            ` data-skin-id="${escapeHtml(s.skin_id || '')}"` +
+            (isDynamic ? ' data-dynamic="1"' : '') +
+            (img ? ` style="background-image:url('${img}')"` : '') + '>' +
             (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
             (img ? '<span class="skin-zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></span>' : '') +
             `<span class="skin-rarity">${goldStars(s.rarity)}</span>` +
+            (isDynamic ? '<span class="skin-dyn-badge"><i class="fa-solid fa-wand-magic-sparkles"></i>动态</span>' : '') +
             (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i></span>' : '') +
             (s.unlocked === false ? '<span class="skin-lock-badge"><i class="fa-solid fa-lock"></i></span>' : '') +
         '</div>' +
@@ -5392,8 +5475,13 @@ function ensureSkinLightbox(){
 }
 /* 预览优先用官方原图（1024×1024，从 assets-source 按需取），
    取不到再退回 512 缩略图 —— 这样放大到接近满屏也不会糊。 */
-function openSkinPreview(imgUrl, opName, skinName, fallbackUrl){
+function openSkinPreview(imgUrl, opName, skinName, fallbackUrl, isDynamic){
     const box = ensureSkinLightbox();
+    /* R21：动态立绘档位在预览里加一点极慢的呼吸位移。
+       ⚠️ 诚实说明：本地只有静态立绘（assets-source 里没有任何 Spine/.skel 资源），
+       真正的动态立绘数据没有下载，这里的"动"是 CSS 位移，不是原版演出。 */
+    const stage = box.querySelector('.skin-lightbox-stage');
+    if (stage) stage.classList.toggle('is-dynamic', !!isDynamic);
     const im = box.querySelector('.skin-lightbox-img');
     im.onerror = () => { if (fallbackUrl && im.src !== fallbackUrl) im.src = fallbackUrl; im.onerror = null; };
     im.src = imgUrl || fallbackUrl || '';
@@ -5423,7 +5511,7 @@ function bindSkinPreview(){
         const nm = card && card.querySelector('.skin-name') ? card.querySelector('.skin-name').textContent : '';
         const sid = art.dataset.skinId || '';
         const full = sid ? `/api/skin/full/${encodeURIComponent(sid)}` : thumb;
-        openSkinPreview(full, op, nm, thumb);
+        openSkinPreview(full, op, nm, thumb, art.dataset.dynamic === '1');
     });
 }
 /* 本期精选 · 六星双 UP 卡（R21）
@@ -5439,7 +5527,9 @@ function buildFeaturedDuoCard(o){
     const el = document.createElement('div');
     el.className = 'op-duo-card';
     el.innerHTML =
-        `<div class="op-duo-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+        // 模糊底衬：把竖构图的立绘两侧填满，卡面才是一整块
+        `<div class="op-duo-blur"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
+        `<div class="op-duo-art is-dynamic"${art ? ` style="background-image:url('${art}')"` : ''}>` +
             (art ? '' : '<i class="fa-solid fa-user-astronaut"></i>') +
         '</div>' +
         '<div class="op-duo-scrim"></div>' +
@@ -5447,10 +5537,13 @@ function buildFeaturedDuoCard(o){
         '<div class="op-duo-plate">' +
             `<span class="op-duo-stars">${goldStars(o.rarity)}</span>` +
             `<span class="op-duo-name">${escapeHtml(o.name)}</span>` +
-            `<span class="op-duo-sub">${tok ? `<img class="op-duo-token" src="${tok}" alt="">` : ''}` +
-                `<span>${escapeHtml(prof)}</span>` +
-                '<span class="op-duo-dot">·</span><span>信物自动入库</span>' +
-            '</span>' +
+            // R21：只留「职业」一行，「信物自动入库」那截文案去掉（用户要求）
+            (prof || tok
+                ? '<span class="op-duo-sub">' +
+                    (tok ? `<img class="op-duo-token" src="${tok}" alt="">` : '') +
+                    `<span>${escapeHtml(prof)}</span>` +
+                  '</span>'
+                : '') +
         '</div>';
     return el;
 }
