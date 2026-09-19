@@ -351,23 +351,55 @@ ARK_GIFT_PACKS = [
 ]
 
 
+def _shop_day_index() -> int:
+    """「游戏日序号」——从 2026-01-01 04:00 起算的天数，每过一个 04:00 严格 +1。
+
+    和 _stable_index（散列出随机下标）不同，这个值每天必然递增，
+    拿它当轮换窗口的起点，就能保证「相邻两天上架的礼包一定不一样」，
+    而不会出现散列撞车导致连着两天同一批的情况。
+    """
+    base = datetime(2026, 1, 1, REPEAT_RESET_HOUR).astimezone()
+    return (period_start('daily') - base).days
+
+
+def _rolling_pick(seq: list, day_index: int, k: int, offset: int = 0) -> list:
+    """按天序号滚动取 k 个：窗口每天整体错开一格，走完一圈自动回到开头。"""
+    n = len(seq)
+    if n == 0:
+        return []
+    start = (day_index + offset) % n
+    return [seq[(start + i) % n] for i in range(min(k, n))]
+
+
 def generate_weekly_packs(cur):
-    now = datetime.now(timezone.utc)
-    weekday = now.weekday()
-    if weekday == 0 and now.hour < 4:
-        monday = (now - timedelta(days=7)).replace(hour=4, minute=0, second=0, microsecond=0)
-    else:
-        monday = (now - timedelta(days=weekday)).replace(hour=4, minute=0, second=0, microsecond=0)
-    next_monday = monday + timedelta(days=7)
-    cur.execute("DELETE FROM gift_packs WHERE purchased = 0 AND available_until < ?", (now.isoformat(),))
-    cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from >= ? AND available_from < ?",
-                (monday.isoformat(), next_monday.isoformat()))
+    """礼包货架轮换（函数名沿用，避免改动调用点；周期已从「每周」改为「每日」）。
+
+    原来只在每周一 04:00 换一批，用户一周内看到的永远是同样的几个包。
+    现在接到与「精选卡池 / 时装货架」相同的每日 04:00 分界：
+      · 罗德岛补给卡仍是常驻锚点（对应原版月卡，不该消失）
+      · 其余 3~4 个按游戏日序号滚动上架 —— 当天结果固定（刷新不变），跨天自动换
+    """
+    start = period_start('daily').astimezone(timezone.utc)
+    end = start + timedelta(days=1)
+    # ⚠️ 时间口径必须统一成 UTC：/api/gift-packs 用 now_iso()（UTC）做字符串比较，
+    #    若这里写本地时区的 "+08:00" 串，就能和 "…+00:00" 比出大小关系错误，
+    #    礼包会被整批过滤掉（表现为货架空白）。
+    now = now_iso()
+    # 清掉过期与「上一个周期遗留的未购买礼包」：
+    # 从周改为日后，旧的一周礼包 available_until 还没到，不清就会一直挂在货架上。
+    # 用 datetime() 归一化比较，避免时区偏移把时间窗算错。
+    cur.execute("""DELETE FROM gift_packs
+                   WHERE purchased = 0
+                     AND (datetime(available_until) < datetime(?) OR datetime(available_from) < datetime(?))""",
+                (now, start.isoformat()))
+    cur.execute("""SELECT COUNT(*) FROM gift_packs
+                   WHERE datetime(available_from) >= datetime(?) AND datetime(available_from) < datetime(?)""",
+                (start.isoformat(), end.isoformat()))
     if cur.fetchone()[0] == 0:
-        # 每周从原版风格组合包中轮换上架：罗德岛补给卡是常驻锚点（对应原版月卡），
-        # 其余随机抽取 2~4 个，保证同一周内不出现重复礼包。
+        day = _shop_day_index()
         anchor = next(p for p in ARK_GIFT_PACKS if p["name"] == "罗德岛补给卡")
         others = [p for p in ARK_GIFT_PACKS if p is not anchor]
-        chosen = [anchor] + random.sample(others, random.randint(2, 4))
+        chosen = [anchor] + _rolling_pick(others, day, 3 + (day % 2))
         for pack in chosen:
             n, lo, hi = pack["materials"]
             mats = [{"type": k, "amount": a} for k, a in _pick_pack_materials(n, lo, hi)]
@@ -381,17 +413,15 @@ def generate_weekly_packs(cur):
                 INSERT INTO gift_packs (name, description, pack_type, content_config, cost_source_stone, rarity, available_from, available_until)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (pack["name"], pack["description"], pack["pack_type"], json.dumps(content),
-                  pack["cost_source_stone"], pack["rarity"], monday.isoformat(), next_monday.isoformat()))
+                  pack["cost_source_stone"], pack["rarity"], start.isoformat(), end.isoformat()))
 
 
 def background_weekly_pack_refresh():
     while True:
-        now = datetime.now(timezone.utc)
-        days_ahead = (7 - now.weekday()) % 7
-        if days_ahead == 0 and now.hour >= 4:
-            days_ahead = 7
-        next_monday = (now + timedelta(days=days_ahead)).replace(hour=4, minute=0, second=0, microsecond=0)
-        sleep_seconds = (next_monday - now).total_seconds()
+        now = _local_now()
+        # 下一个 04:00（今天的已过就是明天的）
+        next_reset = period_start('daily') + timedelta(days=1)
+        sleep_seconds = max(30.0, (next_reset - now).total_seconds())
         time.sleep(sleep_seconds)
         try:
             with db_cursor() as cur:
@@ -2572,9 +2602,16 @@ async def claim_reality_reward(reward_id: int):
 async def get_gift_packs():
     with db_cursor() as cur:
         now = now_iso()
-        cur.execute("SELECT * FROM gift_packs WHERE purchased = 0 AND available_from <= ? AND available_until >= ?",
-                    (now, now))
+        # ⚠️ 必须用 datetime() 归一化再比较：
+        #    available_from 存的是带时区的 ISO 串，直接做字符串比较会
+        #    把 "+08:00" 与 "+00:00" 当同一基准，时间窗判定整批出错（礼包全被过滤）。
+        #    datetime() 会先换算成 UTC 再比，带任何偏移的历史数据都正确。
+        cur.execute("""SELECT * FROM gift_packs
+                       WHERE purchased = 0
+                         AND datetime(available_from) <= datetime(?)
+                         AND datetime(available_until) >= datetime(?)""", (now, now))
         packs = [dict(row) for row in cur.fetchall()]
+    packs.sort(key=lambda p: (p.get("cost_source_stone") or 0))
     return {"data": packs}
 
 
@@ -3182,6 +3219,26 @@ async def list_skins():
     shop = [s for s in build_skin_shop(owned_ids) if s["skin_id"] not in owned_skin_ids]
     return {"data": {"skins": skins, "shop": shop, "source_stone": stone,
                      "owned_count": len(owned_skins), "operator_count": len(owned_ops)}}
+
+
+@app.get("/api/skin/full/{skin_id:path}")
+async def skin_full_art(skin_id: str):
+    """时装大图预览：直接吐官方原图（assets-source/skin/<portraitId>b.png，1024×1024）。
+
+    前端缩略图是 512×512，放大到接近满屏会发虚；原图是 1024，属于降采样显示，
+    放大预览依然清晰。assets-source 里 509 件的原图全部齐备，取不到时退回缩略图。
+    """
+    meta = SKIN_ASSETS.get(skin_id) or {}
+    pid = meta.get("portraitId")
+    src = os.path.join(BASE_DIR, "assets-source", "skin", f"{pid}b.png") if pid else None
+    if src and os.path.exists(src):
+        return FileResponse(src, media_type="image/png",
+                            headers={"Cache-Control": "public, max-age=86400"})
+    f = (meta.get("file") or "").lstrip("/")
+    thumb = os.path.join(BASE_DIR, "static", f) if f.startswith("img/") else None
+    if thumb and os.path.exists(thumb):
+        return FileResponse(thumb, media_type="image/webp")
+    raise HTTPException(status_code=404, detail="skin art not found")
 
 
 class SkinPurchaseRequest(BaseModel):

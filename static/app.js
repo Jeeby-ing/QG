@@ -503,6 +503,16 @@ function bindEvents() {
     DOM.exchangeClose.addEventListener('click', closeAllModals);
     DOM.exchangeConfirm.addEventListener('click', handleExchange);
     DOM.exchangeAmount.addEventListener('input', updateExchangeCost);
+    // 兑换规则说明：默认收起，点 ⓘ 才展开（和寻访弹窗同一套交互）
+    const exInfoBtn = document.getElementById('exchangeInfoBtn');
+    const exInfoPanel = document.getElementById('exchangeInfoPanel');
+    if (exInfoBtn && exInfoPanel) {
+        exInfoBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            exInfoPanel.classList.toggle('open');
+            exInfoBtn.classList.toggle('active', exInfoPanel.classList.contains('open'));
+        });
+    }
 
     DOM.gachaBtn.addEventListener('click', () => { openModal('gachaModal'); updateGachaBalance(); updateGachaCostText(); });
     if (DOM.warehouseBtn) DOM.warehouseBtn.addEventListener('click', openWarehouse);
@@ -4357,16 +4367,22 @@ function showPackRewardModal(granted){
 
 async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); const rewards=result.rewards; if(rewards&&rewards.length){ showPackRewardModal(rewards); } else showToast('领取成功'); } }
 
+/* 兑换窗口的主体就是「多少源石 → 多少合成玉」：
+   左「消耗 N」、右「获得 N×180」，两侧数字随输入实时变化。
+   持有量只出现在顶部那一条 —— 绝不再塞进中间箭头两边，
+   因为「2 源石 → 594 合成玉」会被直接读成折算结果（用户反馈的歧义点）。 */
 function updateExchangeCost(){
     const amount = Math.max(0, parseFloat(DOM.exchangeAmount?.value) || 0);
     const gained = amount * EXCHANGE_RATE_STONE_TO_ORUNDUM;
+    const from = document.getElementById('exchangeOwnFrom');
+    if (from) from.innerHTML = '<span>消耗</span>' + `<b>${formatWhNum(amount)}</b>`;
+    const to = document.getElementById('exchangeOwnTo');
+    if (to) {
+        to.classList.add('is-gain');
+        to.innerHTML = '<span>获得</span>' + `<b>${formatWhNum(gained)}</b>`;
+    }
     const el = DOM.exchangeCostDisplay;
-    if (!el) return;
-    el.innerHTML =
-        '<span class="ex-preview-side">' + resIconHTML('source_stone') + `<b>${amount}</b></span>` +
-        '<i class="fa-solid fa-arrow-right-long ex-preview-arrow"></i>' +
-        '<span class="ex-preview-side ok">' + resIconHTML('orundum') + `<b>${formatWhNum(gained)}</b></span>` +
-        `<span class="ex-preview-rate">×${EXCHANGE_RATE_STONE_TO_ORUNDUM}</span>`;
+    if (el) el.innerHTML = `<span class="ex-preview-rate">1 源石 = ${EXCHANGE_RATE_STONE_TO_ORUNDUM} 合成玉</span>`;
     const btn = DOM.exchangeConfirm;
     if (btn) btn.disabled = amount <= 0;
 }
@@ -4374,13 +4390,13 @@ function updateExchangeBalance(){
     const stone = state.resources.source_stone?.current_value || 0;
     const orundum = state.resources.orundum?.current_value || 0;
     if (DOM.exchangeLungmenBalance)
-        DOM.exchangeLungmenBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('source_stone', stone)}`;
-    const to = document.getElementById('exchangeOwnTo');
-    if (to) to.innerHTML = resAmountHTML('orundum', orundum);
-    const from = document.getElementById('exchangeOwnFrom');
-    if (from) from.innerHTML = resAmountHTML('source_stone', stone);
+        DOM.exchangeLungmenBalance.innerHTML =
+            '<span class="res-own-label">当前持有</span>' +
+            resAmountHTML('source_stone', stone) +
+            resAmountHTML('orundum', orundum);
     const maxBtn = document.getElementById('exchangeMaxBtn');
     if (maxBtn) maxBtn.textContent = `最大 ${Math.floor(stone)}`;
+    updateExchangeCost();
 }
 function updateExchangeRateText(){
     DOM.exchangeRateText.textContent =
@@ -4696,7 +4712,7 @@ function buildSkinCard(s, stone){
             : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>');
     const img = s.image ? `/static/${s.image}` : '';
     card.innerHTML =
-        `<div class="skin-art"${img ? ` style="background-image:url('${img}')"` : ''}>` +
+        `<div class="skin-art" data-skin-id="${escapeHtml(s.skin_id || '')}"${img ? ` style="background-image:url('${img}')"` : ''}>` +
             (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
             (img ? '<span class="skin-zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></span>' : '') +
             `<span class="skin-rarity">${goldStars(s.rarity)}</span>` +
@@ -4783,11 +4799,21 @@ function ensureSkinLightbox(){
     document.body.appendChild(skinLightbox);
     skinLightbox.querySelector('.skin-lightbox-backdrop').addEventListener('click', closeSkinPreview);
     skinLightbox.querySelector('.skin-lightbox-close').addEventListener('click', closeSkinPreview);
+    // 点画面以外的任何地方都退出：舞台留白、说明文字、背景都算「空白处」
+    const stage = skinLightbox.querySelector('.skin-lightbox-stage');
+    stage.addEventListener('click', e => {
+        if (e.target.closest('.skin-lightbox-img') || e.target.closest('.skin-lightbox-close')) return;
+        closeSkinPreview();
+    });
     return skinLightbox;
 }
-function openSkinPreview(imgUrl, opName, skinName){
+/* 预览优先用官方原图（1024×1024，从 assets-source 按需取），
+   取不到再退回 512 缩略图 —— 这样放大到接近满屏也不会糊。 */
+function openSkinPreview(imgUrl, opName, skinName, fallbackUrl){
     const box = ensureSkinLightbox();
-    box.querySelector('.skin-lightbox-img').src = imgUrl;
+    const im = box.querySelector('.skin-lightbox-img');
+    im.onerror = () => { if (fallbackUrl && im.src !== fallbackUrl) im.src = fallbackUrl; im.onerror = null; };
+    im.src = imgUrl || fallbackUrl || '';
     box.querySelector('.skin-lightbox-cap').textContent = `${opName} · ${skinName}`;
     box.classList.remove('hidden');
     requestAnimationFrame(() => box.classList.add('show'));
@@ -4805,11 +4831,14 @@ function bindSkinPreview(){
         if (!art) return;
         const bg = art.style.backgroundImage;
         const m = bg && bg.match(/url\(["']?(.*?)["']?\)/);
-        if (!m) return;
+        const thumb = m ? m[1] : '';
+        if (!thumb) return;
         const card = art.closest('.skin-card');
         const op = card && card.querySelector('.skin-op-name') ? card.querySelector('.skin-op-name').textContent : '';
         const nm = card && card.querySelector('.skin-name') ? card.querySelector('.skin-name').textContent : '';
-        openSkinPreview(m[1], op, nm);
+        const sid = art.dataset.skinId || '';
+        const full = sid ? `/api/skin/full/${encodeURIComponent(sid)}` : thumb;
+        openSkinPreview(full, op, nm, thumb);
     });
 }
 /* 本期精选卡池：把每日轮换的干员立绘铺出来。
@@ -4912,6 +4941,45 @@ function closeAllModals(){
     document.querySelectorAll('.modal-container').forEach(m=>{ m.classList.remove('show'); m.classList.add('hidden'); m.style.transform=''; m.style.opacity=''; }); DOM.modalOverlay.classList.remove('show');
     // 清理外部对勾
     const extCheck = document.querySelector('.reward-external-check'); if(extCheck) extCheck.remove();
+}
+
+/* ===== ESC 全局返回/关闭 =====
+   优先级从「最上层」往「最下层」走：下拉菜单 → 大图预览 → 弹窗 → 侧边栏。
+   每一步只关一层，连按 ESC 就一层层往回退。 */
+function handleGlobalEscape(){
+    // 1) 自定义下拉菜单
+    const dds = document.querySelectorAll('.custom-dropdown.open');
+    if (dds.length) { closeAllCustomDropdowns(); return; }
+    // 2) 时装大图预览
+    if (skinLightbox && !skinLightbox.classList.contains('hidden')) { closeSkinPreview(); return; }
+    // 3) 弹窗：关掉可见的最后一个（后来居上，符合「返回上一层」的直觉）
+    const opens = [...document.querySelectorAll('.modal-container')]
+        .filter(m => m.classList.contains('show') && !m.classList.contains('hidden'));
+    if (opens.length) { closeTopModal(opens[opens.length - 1]); return; }
+}
+// 兜底注册：即使页面上的自定义下拉初始化没跑，ESC 也必须能关窗口
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
+        e.target.blur();
+        return;
+    }
+    handleGlobalEscape();
+});
+function closeTopModal(m){
+    m.classList.remove('show');
+    m.classList.add('hidden');
+    m.style.transform = '';
+    m.style.opacity = '';
+    // 还有别的弹窗开着就保留遮罩，否则一并撤掉
+    const stillOpen = [...document.querySelectorAll('.modal-container')]
+        .some(x => x.classList.contains('show') && !x.classList.contains('hidden'));
+    if (!stillOpen) {
+        if (DOM.modalOverlay) DOM.modalOverlay.classList.remove('show');
+        if (typeof rewardModalTimer !== 'undefined' && rewardModalTimer) { clearTimeout(rewardModalTimer); rewardModalTimer = null; }
+        if (typeof rewardModalOpenTaskId !== 'undefined') rewardModalOpenTaskId = null;
+        const extCheck = document.querySelector('.reward-external-check'); if (extCheck) extCheck.remove();
+    }
 }
 
 /* ===== 仓库（素材 + 基础货币） ===== */
@@ -5122,9 +5190,8 @@ function initCustomDropdowns(){
         if(sel) syncCustomDropdownSelection(dd, sel.value);
     });
 
-    // 点击外部 / ESC 关闭
+    // 点击外部关闭；ESC 统一交给全局 handleGlobalEscape（避免两处各关一层）
     document.addEventListener('click', closeAllCustomDropdowns);
-    document.addEventListener('keydown', e => { if(e.key==='Escape') closeAllCustomDropdowns(); });
 }
 function closeAllCustomDropdowns(){
     document.querySelectorAll('.custom-dropdown.open').forEach(dd=>dd.classList.remove('open'));

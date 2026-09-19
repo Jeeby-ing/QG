@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260918-230">
+    <link rel="stylesheet" href="static/style.css?v=20260919-231">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -485,8 +485,14 @@
             <div class="modal modal-exchange">
                 <div class="modal-header"><h3 class="modal-title">资源兑换</h3><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body">
-                    <p class="micro-text ex-rate" id="exchangeRateText">唯一允许的兑换：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。龙门币与源石不可被兑换出去。</p>
-                    <div class="resource-balance-display" id="exchangeLungmenBalance"></div>
+                    <!-- 持有量常显；规则说明默认收起，靠右侧 ⓘ 展开（不再一进来就糊一大段文字） -->
+                    <div class="ex-topbar">
+                        <div class="resource-balance-display" id="exchangeLungmenBalance"></div>
+                        <button type="button" class="gh-info-btn" id="exchangeInfoBtn" title="兑换规则" aria-label="兑换规则"><i class="fa-solid fa-circle-info"></i></button>
+                    </div>
+                    <div class="gh-info-panel" id="exchangeInfoPanel">
+                        <p class="micro-text ex-rate" id="exchangeRateText">唯一允许的兑换：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。龙门币与源石不可被兑换出去。</p>
+                    </div>
 
                     <div class="ex-stage">
                         <div class="ex-side">
@@ -711,6 +717,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260918-230"></script>
+    <script src="static/app.js?v=20260919-231"></script>
 </body>
 </html>
