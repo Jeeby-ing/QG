@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260919-231">
+    <link rel="stylesheet" href="static/style.css?v=20260919-234">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -326,7 +326,7 @@
                         </div>
                     </div>
                     <div class="profile-badges"><h3 class="section-subtitle">已解锁蚀刻章</h3><div class="profile-badges-grid" id="profileBadgesGrid"></div></div>
-                    <div class="profile-gift-packs"><h3 class="section-subtitle">本周礼包</h3><div class="gift-packs-grid" id="giftPacksGrid"></div></div>
+                    <div class="profile-gift-packs"><h3 class="section-subtitle">今日补给</h3><div class="gift-packs-grid" id="giftPacksGrid"></div></div>
                     <div class="profile-transactions"><h3 class="section-subtitle">资源流水</h3><div class="transactions-list" id="transactionsList"></div></div>
                 </div>
             </section>
@@ -483,12 +483,11 @@
         <!-- 兑换弹窗：按原版「资源兑换」窗口重做（左源石 → 右合成玉 + 步进器 + 金色兑换键） -->
         <div class="modal-container hidden" id="exchangeModal">
             <div class="modal modal-exchange">
-                <div class="modal-header"><h3 class="modal-title">资源兑换</h3><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-header"><h3 class="modal-title">资源兑换</h3><button type="button" class="icon-btn gh-info-btn" id="exchangeInfoBtn" title="兑换规则" aria-label="兑换规则"><i class="fa-solid fa-circle-info"></i></button><button class="icon-btn modal-close" id="exchangeClose"><i class="fa-solid fa-xmark"></i></button></div>
                 <div class="modal-body">
-                    <!-- 持有量常显；规则说明默认收起，靠右侧 ⓘ 展开（不再一进来就糊一大段文字） -->
+                    <!-- 持有量常显；规则说明默认收起，靠标题栏 ⓘ 展开（不再一进来就糊一大段文字） -->
                     <div class="ex-topbar">
                         <div class="resource-balance-display" id="exchangeLungmenBalance"></div>
-                        <button type="button" class="gh-info-btn" id="exchangeInfoBtn" title="兑换规则" aria-label="兑换规则"><i class="fa-solid fa-circle-info"></i></button>
                     </div>
                     <div class="gh-info-panel" id="exchangeInfoPanel">
                         <p class="micro-text ex-rate" id="exchangeRateText">唯一允许的兑换：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。龙门币与源石不可被兑换出去。</p>
@@ -547,12 +546,12 @@
                             <span class="gh-head-en">HEADHUNT</span>
                         </div>
                     </div>
+                    <button type="button" class="icon-btn gh-info-btn" id="operatorGachaInfoBtn" title="概率详情" aria-label="概率详情"><i class="fa-solid fa-circle-info"></i></button>
                     <button class="icon-btn modal-close" id="operatorGachaClose"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body gacha-body">
                     <div class="gh-topbar">
                         <div class="resource-balance-display" id="operatorGachaOrundumBalance"></div>
-                        <button class="icon-btn gh-info-btn" id="operatorGachaInfoBtn" title="概率详情"><i class="fa-solid fa-circle-info"></i></button>
                     </div>
                     <div class="gh-info-panel" id="operatorGachaInfoPanel">
                         <p class="micro-text" id="operatorGachaCostText">消耗 600 合成玉 / 次（十连 6000，第 10 抽保底 ≥4★；出率 6★2% / 5★8% / 4★50% / 3★40%，50 抽后软保底，99 抽必出 6★）</p>
@@ -574,7 +573,6 @@
                         <span class="gh-act-label">寻访 <b>×10</b></span>
                         <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">6000</span>
                     </button>
-                    <button class="gh-act ghost" id="operatorGachaCancel">返回</button>
                 </div>
             </div>
         </div>
@@ -600,9 +598,6 @@
                         <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
                     </div>
                     <div id="skinShopList" class="skin-shop-list"></div>
-                    <div class="form-actions">
-                        <button class="btn btn-secondary" id="skinShopCancel">关闭</button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -717,6 +712,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260919-231"></script>
+    <script src="static/app.js?v=20260919-234"></script>
 </body>
 </html>

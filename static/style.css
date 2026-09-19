@@ -1361,17 +1361,24 @@ body.focus-mode .tracking-expanded {
     box-shadow:0 0 12px rgba(212,48,40,0.5);
 }
 
-/* ===== 状态色条（卡片左侧装饰带） ===== */
+/* ===== 状态色条（卡片左侧装饰带） =====
+   颜色一律写字面值：实测 var() 在这几条声明上没有生效（同为普通声明的
+   #8A93A6 字面值却生效），为稳妥起见不再走变量。 */
 .task-card { border-left:4px solid rgba(255,255,255,0.10); }
-.task-card.status-todo { border-left-color: rgba(255,255,255,0.12); }
-.task-card.status-in_progress { border-left-color: var(--highlight-blue-1); }
-.task-card.status-paused { border-left-color: var(--warning-yellow-1); }
-.task-card.status-done { border-left-color: var(--highlight-green-1); }
-.task-card.status-cancelled { border-left-color: var(--text-muted-2); }
+.task-card.status-todo { border-left-color: #8A93A6; }
+.task-card.status-in_progress { border-left-color: #3A80D0; }
+.task-card.status-paused { border-left-color: #C8A020; }
+.task-card.status-done { border-left-color: #40A068; }
+.task-card.status-cancelled { border-left-color: #6A6A62; }
 
 /* ===== 状态样式 ===== */
+/* 注意：这里原本写的是 border-color 简写，会把上面那条 4px 左色条一起压成
+   50% 半透明（简写优先级更高，左色条看着「变淡、像没了」）。改成只给其余三边。 */
 .task-card.status-in_progress {
-    border-color:rgba(58,128,208,0.5);
+    border-top-color:rgba(58,128,208,0.5);
+    border-right-color:rgba(58,128,208,0.5);
+    border-bottom-color:rgba(58,128,208,0.5);
+    border-left-color:#3A80D0;
     animation:breathe 3s ease-in-out infinite;
 }
 @keyframes breathe {
@@ -2735,15 +2742,54 @@ body.focus-mode .tracking-expanded {
 /* ============================================================
    时装商店
    ============================================================ */
-.modal-skin-shop { max-width:880px; }
+/* 窗口之前受 .modal-container 的 600px 限制，实际只有 600 宽 → 显得又小又偏。
+   这里直接把容器本身撑开并保持居中。 */
+#skinShopModal { width:min(94vw, 1220px); }
+.modal-skin-shop { max-width:100%; }
 .skin-filter-row { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+/* 筛选按钮：原来是一块扁平灰。补上金属材质——
+   竖向三段渐变（顶面高光 / 本体 / 底面暗部）+ 1px 内高光 + 外投影，
+   按下时整体下沉 2px 并收紧阴影，做出物理按压感。 */
 .skin-filter-btn {
-    padding:5px 14px; border-radius:14px; font-size:12px; cursor:pointer;
-    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14);
-    color:rgba(230,235,245,0.8); transition:all .18s ease;
+    position:relative; padding:7px 20px; border-radius:10px; font-size:13px; font-weight:700;
+    cursor:pointer; font-family:inherit;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.04) 40%, rgba(0,0,0,0.26) 100%),
+        linear-gradient(180deg, #43474F 0%, #2C2F35 100%);
+    border:1px solid rgba(255,255,255,0.17);
+    color:#DCE2EC;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.30),
+        inset 0 -1px 0 rgba(0,0,0,0.5),
+        0 3px 9px rgba(0,0,0,0.5);
+    text-shadow:0 1px 2px rgba(0,0,0,0.7);
+    transition:transform .12s ease, box-shadow .12s ease, filter .18s ease;
 }
-.skin-filter-btn:hover { background:rgba(255,255,255,0.12); }
-.skin-filter-btn.active { background:rgba(255,184,77,0.9); border-color:rgba(255,184,77,0.9); color:#2a1a00; font-weight:700; }
+.skin-filter-btn:hover {
+    filter:brightness(1.2);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.38),
+        inset 0 -1px 0 rgba(0,0,0,0.5),
+        0 6px 16px rgba(0,0,0,0.6);
+}
+.skin-filter-btn:active {
+    transform:translateY(2px);
+    box-shadow:
+        inset 0 2px 7px rgba(0,0,0,0.7),
+        0 1px 2px rgba(0,0,0,0.45);
+}
+.skin-filter-btn.active {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.06) 42%, rgba(120,70,0,0.34) 100%),
+        linear-gradient(180deg, #FFE28A 0%, #F0B429 52%, #C8860C 100%);
+    border-color:rgba(255,226,150,0.9);
+    color:#2A1A00; font-weight:800;
+    text-shadow:0 1px 0 rgba(255,255,255,0.4);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        inset 0 -2px 5px rgba(110,66,0,0.45),
+        0 4px 16px rgba(240,180,40,0.42);
+}
 .skin-shop-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:10px; max-height:46vh; overflow-y:auto; padding-right:4px; }
 .skin-card {
     display:flex; flex-direction:column; gap:0; padding:0; border-radius:12px; overflow:hidden;
@@ -2754,8 +2800,8 @@ body.focus-mode .tracking-expanded {
 .skin-card.owned { border-color:rgba(120,255,180,0.45); }
 /* 皮肤立绘：官方立绘是 1024^2 方形全身图，这里取上半身缩略图 */
 .skin-art {
-    position:relative; width:100%; padding-top:62%;
-    background-size:cover; background-position:center 18%; background-repeat:no-repeat;
+    position:relative; width:100%; padding-top:80%;
+    background-size:cover; background-position:center 16%; background-repeat:no-repeat;
     background-color:rgba(0,0,0,0.35);
     display:flex; align-items:center; justify-content:center;
 }
@@ -2774,12 +2820,12 @@ body.focus-mode .tracking-expanded {
     font-size:10px; font-weight:700; padding:2px 7px; border-radius:9px;
     background:rgba(60,220,140,0.9); color:#06301c;
 }
-.skin-card-body { display:flex; flex-direction:column; gap:4px; padding:10px 12px 12px; }
+.skin-card-body { display:flex; flex-direction:column; gap:5px; padding:12px 15px 15px; }
 .skin-card-top { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.skin-op-name { font-size:14px; font-weight:700; color:#fff; }
-.skin-series { font-size:10px; color:rgba(190,205,225,0.65); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.skin-name { font-size:13px; color:rgba(240,240,250,0.92); }
-.skin-tier { font-size:11px; color:rgba(200,210,225,0.7); }
+.skin-op-name { font-size:16px; font-weight:700; color:#fff; }
+.skin-series { font-size:11.5px; color:rgba(190,205,225,0.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.skin-name { font-size:14px; color:rgba(240,240,250,0.92); }
+.skin-tier { font-size:12px; color:rgba(200,210,225,0.75); }
 .skin-card-bottom { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
 .skin-price { font-size:13px; font-weight:700; color:#7fd8ff; display:inline-flex; align-items:center; gap:4px; }
 .skin-price i { font-size:11px; }
@@ -2820,7 +2866,24 @@ body.focus-mode .tracking-expanded {
     background:rgba(0,0,0,0.35);
     box-shadow:0 26px 80px rgba(0,0,0,0.75);
     border:1px solid rgba(255,255,255,0.14);
+    /* 缩放以画面中心为原点；用 transform 而不是改宽高，避免重排导致缩放卡顿 */
+    transform-origin:center center;
+    will-change:transform;
+    cursor:zoom-in;
+    user-select:none; -webkit-user-drag:none;
+    touch-action:none;
 }
+/* 放大后可拖动平移；拖拽过程用抓取光标，给一点「手里有东西」的反馈 */
+.skin-lightbox.is-zoomed .skin-lightbox-img { cursor:grab; }
+.skin-lightbox.is-zoomed .skin-lightbox-img.is-dragging { cursor:grabbing; }
+/* 缩放操作提示（只在放大态显示，平时不干扰画面） */
+.skin-lightbox-hint {
+    position:absolute; left:50%; top:-34px; transform:translateX(-50%);
+    display:flex; align-items:center; gap:8px; white-space:nowrap;
+    font-size:12px; letter-spacing:0.06em; color:rgba(210,220,235,0.72);
+    opacity:0; transition:opacity .25s ease; pointer-events:none;
+}
+.skin-lightbox.is-zoomed .skin-lightbox-hint { opacity:1; }
 /* 说明文字绝对定位浮在画面下方：不占舞台高度，画面才能真正居中 */
 .skin-lightbox-cap {
     position:absolute; left:50%; bottom:-34px; transform:translateX(-50%);
@@ -3234,35 +3297,25 @@ body.focus-mode .tracking-timer {
     margin-left: 0;
 }
 
-/* 色条：纯装饰，低星也保持精致 */
-.task-card,
-.task-card.status-todo,
-.task-card.status-in_progress,
-.task-card.status-paused,
-.task-card.status-done,
-.task-card.status-cancelled {
-    border-left: 1px solid rgba(255,255,255,0.07);
-}
-.task-card::after {
-    content:'';
-    position:absolute;
-    left:0;
-    top:0;
-    bottom:0;
-    width:8px;
-    background:
-        linear-gradient(180deg, rgba(232,184,24,0.55), rgba(232,184,24,0.06) 26%, transparent 36%),
-        linear-gradient(180deg, transparent 0%, rgba(58,128,208,0.28) 48%, transparent 62%),
-        linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));
-    border-left:1px solid rgba(255,255,255,0.06);
-    border-right:1px solid rgba(0,0,0,0.25);
-    border-radius:0 5px 5px 0;
-    opacity:0.85;
-    filter:none;
-    box-shadow:
-        inset 0 0 8px rgba(0,0,0,0.25),
-        1px 0 6px rgba(0,0,0,0.3);
-}
+/* 色条：按任务状态分级着色 —— 恢复。
+   （曾有一段「纯装饰」覆盖把这里统一成 1px 近透明，卡片左侧于是完全没有分级，
+     用户反馈「我以前的分级色条没了」就是它。这里把 4px 状态色条恢复并加强，
+     同时去掉那段与状态无关的装饰渐变 ::after。） */
+.task-card { border-left:4px solid rgba(255,255,255,0.14); }
+.task-list .task-card.status-todo,
+.task-card.status-todo        { border-left-color:#8A93A6; }
+.task-list .task-card.status-in_progress,
+.task-card.status-in_progress { border-left-color:#3A80D0; }
+.task-list .task-card.status-paused,
+.task-card.status-paused      { border-left-color:#C8A020; }
+.task-list .task-card.status-done,
+.task-card.status-done        { border-left-color:#40A068; }
+.task-list .task-card.status-cancelled,
+.task-card.status-cancelled   { border-left-color:#6A6A62; }
+/* 色条本身给一点内发光，暗底上才看得清「这是分级」而不是缺口 */
+.task-card.status-in_progress { box-shadow:0 16px 32px rgba(0,0,0,0.6), -2px 0 12px rgba(58,128,208,0.28); }
+.task-card.status-done        { box-shadow:0 16px 32px rgba(0,0,0,0.6), -2px 0 12px rgba(64,160,104,0.22); }
+.task-card.status-paused      { box-shadow:0 16px 32px rgba(0,0,0,0.6), -2px 0 12px rgba(230,180,40,0.22); }
 
 /* 任务描述透明度分层 */
 .task-desc,
@@ -4737,9 +4790,9 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 }
 .op-featured-strip { display:flex; flex-wrap:wrap; gap:10px; }
 
-.op-chip { display:flex; flex-direction:column; align-items:center; gap:6px; width:72px; }
+.op-chip { display:flex; flex-direction:column; align-items:center; gap:7px; width:92px; flex:0 0 92px; }
 .op-chip-art {
-    position:relative; width:72px; height:72px; border-radius:10px;
+    position:relative; width:92px; height:92px; border-radius:12px;
     background-size:cover; background-position:center 14%; background-repeat:no-repeat;
     background-color:rgba(255,255,255,0.05);
     border:1px solid rgba(255,255,255,0.14);
@@ -4753,26 +4806,31 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .op-chip.rarity-4 .op-chip-art { border-color:rgba(74,163,255,0.45); }
 .op-chip.rarity-3 .op-chip-art { border-color:rgba(95,207,106,0.4); }
 .op-chip-star {
-    position:absolute; right:3px; bottom:3px;
-    font-size:9px; font-weight:800; padding:2px 5px; border-radius:6px;
-    background:rgba(0,0,0,0.78); color:#FFCF4D; line-height:1.3;
+    position:absolute; left:0; right:0; bottom:5px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:10px; font-weight:800; padding:0; border-radius:0;
+    /* 原版干员的星级是直接压在立绘上的金色星星，没有底板。
+       去掉黑色药丸，改用投影保证暗部也能看清。 */
+    background:none; border:none; box-shadow:none; line-height:1;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,0.95)) drop-shadow(0 0 5px rgba(0,0,0,0.7));
 }
-.op-chip.rarity-5 .op-chip-star { color:#B07CFF; }
-.op-chip.rarity-4 .op-chip-star { color:#4AA3FF; }
-.op-chip.rarity-3 .op-chip-star { color:#5FCF6A; }
+.op-chip-star .g-star { font-size:10px; color:var(--highlight-gold-1); }
+.op-chip.rarity-5 .op-chip-star,
+.op-chip.rarity-4 .op-chip-star,
+.op-chip.rarity-3 .op-chip-star { color:var(--highlight-gold-1); }
 .op-chip-name {
-    font-size:12px; color:var(--text-secondary-2); text-align:center;
-    max-width:72px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    font-size:13px; color:var(--text-secondary-2); text-align:center;
+    max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
 }
-.op-chip.sm { width:62px; }
-.op-chip.sm .op-chip-art { width:62px; height:62px; border-radius:9px; font-size:18px; }
-.op-chip.sm .op-chip-name { max-width:62px; font-size:11px; }
+.op-chip.sm { width:80px; }
+.op-chip.sm .op-chip-art { width:80px; height:80px; border-radius:10px; font-size:20px; }
+.op-chip.sm .op-chip-name { max-width:80px; font-size:12px; }
 
 /* ============================================================
    时装商店：分区货架
    「可购买」= 已持有干员的时装；「商店货架」= 每日轮换的真实皮肤预览
    ============================================================ */
-.skin-shop-list { display:block; max-height:48vh; overflow-y:auto; padding-right:4px; }
+.skin-shop-list { display:block; max-height:66vh; overflow-y:auto; padding-right:6px; }
 .skin-section-head {
     display:flex; align-items:baseline; justify-content:space-between; gap:10px;
     margin:2px 0 10px; padding-bottom:7px;
@@ -4785,8 +4843,9 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     color:var(--highlight-gold-2); text-shadow:0 0 12px rgba(255,208,40,0.35);
 }
 .skin-section-note { flex:1 1 auto; text-align:right; font-size:11px; color:var(--text-muted-3); }
+/* 卡片太小 → 必须点开才看得清。列宽从 186 提到 268，每行少放几张、每张大一圈。 */
 .skin-section-grid {
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(186px, 1fr)); gap:10px;
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:18px;
 }
 
 .skin-lock-badge {
@@ -4808,7 +4867,7 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
    礼包卡片（覆盖上方旧的三行文字版）
    名称 + 价格 + 内容物真实图标条 + 购买按钮
    ============================================================ */
-.gift-packs-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(236px, 1fr)); gap:14px; }
+.gift-packs-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(278px, 1fr)); gap:16px; align-items:stretch; }
 .gp-empty {
     grid-column:1/-1; padding:24px; text-align:center;
     color:var(--text-muted-3); font-size:13px;
@@ -4838,41 +4897,56 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 
 .gp-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .gp-name { font-size:14px; font-weight:800; color:var(--text-primary); line-height:1.35; }
-.gp-price {
-    flex:0 0 auto; display:inline-flex; align-items:center; gap:4px;
-    font-size:12.5px; font-weight:800; color:#FFE066;
-    background:rgba(255,208,40,0.12); border:1px solid rgba(255,208,40,0.34);
-    padding:2px 8px; border-radius:9px;
-}
-.gp-price i { font-size:10px; }
+/* 售价不再挂在卡片右上角（和「本页礼包」标题挤在一起），改由底部按钮承载 */
+.gp-price { display:none; }
 .gp-desc { font-size:11.5px; line-height:1.6; color:var(--text-secondary-1); }
 
 .gp-contents {
-    display:flex; flex-wrap:wrap; gap:8px;
-    padding:9px 8px; border-radius:10px;
+    display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start;
+    padding:11px 10px; border-radius:10px;
     background:rgba(0,0,0,0.24); border:1px solid rgba(255,255,255,0.05);
 }
-.gp-chip { display:flex; flex-direction:column; align-items:center; gap:3px; width:52px; }
+/* 货币类原来只有「图标 + 数字」两行、素材类有「图标 + 数量 + 名称」三行，
+   两种卡片高度不一致 → 排列看着乱。现在统一成三件套：图标 / 数量 / 名称。 */
+.gp-chip { display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; }
 .gp-chip img {
-    width:34px; height:34px; object-fit:contain; border-radius:8px;
+    width:42px; height:42px; object-fit:contain; border-radius:9px;
     background:rgba(255,255,255,0.05);
 }
-.gp-chip b { font-size:11.5px; font-weight:800; color:#FFE9A8; line-height:1; }
+.gp-chip b { font-size:12.5px; font-weight:800; color:#FFE9A8; line-height:1; font-family:var(--font-display); }
 .gp-chip i {
-    font-style:normal; font-size:9.5px; color:var(--text-secondary-5);
+    font-style:normal; font-size:11px; color:var(--text-secondary-3);
     text-align:center; width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    line-height:1.2;
 }
 .gp-chip-empty { font-size:11px; color:var(--text-muted-3); }
 /* margin-top:auto —— 让长短不一的礼包卡片，购买按钮都贴在卡片底部对齐 */
+/* 购买按钮 = 价格牌：直接显示「源石图标 + 单价」，按钮上不再写「购买」二字 */
 .gp-buy {
-    margin-top:auto; padding:8px 0; border-radius:9px;
-    border:1px solid rgba(255,208,40,0.45);
-    background:linear-gradient(180deg, rgba(255,208,40,0.2), rgba(255,160,0,0.1));
-    color:#FFE9A8; font-size:12.5px; font-weight:800; letter-spacing:2px; text-indent:2px;
-    cursor:pointer; font-family:inherit;
-    transition:background .18s ease, border-color .18s ease;
+    margin-top:auto; padding:10px 0; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; gap:9px;
+    border:1px solid rgba(255,214,110,0.65);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.05) 44%, rgba(120,66,0,0.32) 100%),
+        linear-gradient(180deg, #F7D06A 0%, #E0A81C 100%);
+    color:#3A2400; font-size:17px; font-weight:800; letter-spacing:0.02em;
+    font-family:var(--font-display);
+    cursor:pointer;
+    text-shadow:0 1px 0 rgba(255,255,255,0.35);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.7),
+        inset 0 -2px 5px rgba(110,66,0,0.4),
+        0 4px 14px rgba(240,180,40,0.3);
+    transition:transform .12s ease, box-shadow .12s ease, filter .16s ease;
 }
-.gp-buy:hover { background:linear-gradient(180deg, rgba(255,208,40,0.34), rgba(255,160,0,0.2)); border-color:rgba(255,208,40,0.7); }
+.gp-buy img { width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
+.gp-buy:hover { filter:brightness(1.07); }
+.gp-buy:active { transform:translateY(2px); box-shadow:inset 0 2px 6px rgba(90,55,0,0.65), 0 1px 2px rgba(0,0,0,0.4); }
+.gp-buy.gp-buy-locked {
+    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.25)), linear-gradient(180deg, #3B3E45, #24262B);
+    border-color:rgba(255,255,255,0.16); color:var(--text-muted-2);
+    text-shadow:none; box-shadow:inset 0 1px 0 rgba(255,255,255,0.16); cursor:not-allowed; filter:none;
+}
 
 /* 时装商店：无可购买项时的说明条 */
 .skin-empty-buy {
@@ -4946,6 +5020,11 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     text-shadow:0 2px 4px rgba(0,0,0,0.6), 0 0 6px rgba(232,184,24,0.55);
 }
 .g-star::before { content:'\2605'; }
+/* 紧凑：★ 字形左右各带约 0.11em 的天然留白，再叠加 gap 就会显得「散」。
+   这里把 gap 归零、并用负 margin 吃掉字形留白，让星星连成一条，像原版那样成串。 */
+.g-stars { gap:0; letter-spacing:0; }
+.g-star { margin-right:-0.16em; }
+.g-star:last-child { margin-right:0; }
 /* 上下文尺寸：颜色与光晕共用，只调字号 */
 .task-detail-stars .g-star { font-size:20px; }
 .op-hero-rarity .g-star { font-size:17px; }
@@ -4957,15 +5036,25 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .op-chip.rarity-5 .op-chip-star, .op-chip.rarity-4 .op-chip-star,
 .op-chip.rarity-3 .op-chip-star { color:#FFD75E; }
 .rarity-5 .op-star, .rarity-4 .op-star, .rarity-3 .op-star { color:#FFD75E; }
-.op-card-stars { display:flex; justify-content:center; }
+.op-card-stars { display:flex; justify-content:center; background:none; border:none; box-shadow:none; }
 
 /* ---------- 2) 内联资源图标 ---------- */
-.res-ico { width:1.3em; height:1.3em; object-fit:contain; display:inline-block; vertical-align:-0.28em; }
-.res-amt { display:inline-flex; align-items:center; gap:6px; }
-.res-amt b { font-family:var(--font-mono); font-size:1.02em; font-weight:700; color:var(--text-primary); letter-spacing:0.02em; }
+.res-ico { width:1.75em; height:1.75em; object-fit:contain; display:inline-block; vertical-align:-0.44em; filter:drop-shadow(0 2px 5px rgba(0,0,0,0.6)); }
+.res-amt { display:inline-flex; align-items:center; gap:8px; }
+.res-amt b { font-family:var(--font-display); font-size:1.32em; font-weight:700; color:var(--text-primary); letter-spacing:0.02em; }
+/* 「当前持有」整条：给一个明确的基准字号，让里面的 em 单位有依托 */
+.resource-balance-display { font-size:16px; }
+#operatorGachaOrundumBalance, #skinShopBalance, #exchangeLungmenBalance {
+    padding:9px 14px; border-radius:11px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.22));
+    border:1px solid rgba(255,255,255,0.09);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 8px rgba(0,0,0,0.3);
+}
+/* 用户连续三轮反馈「当前持有太小」——这次直接按视觉主信息量级给字号，
+   不再只加 1~2px。 */
 .res-own-label {
-    font-family:var(--font-display); font-size:13px; font-weight:600; letter-spacing:0.12em;
-    color:var(--text-secondary-1); margin-right:10px;
+    font-family:var(--font-display); font-size:17px; font-weight:700; letter-spacing:0.14em;
+    color:var(--text-secondary-2); margin-right:14px;
 }
 .resource-balance-display { display:flex; align-items:center; gap:8px; }
 
@@ -5049,11 +5138,24 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 /* 底部操作条按钮：复用 .btn 圆角玻璃风格，保留「标签 + 费用」纵向排布 */
 .gh-act {
     position:relative; flex:1 1 0; min-width:0;
-    display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
-    padding:10px 12px; cursor:pointer; font-family:inherit;
-    border:1px solid rgba(255,255,255,0.12); border-radius:8px;
-    background:var(--glass-2); color:var(--text-secondary-1);
-    transition:all var(--transition-fast);
+    display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+    padding:11px 14px; cursor:pointer; font-family:inherit;
+    border:1px solid rgba(255,255,255,0.16); border-radius:10px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 42%, rgba(0,0,0,0.26) 100%),
+        linear-gradient(180deg, #41454D 0%, #282B31 100%);
+    color:var(--text-secondary-1);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.28),
+        inset 0 -1px 0 rgba(0,0,0,0.5),
+        0 4px 12px rgba(0,0,0,0.5);
+    text-shadow:0 1px 2px rgba(0,0,0,0.7);
+    transition:transform .12s ease, box-shadow .12s ease, filter .16s ease, border-color .16s ease;
+}
+.gh-act:hover:not(:disabled) { filter:brightness(1.18); }
+.gh-act:active:not(:disabled) {
+    transform:translateY(2px);
+    box-shadow:inset 0 2px 7px rgba(0,0,0,0.7), 0 1px 2px rgba(0,0,0,0.45);
 }
 .gh-act .gh-act-label { font-size:15px; font-weight:600; letter-spacing:0.04em; }
 .gh-act .gh-act-label b { font-family:var(--font-mono); }
@@ -5066,11 +5168,27 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     background:rgba(255,255,255,0.15); color:var(--text-primary);
     transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.3);
 }
-.gh-act.primary { border-color:rgba(232,184,24,0.35); background:linear-gradient(135deg, rgba(232,184,24,0.22), rgba(232,184,24,0.12)); color:var(--highlight-gold-1); }
-.gh-act.primary .gh-act-cost { color:#f0c860; }
+.gh-act.primary {
+    border-color:rgba(255,214,110,0.7);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.34) 0%, rgba(255,255,255,0.06) 44%, rgba(120,66,0,0.34) 100%),
+        linear-gradient(180deg, #F7D06A 0%, #DDA215 100%);
+    color:#3A2400;
+    text-shadow:0 1px 0 rgba(255,255,255,0.4);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.8),
+        inset 0 -2px 5px rgba(110,66,0,0.4),
+        0 5px 18px rgba(240,180,40,0.42);
+}
+.gh-act.primary .gh-act-label,
+.gh-act.primary .gh-act-label b,
+.gh-act.primary .gh-act-cost { color:#5A3A00; }
 .gh-act.primary:hover:not(:disabled) {
-    background:rgba(232,184,24,0.28); color:#ffe9a8;
-    box-shadow:0 4px 12px rgba(232,184,24,0.25);
+    filter:brightness(1.06);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        inset 0 -2px 5px rgba(110,66,0,0.4),
+        0 7px 22px rgba(240,180,40,0.55);
 }
 .gh-act.ghost { flex:0 0 auto; min-width:88px; border-color:rgba(255,255,255,0.12); background:var(--glass-2); color:var(--text-secondary-1); }
 .gh-act:disabled { opacity:0.4; cursor:not-allowed; }
@@ -5283,7 +5401,7 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
    5) 时装商店
    ============================================================ */
 /* 固定窗口高度：切换「已拥有」等筛选时不再让窗口和按钮位置突然跳一下 */
-#skinShopModal.modal-container { width:min(1040px, 96vw); }
+#skinShopModal.modal-container { width:min(1280px, 94vw); }
 .modal-skin-shop {
     display:flex; flex-direction:column;
     width:100%;
@@ -5308,7 +5426,17 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .skin-buy-btn { padding:8px 22px; font-size:14px; }
 /* 筛选按钮：方舟式标签 */
 .skin-filter-btn { border-radius:8px; }
-.skin-filter-btn.active { background:linear-gradient(180deg,#ffd666,#e0a51c); color:#2a1a00; border-color:rgba(255,236,168,0.9); }
+.skin-filter-btn.active {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.06) 42%, rgba(120,70,0,0.34) 100%),
+        linear-gradient(180deg, #FFE28A 0%, #F0B429 52%, #C8860C 100%);
+    color:#2A1A00; border-color:rgba(255,226,150,0.9);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.85),
+        inset 0 -2px 5px rgba(110,66,0,0.45),
+        0 4px 16px rgba(240,180,40,0.42);
+    text-shadow:0 1px 0 rgba(255,255,255,0.4);
+}
 .skin-section-kicker { font-family:var(--font-display); font-size:13px; letter-spacing:0.20em; }
 
 /* ============================================================
@@ -5317,61 +5445,83 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .gp-price { gap:5px; color:#ffe066; }
 .gp-price .res-ico { width:19px; height:19px; }
 .gp-price b { font-family:var(--font-mono); font-size:14.5px; font-weight:700; }
-.gp-contents { gap:10px 8px; }
-.gp-chip.is-res { width:auto; min-width:46px; padding:0 2px; }
-.gp-chip.is-res img { width:34px; height:34px; }
-.gp-chip.is-mat { width:56px; }
-.gp-buy { margin-top:auto; width:100%; padding:10px 0; font-size:14px; }
+.gp-contents { gap:12px 10px; }
+/* 货币与素材用完全相同的盒子尺寸 —— 之前 is-res 宽 auto、is-mat 宽 56，
+   两种卡片高度差 7px，网格里看着就是「排列不一致」。 */
+.gp-chip,
+.gp-chip.is-res,
+.gp-chip.is-mat { width:64px; min-width:64px; padding:0; }
+.gp-chip.is-res img,
+.gp-chip.is-mat img { width:42px; height:42px; }
+.gp-buy { margin-top:auto; width:100%; padding:10px 0; }
 
 /* ============================================================
    7) 资源兑换（原版换物窗口）
    ============================================================ */
 .modal-exchange { width:min(600px, 94vw); }
 /* 顶部：持有量 + 规则说明开关（说明默认收起，靠 ⓘ 展开） */
-.ex-topbar { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.ex-topbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
 .ex-topbar .resource-balance-display { flex:1 1 auto; flex-wrap:wrap; }
+/* ⓘ 现在与关闭按钮同在标题栏右侧，共用同一套 icon-btn 尺寸，不再错位 */
+.modal-header .gh-info-btn { position:static; margin-left:auto; margin-right:8px; }
 .ex-rate { margin-bottom:10px; }
+/* 之前这里是一个独立的圆角卡片（背景 + 边框），窗口里于是套了好几层「卡片」，
+   看起来像内嵌了一堆小窗。改成透明、无边界的舞台，直接铺在弹窗里。 */
 .ex-stage {
-    display:flex; align-items:center; justify-content:center; gap:18px;
-    padding:18px 14px; margin:6px 0 14px; border-radius:12px;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.18)),
-        radial-gradient(ellipse at 50% 30%, rgba(90,150,220,0.12), transparent 70%);
-    border:1px solid rgba(255,255,255,0.08);
+    display:flex; align-items:flex-start; justify-content:center; gap:34px;
+    padding:14px 10px 6px; margin:4px 0 14px; border-radius:0;
+    background:none;
+    border:none;
 }
 .ex-side { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:96px; }
 .ex-res {
-    position:relative; width:78px; height:78px; border-radius:14px;
+    position:relative; width:78px; height:78px; border-radius:0;
     display:flex; align-items:center; justify-content:center;
-    background:radial-gradient(circle at 50% 36%, rgba(255,255,255,0.10), rgba(0,0,0,0.35) 70%);
-    border:1px solid rgba(255,255,255,0.12);
-    box-shadow:inset 0 0 18px rgba(0,0,0,0.5);
+    background:none; border:none; box-shadow:none;
 }
-.ex-res img { width:60px; height:60px; object-fit:contain; filter:drop-shadow(0 3px 10px rgba(0,0,0,0.7)); }
-.ex-res-name { font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--text-primary-2); letter-spacing:0.16em; }
+.ex-res img { width:78px; height:78px; object-fit:contain; filter:drop-shadow(0 5px 16px rgba(0,0,0,0.8)) drop-shadow(0 0 14px rgba(255,190,60,0.18)); }
+.ex-res-name { font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--text-primary-2); letter-spacing:0.16em; }
 /* 「消耗 / 获得」明确标注 + 大号数字：中间不再是「源石 → 当前持有合成玉」这种会被误读成
    折算结果的排布（用户反馈的歧义点） */
 .ex-own {
-    display:inline-flex; align-items:baseline; gap:7px;
-    font-family:var(--font-display); font-size:13px; font-weight:600;
+    display:inline-flex; align-items:baseline; gap:8px;
+    font-family:var(--font-display); font-size:15px; font-weight:700;
     color:var(--text-muted-2); letter-spacing:0.10em;
 }
 .ex-own b {
-    font-family:var(--font-mono); font-size:26px; font-weight:700;
-    letter-spacing:0; color:var(--highlight-gold-1);
-    text-shadow:0 0 14px rgba(255,196,60,0.35);
+    font-family:var(--font-display); font-size:30px; font-weight:700;
+    letter-spacing:0.01em; color:var(--highlight-gold-1);
+    text-shadow:0 0 16px rgba(255,196,60,0.4);
 }
-.ex-own.is-gain b { color:#7dffb0; text-shadow:0 0 14px rgba(125,255,176,0.35); }
-.ex-flow { font-size:26px; color:var(--highlight-gold-1); opacity:0.9; }
+/* 合成玉不用绿色（用户明确否掉）：它与源石同为「资源」，统一金色，
+   靠标签文字区分消耗 / 获得即可。 */
+.ex-own.is-gain b { color:var(--highlight-gold-1); text-shadow:0 0 14px rgba(255,196,60,0.35); }
+/* 箭头原来的垂直位置受 .ex-stage 的 align-items:center 影响，
+   会落在「图标 + 名称 + 数值」整列的中线上，看起来比图标低一截（用户说的「歪」）。
+   这里把箭头自身做成与图标等高的容器并贴顶，内部再居中——
+   于是它精确对齐两侧图标的水平中心线。 */
+.ex-flow {
+    align-self:flex-start; height:78px; display:flex; align-items:center; justify-content:center;
+    font-size:28px; color:var(--highlight-gold-1); opacity:0.95;
+    filter:drop-shadow(0 0 10px rgba(255,196,60,0.45));
+}
 
 .ex-stepper { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
 .ex-step {
-    min-width:44px; height:40px; padding:0 12px; cursor:pointer; font-family:var(--font-mono);
-    background:var(--glass-2); border:1px solid rgba(255,255,255,0.12);
-    color:var(--text-primary); border-radius:8px; font-size:15px;
-    transition:all var(--transition-fast);
+    min-width:46px; height:42px; padding:0 12px; cursor:pointer; font-family:var(--font-mono);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.03) 42%, rgba(0,0,0,0.24) 100%),
+        linear-gradient(180deg, #3C4046 0%, #26292E 100%);
+    border:1px solid rgba(255,255,255,0.15);
+    color:var(--text-primary); border-radius:9px; font-size:15px; font-weight:700;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.26),
+        inset 0 -1px 0 rgba(0,0,0,0.45),
+        0 3px 8px rgba(0,0,0,0.45);
+    transition:transform .12s ease, box-shadow .12s ease, filter .16s ease, border-color .16s ease;
 }
-.ex-step:hover { background:rgba(255,255,255,0.15); border-color:rgba(232,184,24,0.45); color:var(--text-primary); }
+.ex-step:hover { filter:brightness(1.2); border-color:rgba(232,184,24,0.5); }
+.ex-step:active { transform:translateY(2px); box-shadow:inset 0 2px 6px rgba(0,0,0,0.65), 0 1px 2px rgba(0,0,0,0.4); }
 .ex-input {
     flex:1 1 auto; min-width:0; height:40px; text-align:center;
     background:rgba(0,0,0,0.34); border:1px solid rgba(255,255,255,0.12);
@@ -5380,20 +5530,28 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 }
 .ex-input:focus { border-color:rgba(255,208,40,0.6); }
 .ex-max {
-    height:36px; padding:0 14px; cursor:pointer; font-family:var(--font-display); font-size:13px; font-weight:600;
-    background:rgba(255,208,40,0.12); border:1px solid rgba(255,208,40,0.4);
-    color:#ffe9a8; border-radius:8px;
+    height:42px; padding:0 16px; cursor:pointer; font-family:var(--font-display); font-size:13px; font-weight:700;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.05) 44%, rgba(120,66,0,0.32) 100%),
+        linear-gradient(180deg, #F7D06A 0%, #E0A81C 100%);
+    border:1px solid rgba(255,214,110,0.65);
+    color:#3A2400; border-radius:9px;
+    text-shadow:0 1px 0 rgba(255,255,255,0.35);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.7),
+        inset 0 -2px 5px rgba(110,66,0,0.4),
+        0 3px 10px rgba(240,180,40,0.32);
+    transition:transform .12s ease, box-shadow .12s ease, filter .16s ease;
 }
-.ex-max:hover { background:rgba(255,208,40,0.24); }
-.ex-preview {
-    display:flex; align-items:center; justify-content:center; gap:12px;
-    padding:12px; border-radius:10px; margin-bottom:4px;
-    background:rgba(0,0,0,0.26); border:1px solid rgba(255,255,255,0.06);
-}
+.ex-max:hover { filter:brightness(1.08); }
+.ex-max:active { transform:translateY(2px); box-shadow:inset 0 2px 6px rgba(90,55,0,0.65), 0 1px 2px rgba(0,0,0,0.4); }
+/* 这一条原来是重复的折算公式（「1 源石 = 180 合成玉」），上方大字已经能直接读到，
+   属于冗余信息，默认隐藏；只有文案真的需要时才占位。 */
+.ex-preview { display:none; }
 .ex-preview-side { display:inline-flex; align-items:center; gap:6px; }
 .ex-preview-side .res-ico { width:22px; height:22px; }
 .ex-preview-side b { font-family:var(--font-mono); font-size:16px; font-weight:700; }
-.ex-preview-side.ok b { color:#7dffb0; }
+.ex-preview-side.ok b { color:var(--highlight-gold-1); }
 .ex-preview-arrow { color:var(--highlight-gold-1); }
 .ex-preview-rate { font-family:var(--font-display); font-size:13px; font-weight:600; color:var(--text-muted-2); letter-spacing:0.08em; }
 .modal-exchange .form-actions { align-items:center; }

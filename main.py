@@ -1625,8 +1625,14 @@ async def http_exception_handler(request, exc):
 # ---------- API 路由 ----------
 @app.get("/api/version")
 async def get_version():
-    """版本号由 Git 自动生成（提交日期 + 提交数），不再手工维护 V1.0。"""
-    return {"data": app_version_info()}
+    """版本号固定为 V1.0（用户要求：不再随 git 提交数自动变化）。
+
+    构建信息（build / commit / date / subject）仍然保留，鼠标悬停能看到，
+    只是顶栏显示的那个版本号不再滚动。
+    """
+    info = dict(app_version_info())
+    info["version"] = "V1.0"
+    return {"data": info}
 
 
 @app.get("/api/tasks/tree")

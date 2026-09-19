@@ -295,7 +295,6 @@ function cacheDOM() {
     DOM.operatorGachaBtn = document.getElementById('operatorGachaBtn');
     DOM.operatorGachaModal = document.getElementById('operatorGachaModal');
     DOM.operatorGachaClose = document.getElementById('operatorGachaClose');
-    DOM.operatorGachaCancel = document.getElementById('operatorGachaCancel');
     DOM.operatorGachaSingle = document.getElementById('operatorGachaSingle');
     DOM.operatorGachaTen = document.getElementById('operatorGachaTen');
     DOM.operatorGachaOrundumBalance = document.getElementById('operatorGachaOrundumBalance');
@@ -307,7 +306,6 @@ function cacheDOM() {
     DOM.skinShopBtn = document.getElementById('skinShopBtn');
     DOM.skinShopModal = document.getElementById('skinShopModal');
     DOM.skinShopClose = document.getElementById('skinShopClose');
-    DOM.skinShopCancel = document.getElementById('skinShopCancel');
     DOM.skinShopList = document.getElementById('skinShopList');
     DOM.skinShopBalance = document.getElementById('skinShopBalance');
     DOM.skinFilterRow = document.getElementById('skinFilterRow');
@@ -524,7 +522,6 @@ function bindEvents() {
 
     // 干员寻访（抽卡）
     if (DOM.operatorGachaBtn) DOM.operatorGachaBtn.addEventListener('click', openOperatorGacha);
-    DOM.operatorGachaCancel.addEventListener('click', closeAllModals);
     DOM.operatorGachaClose.addEventListener('click', closeAllModals);
     DOM.operatorGachaSingle.addEventListener('click', () => handleOperatorGacha(1));
     DOM.operatorGachaTen.addEventListener('click', () => handleOperatorGacha(10));
@@ -545,7 +542,7 @@ function bindEvents() {
     // 时装商店
     if (DOM.skinShopBtn) DOM.skinShopBtn.addEventListener('click', openSkinShop);
     if (DOM.skinShopClose) DOM.skinShopClose.addEventListener('click', closeAllModals);
-    if (DOM.skinShopCancel) DOM.skinShopCancel.addEventListener('click', closeAllModals);
+    // 右下角的「关闭」已去掉：右上角 ✕、ESC、点空白处都能退出，不需要第三个入口
     // 定价说明收进 ⓘ 按钮：默认不显示，点开才展开
     const skinInfoBtn = document.getElementById('skinShopInfoBtn');
     const skinInfoPanel = document.getElementById('skinShopInfoPanel');
@@ -2585,14 +2582,15 @@ function renderGiftPacks(){
     avail.forEach(pack => {
         const { res, mats } = parsePackContents(pack);
         const chips = [];
-        // 货币类：只留图标 + 数量，名字靠 title 提示——方舟里没人把「合成玉」三个字贴在图标下面
+        // 货币类：与素材类保持同一种「图标 / 数量 / 名称」三件套排布。
+        // （以前货币只给图标+数字、素材给三行，两种卡片高度不齐，看着就是「排列不一致」。）
         GP_RES_ORDER.forEach(k => {
             const v = res[k];
             if (!v) return;
             const name = GP_RES_NAME[k];
             chips.push(`<span class="gp-chip is-res" title="${name}">` +
                 `<img src="static/icons/${k}.png" alt="${name}" onerror="this.style.visibility='hidden'">` +
-                `<b>${formatWhNum(v)}</b></span>`);
+                `<b>${formatWhNum(v)}</b><i>${name}</i></span>`);
         });
         // 素材类：图标不一致，保留短名（截断 + 悬浮看全名）
         mats.forEach(m => {
@@ -2603,15 +2601,19 @@ function renderGiftPacks(){
         });
         const card = document.createElement('div');
         card.className = `gift-pack-card gp-r${pack.rarity || 1}`;
+        /* 售价不再放卡片右上角：那里和标题抢位置，且原版方舟的价格本来就钉在
+           底部操作键上。按钮直接做成价格牌——源石图标 + 单价，不再写「购买」二字。 */
+        const affordable = (state.resources.source_stone?.current_value || 0) >= pack.cost_source_stone;
         card.innerHTML =
             '<span class="gp-ribbon"></span>' +
             '<div class="gp-head">' +
                 `<span class="gp-name">${escapeHtml(pack.name)}</span>` +
-                `<span class="gp-price" title="售价 ${pack.cost_source_stone} 源石">${resIconHTML('source_stone')}<b>${pack.cost_source_stone}</b></span>` +
             '</div>' +
             `<div class="gp-desc">${escapeHtml(pack.description || '')}</div>` +
             `<div class="gp-contents">${chips.join('') || '<span class="gp-chip-empty">内容物生成中</span>'}</div>` +
-            '<button class="game-btn gp-buy" type="button"><span>购 买</span></button>';
+            `<button class="gp-buy${affordable ? '' : ' gp-buy-locked'}" type="button" ` +
+                `title="${affordable ? '购买' : '源石不足'}">` +
+                `${resIconHTML('source_stone')}<span>${pack.cost_source_stone}</span></button>`;
         card.addEventListener('click', () => purchaseGiftPack(pack.id));
         grid.appendChild(card);
     });
@@ -4382,7 +4384,9 @@ function updateExchangeCost(){
         to.innerHTML = '<span>获得</span>' + `<b>${formatWhNum(gained)}</b>`;
     }
     const el = DOM.exchangeCostDisplay;
-    if (el) el.innerHTML = `<span class="ex-preview-rate">1 源石 = ${EXCHANGE_RATE_STONE_TO_ORUNDUM} 合成玉</span>`;
+    /* 这一条原来复读「1 源石 = 180 合成玉」——上方大字已经同时给出消耗与获得，
+       公式属于冗余信息，用户明确要求去掉。保留容器但不填内容（CSS 里也已隐藏）。 */
+    if (el) el.innerHTML = '';
     const btn = DOM.exchangeConfirm;
     if (btn) btn.disabled = amount <= 0;
 }
@@ -4784,6 +4788,126 @@ async function handleSkinPurchase(skinId){
 }
 /* 时装大图预览：点立绘弹出全屏大图 */
 let skinLightbox = null;
+/* ===== 大图预览的缩放系统：滚轮 / 双指捏合 / 拖动平移 / 双击复位 =====
+   用 transform: translate(tx,ty) scale(s) 表达，范围 1x ~ 4x。
+   缩放锚点算法：让指针（或两指中点）下方那一点在缩放前后停在原地——
+   否则滚轮会把画面越推越偏，这也是大多数自研缩放最容易被察觉的破绽。 */
+const SKIN_ZOOM_MIN = 1, SKIN_ZOOM_MAX = 4;
+const skinZoom = {
+    scale: 1, tx: 0, ty: 0,
+    dragging: false, moved: false,
+    startX: 0, startY: 0, startTx: 0, startTy: 0,
+    pinchDist: 0,
+};
+function skinImageEl(){ return skinLightbox ? skinLightbox.querySelector('.skin-lightbox-img') : null; }
+function skinApplyZoom(){
+    const im = skinImageEl(); if (!im) return;
+    // 回到 1:1 且无位移时清掉 transform，避免残留子像素让立绘发虚
+    im.style.transform = (skinZoom.scale === 1 && skinZoom.tx === 0 && skinZoom.ty === 0)
+        ? ''
+        : `translate(${skinZoom.tx}px, ${skinZoom.ty}px) scale(${skinZoom.scale})`;
+    if (skinLightbox) {
+        skinLightbox.classList.toggle('is-zoomed', skinZoom.scale > 1.001);
+        const val = skinLightbox.querySelector('.skin-lightbox-zoomval');
+        if (val) val.textContent = skinZoom.scale > 1.001 ? skinZoom.scale.toFixed(1) + '×' : '';
+    }
+}
+function skinResetZoom(){
+    skinZoom.scale = 1; skinZoom.tx = 0; skinZoom.ty = 0; skinZoom.moved = false;
+    skinApplyZoom();
+}
+function skinZoomAt(clientX, clientY, factor){
+    const im = skinImageEl(); if (!im) return;
+    const next = Math.min(SKIN_ZOOM_MAX, Math.max(SKIN_ZOOM_MIN, skinZoom.scale * factor));
+    if (Math.abs(next - skinZoom.scale) < 1e-4) return;
+    const k = next / skinZoom.scale;
+    const r = im.getBoundingClientRect();
+    // 未变换时的元素中心 = 当前可视中心 − 当前平移量（translate 在最外层，不受 scale 影响）
+    const c0x = r.left + r.width / 2 - skinZoom.tx;
+    const c0y = r.top + r.height / 2 - skinZoom.ty;
+    const dx = clientX - c0x, dy = clientY - c0y;
+    skinZoom.tx = dx * (1 - k) + k * skinZoom.tx;
+    skinZoom.ty = dy * (1 - k) + k * skinZoom.ty;
+    skinZoom.scale = next;
+    if (next === SKIN_ZOOM_MIN) { skinZoom.tx = 0; skinZoom.ty = 0; }
+    skinApplyZoom();
+}
+function skinBindZoom(box){
+    const im = box.querySelector('.skin-lightbox-img');
+
+    // 滚轮缩放（以指针所在点为锚点）
+    box.addEventListener('wheel', e => {
+        if (box.classList.contains('hidden')) return;
+        e.preventDefault();
+        skinZoomAt(e.clientX, e.clientY, Math.pow(1.0016, -e.deltaY));
+    }, { passive: false });
+    // 触控板/触屏的双指捏合，浏览器在部分平台会转成 ctrl+wheel 派发
+    box.addEventListener('wheel', () => {}, { passive: true });
+
+    // 双击：已放大则复位，否则以双击点为锚点放大
+    im.addEventListener('dblclick', e => {
+        e.preventDefault();
+        if (skinZoom.scale > 1.001) skinResetZoom();
+        else skinZoomAt(e.clientX, e.clientY, 2.2);
+    });
+
+    // 鼠标拖动平移（仅在放大后生效，避免和「点图即关」冲突）
+    im.addEventListener('mousedown', e => {
+        if (skinZoom.scale <= 1.001) return;
+        e.preventDefault();
+        skinZoom.dragging = true; skinZoom.moved = false;
+        skinZoom.startX = e.clientX; skinZoom.startY = e.clientY;
+        skinZoom.startTx = skinZoom.tx; skinZoom.startTy = skinZoom.ty;
+        im.classList.add('is-dragging');
+    });
+    window.addEventListener('mousemove', e => {
+        if (!skinZoom.dragging) return;
+        const dx = e.clientX - skinZoom.startX, dy = e.clientY - skinZoom.startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) skinZoom.moved = true;
+        skinZoom.tx = skinZoom.startTx + dx;
+        skinZoom.ty = skinZoom.startTy + dy;
+        skinApplyZoom();
+    });
+    window.addEventListener('mouseup', () => {
+        if (!skinZoom.dragging) return;
+        skinZoom.dragging = false;
+        im.classList.remove('is-dragging');
+    });
+
+    // 触屏：双指捏合缩放 + 放大后单指拖动
+    let singleStart = null;
+    im.addEventListener('touchstart', e => {
+        if (e.touches.length === 2) {
+            singleStart = null;
+            skinZoom.pinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY);
+        } else if (e.touches.length === 1 && skinZoom.scale > 1.001) {
+            singleStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: skinZoom.tx, ty: skinZoom.ty };
+        }
+    }, { passive: true });
+    im.addEventListener('touchmove', e => {
+        if (e.touches.length === 2) {
+            e.preventDefault();
+            const d = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY);
+            const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            if (skinZoom.pinchDist > 0 && d > 0) skinZoomAt(cx, cy, d / skinZoom.pinchDist);
+            skinZoom.pinchDist = d;
+        } else if (e.touches.length === 1 && singleStart) {
+            e.preventDefault();
+            skinZoom.tx = singleStart.tx + (e.touches[0].clientX - singleStart.x);
+            skinZoom.ty = singleStart.ty + (e.touches[0].clientY - singleStart.y);
+            skinApplyZoom();
+        }
+    }, { passive: false });
+    im.addEventListener('touchend', e => {
+        if (e.touches.length < 2) skinZoom.pinchDist = 0;
+        if (e.touches.length === 0) singleStart = null;
+    });
+}
 function ensureSkinLightbox(){
     if (skinLightbox) return skinLightbox;
     skinLightbox = document.createElement('div');
@@ -4792,6 +4916,11 @@ function ensureSkinLightbox(){
     skinLightbox.innerHTML =
         '<div class="skin-lightbox-backdrop"></div>' +
         '<div class="skin-lightbox-stage">' +
+            '<div class="skin-lightbox-hint">' +
+                '<i class="fa-solid fa-magnifying-glass-plus"></i>' +
+                '<span>滚轮 / 双指缩放 · 拖动平移 · 双击复位</span>' +
+                '<b class="skin-lightbox-zoomval"></b>' +
+            '</div>' +
             '<img class="skin-lightbox-img" alt="时装预览">' +
             '<div class="skin-lightbox-cap"></div>' +
             '<button class="icon-btn skin-lightbox-close" type="button" aria-label="关闭"><i class="fa-solid fa-xmark"></i></button>' +
@@ -4802,9 +4931,12 @@ function ensureSkinLightbox(){
     // 点画面以外的任何地方都退出：舞台留白、说明文字、背景都算「空白处」
     const stage = skinLightbox.querySelector('.skin-lightbox-stage');
     stage.addEventListener('click', e => {
+        // 刚拖完画面松手（放大态下的平移）不应被当成「点了空白处」
+        if (skinZoom.moved) { skinZoom.moved = false; return; }
         if (e.target.closest('.skin-lightbox-img') || e.target.closest('.skin-lightbox-close')) return;
         closeSkinPreview();
     });
+    skinBindZoom(skinLightbox);
     return skinLightbox;
 }
 /* 预览优先用官方原图（1024×1024，从 assets-source 按需取），
@@ -4815,11 +4947,13 @@ function openSkinPreview(imgUrl, opName, skinName, fallbackUrl){
     im.onerror = () => { if (fallbackUrl && im.src !== fallbackUrl) im.src = fallbackUrl; im.onerror = null; };
     im.src = imgUrl || fallbackUrl || '';
     box.querySelector('.skin-lightbox-cap').textContent = `${opName} · ${skinName}`;
+    skinResetZoom();          // 每次打开都从 1:1 开始，不继承上一张的缩放
     box.classList.remove('hidden');
     requestAnimationFrame(() => box.classList.add('show'));
 }
 function closeSkinPreview(){
     if (!skinLightbox) return;
+    skinResetZoom();
     skinLightbox.classList.remove('show');
     setTimeout(() => skinLightbox.classList.add('hidden'), 200);
 }
