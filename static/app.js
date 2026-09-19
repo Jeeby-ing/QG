@@ -1739,6 +1739,16 @@ function createTaskCard(task) {
     }
     card.appendChild(indent);
 
+    /* 左侧分级色条：用独立元素，不用伪元素。
+       卡片的 ::before 是噪点层、::after 是"优先级顶部微光"，且后者由
+       .task-card[data-priority="N"]::after 以更高特异性声明 background ——
+       色条只要还在 ::after 上就永远被它盖掉（历史遗留的"色条看不见"根因）。
+       position:absolute 不参与 flex 排布，所以直接挂在卡片上即可。 */
+    const colorBar = document.createElement('span');
+    colorBar.className = 'task-colorbar';
+    colorBar.setAttribute('aria-hidden', 'true');
+    card.appendChild(colorBar);
+
     const main = document.createElement('div');
     main.className = 'task-main';
     const topRow = document.createElement('div');
