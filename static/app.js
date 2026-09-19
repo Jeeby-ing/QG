@@ -293,8 +293,18 @@ function cacheDOM() {
     DOM.gachaCloseHint = document.getElementById('gachaCloseHint');
     DOM.gachaOrundumBalance = document.getElementById('gachaOrundumBalance');
     DOM.operatorGachaBtn = document.getElementById('operatorGachaBtn');
+    // R20：干员寻访独立成视图，不再有弹窗（这里保留字段只为兼容旧引用）
     DOM.operatorGachaModal = document.getElementById('operatorGachaModal');
     DOM.operatorGachaClose = document.getElementById('operatorGachaClose');
+    DOM.shopTabBar = document.getElementById('shopTabBar');
+    DOM.shopPanels = document.querySelectorAll('#view-shop .pc-panel');
+    DOM.profileMedalEntry = document.getElementById('profileMedalEntry');
+    DOM.profileMedalCount = document.getElementById('profileMedalCount');
+    DOM.profilePackEntry = document.getElementById('profilePackEntry');
+    DOM.profileSkinEntry = document.getElementById('profileSkinEntry');
+    DOM.profileRealityEntry = document.getElementById('profileRealityEntry');
+    DOM.profileGachaEntry = document.getElementById('profileGachaEntry');
+    DOM.packBalance = document.getElementById('packBalance');
     DOM.operatorGachaSingle = document.getElementById('operatorGachaSingle');
     DOM.operatorGachaTen = document.getElementById('operatorGachaTen');
     DOM.operatorGachaOrundumBalance = document.getElementById('operatorGachaOrundumBalance');
@@ -522,7 +532,7 @@ function bindEvents() {
 
     // 干员寻访（抽卡）
     if (DOM.operatorGachaBtn) DOM.operatorGachaBtn.addEventListener('click', openOperatorGacha);
-    DOM.operatorGachaClose.addEventListener('click', closeAllModals);
+    if (DOM.operatorGachaClose) DOM.operatorGachaClose.addEventListener('click', closeAllModals);
     DOM.operatorGachaSingle.addEventListener('click', () => handleOperatorGacha(1));
     DOM.operatorGachaTen.addEventListener('click', () => handleOperatorGacha(10));
     // 整套演出支持点击跳过
@@ -563,6 +573,20 @@ function bindEvents() {
     });
 
     DOM.pomodoroStopBtn.addEventListener('click', stopPomodoro);
+
+    /* R20：采购中心内部标签切换 */
+    if (DOM.shopTabBar) DOM.shopTabBar.addEventListener('click', e => {
+        const btn = e.target.closest('.pc-tab');
+        if (!btn) return;
+        switchShopTab(btn.dataset.tab);
+        if (btn.dataset.tab === 'skin') loadSkins();
+    });
+    /* R20：主页的四个入口卡片 —— 直接跳到采购中心对应子页 / 寻访视图 */
+    if (DOM.profileMedalEntry) DOM.profileMedalEntry.addEventListener('click', () => { switchView('shop'); switchShopTab('medal'); });
+    if (DOM.profilePackEntry)  DOM.profilePackEntry.addEventListener('click',  () => { switchView('shop'); switchShopTab('pack'); });
+    if (DOM.profileSkinEntry)  DOM.profileSkinEntry.addEventListener('click',  () => { switchView('shop'); switchShopTab('skin'); loadSkins(); });
+    if (DOM.profileRealityEntry) DOM.profileRealityEntry.addEventListener('click', () => { switchView('shop'); switchShopTab('reality'); });
+    if (DOM.profileGachaEntry) DOM.profileGachaEntry.addEventListener('click', () => switchView('gacha'));
 
     DOM.newRealityRewardBtn.addEventListener('click', () => openRealityRewardModal());
     DOM.realityRewardForm.addEventListener('submit', handleRealityRewardFormSubmit);
@@ -739,6 +763,11 @@ async function initApp() {
     setInterval(updateResourceTimestamp, 30000);
     initBackgroundParticles();
     initRemoteUrl();  // 远程地址轮询
+    // R20：支持 #shop / #gacha 这类深链，打开就能直接落在对应视图
+    const hashView = (location.hash || '').replace('#', '');
+    if (['tasks','graph','calendar','gacha','shop','profile'].includes(hashView)) {
+        state.currentView = hashView;
+    }
     document.body.dataset.view = state.currentView;
     renderCurrentView();
     ArkLoader.hide();
@@ -793,9 +822,61 @@ function renderCurrentView() {
     if (view === 'tasks') renderTasks();
     else if (view === 'graph') renderGraph();
     else if (view === 'calendar') renderCalendar();
-    else if (view === 'achievements') renderAchievements();
-    else if (view === 'rewards') renderRealityRewards();
-    else if (view === 'profile') { updateResourceDisplay(); renderProfileBadges(); renderGiftPacks(); renderTransactions(); }
+    else if (view === 'gacha') { updateOperatorGachaBalance(); loadOperatorRecords(); }
+    else if (view === 'shop') renderShopPanel();
+    else if (view === 'profile') { updateResourceDisplay(); renderProfileBadges(); renderProfileMedalCount(); renderTransactions(); }
+}
+
+/* ===== 采购中心：内部视图切换 ===== */
+let shopTab = 'medal';
+function switchShopTab(tab){
+    shopTab = tab;
+    if (DOM.shopTabBar) DOM.shopTabBar.querySelectorAll('.pc-tab')
+        .forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    if (DOM.shopPanels) DOM.shopPanels.forEach(p => p.classList.toggle('active', p.dataset.panel === tab));
+    renderShopPanel();
+}
+function renderShopPanel(){
+    if (shopTab === 'medal')   { renderAchievements(); updateShopMedalNote(); }
+    if (shopTab === 'reality') renderRealityRewards();
+    if (shopTab === 'pack')    { renderGiftPacks(); updatePackBalance(); }
+    if (shopTab === 'skin')    renderSkins();
+}
+function updateShopMedalNote(){
+    const el = document.getElementById('shopMedalNote'); if (!el) return;
+    const total = state.achievements.length || 0;
+    const got = (state.unlockedAchievements || []).length;
+    el.textContent = `已解锁 ${got} / ${total}`;
+}
+function updatePackBalance(){
+    if (!DOM.packBalance) return;
+    DOM.packBalance.innerHTML = resAmountHTML('source_stone', state.resources.source_stone?.current_value || 0);
+}
+function renderProfileMedalCount(){
+    if (!DOM.profileMedalCount) return;
+    const total = state.achievements.length || 0;
+    const got = (state.unlockedAchievements || []).length;
+    DOM.profileMedalCount.textContent = `${got} / ${total} 枚已解锁`;
+}
+
+/* ── 网络错误统一处理 ────────────────────────────────────────────
+   后端没起来时，浏览器抛的是原生 "Failed to fetch"，直接 toast 会满屏英文。
+   这里统一换成中文，并且同一时间只提示一次（避免十几个请求刷十几条）。 */
+let _offlineToastAt = 0;
+function isNetworkError(err) {
+    return !!(err && (err.name === 'TypeError' || /failed to fetch|networkerror|network request failed/i.test(err.message || '')));
+}
+function reportApiError(err, fallback) {
+    console.error(err);
+    if (isNetworkError(err)) {
+        const now = Date.now();
+        if (now - _offlineToastAt > 15000) {
+            _offlineToastAt = now;
+            showToast('连不上后端服务 —— 请先运行「一键启动.bat」再刷新页面', 4200);
+        }
+        return;
+    }
+    showToast((err && err.message) || fallback || '请求失败');
 }
 
 async function apiGet(endpoint) {
@@ -809,8 +890,7 @@ async function apiGet(endpoint) {
         const json = await res.json();
         return json.data ?? json;
     } catch (err) {
-        console.error(err);
-        showToast(err.message || '请求失败');
+        reportApiError(err, '请求失败');
         return null;
     }
 }
@@ -875,12 +955,12 @@ async function apiDelete(endpoint) {
     }
 }
 
-function showToast(msg) {
+function showToast(msg, duration = 3000) {
     const toast = document.createElement('div');
     toast.className = 'toast';
     toast.textContent = msg;
     DOM.toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    setTimeout(() => toast.remove(), duration);
 }
 
 function showConfirm(message, callback) {
@@ -997,8 +1077,10 @@ async function loadAchievements() {
     const unlocked = await apiGet('/achievements/unlocked');
     if (unlocked) {
         state.unlockedAchievements = unlocked;
-        renderAchievements();
+        /* R20：蚀刻章网格现在在「采购中心 · 蚀刻章」里，只在该子页可见时才重绘 */
+        if (state.currentView === 'shop' && shopTab === 'medal') renderAchievements();
         renderProfileBadges();
+        renderProfileMedalCount();
         checkNewUnlocks();
     }
 }
@@ -1020,7 +1102,7 @@ async function loadRealityRewards() {
         const previousAchievedIds = new Set((state.realityRewards || []).filter(r => r.status === 'achieved').map(r => r.id));
         state.realityRewards = data;
         state._realityRewardsLoaded = true;
-        if (state.currentView === 'rewards') renderRealityRewards();
+        if (state.currentView === 'shop' && shopTab === 'reality') renderRealityRewards();
         if (!firstLoad) {
             const newAchieved = data.filter(r => r.status === 'achieved' && !previousAchievedIds.has(r.id));
             newAchieved.forEach((r, index) => {
@@ -2104,6 +2186,28 @@ function renderGraph() {
     const levels = Object.keys(levelMap).sort((a,b)=>a-b);
     levels.forEach(lvl => levelMap[lvl].sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)));
     const baseWidth = state.graphBaseWidth, baseHeight = state.graphBaseHeight;
+    // R20：先按父子关系算好整片森林的坐标，再画（树与树之间会留出空隙）
+    _graphLayoutCache = buildGraphTreeLayout(nodes);
+    // 每棵树一条极淡的背景带 + 树名 —— 让「这是两棵不同的树」一眼看得出来
+    _graphLayoutBands.forEach(band => {
+        const bandRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bandRect.setAttribute('x', band.x0); bandRect.setAttribute('y', band.y0);
+        bandRect.setAttribute('width', Math.max(10, band.x1 - band.x0));
+        bandRect.setAttribute('height', Math.max(10, band.y1 - band.y0));
+        bandRect.setAttribute('rx', 12);
+        bandRect.setAttribute('fill', 'rgba(255,255,255,0.018)');
+        bandRect.setAttribute('stroke', 'rgba(255,255,255,0.055)');
+        bandRect.setAttribute('stroke-dasharray', '7 7');
+        bandRect.setAttribute('stroke-width', '1');
+        g.appendChild(bandRect);
+        const bandLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        bandLabel.setAttribute('x', band.x0 + 10); bandLabel.setAttribute('y', band.y0 + 17);
+        bandLabel.setAttribute('fill', 'rgba(255,255,255,0.22)');
+        bandLabel.setAttribute('font-size', '11');
+        bandLabel.setAttribute('letter-spacing', '2');
+        bandLabel.textContent = band.title;
+        g.appendChild(bandLabel);
+    });
     nodes.forEach(n => {
         if (n.parent_id) {
             const parent = nodes.find(p => p.id === n.parent_id);
@@ -2259,7 +2363,81 @@ function renderGraph() {
     svg.setAttribute('viewBox', `${view.x} ${view.y} ${view.width} ${view.height}`);
 }
 
+/* ===== 图谱布局：按「父子关系」把森林拆成一棵棵树 =====
+   旧算法把所有同层节点塞进同一列、统一行距，不同树的节点会交错紧挨，
+   看不出哪几个节点是属于同一条任务线的。
+   现在改成：先按 parent_id 还原森林 → 每棵树独占一段连续的纵向带 →
+   树与树之间留一段明显空隙，并给每棵树画一条极淡的背景带。 */
+let _graphLayoutCache = null;   // { [taskId]: {x,y} }
+let _graphLayoutBands = [];     // [{x0,x1,y0,y1,title}]
+function buildGraphTreeLayout(nodes) {
+    const byId = new Map(nodes.map(n => [n.id, n]));
+    const children = new Map();
+    nodes.forEach(n => {
+        if (n.parent_id && byId.has(n.parent_id)) {
+            if (!children.has(n.parent_id)) children.set(n.parent_id, []);
+            children.get(n.parent_id).push(n);
+        }
+    });
+    children.forEach(arr => arr.sort((a,b) => (a.sort_order||0) - (b.sort_order||0)));
+    const roots = nodes
+        .filter(n => !n.parent_id || !byId.has(n.parent_id))
+        .sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
+
+    const COL = 268;      // 每深入一层的水平间距
+    const ROW = 98;       // 树内行距
+    const TREE_GAP = 86;  // 树与树之间的留白
+    const X0 = 165;
+    const layout = {};
+    const bands = [];
+    let cursorY = 80;
+
+    // 一棵树占多少行 = 它的叶子数
+    const measure = (node) => {
+        const kids = children.get(node.id) || [];
+        if (!kids.length) return 1;
+        return kids.reduce((s, k) => s + measure(k), 0);
+    };
+    const place = (node, depth, slotStart) => {
+        const kids = children.get(node.id) || [];
+        if (!kids.length) {
+            layout[node.id] = { x: X0 + depth * COL, y: cursorY + slotStart * ROW };
+            return;
+        }
+        let off = slotStart;
+        kids.forEach(k => { place(k, depth + 1, off); off += measure(k); });
+        // 父节点垂直居中于它的孩子们之间（比顶格对齐更像"树"）
+        const first = layout[kids[0].id].y;
+        const last  = layout[kids[kids.length - 1].id].y;
+        layout[node.id] = { x: X0 + depth * COL, y: (first + last) / 2 };
+    };
+
+    roots.forEach(root => {
+        const rows = Math.max(1, measure(root));
+        const y0 = cursorY;
+        place(root, 0, 0);
+        const y1 = cursorY + rows * ROW;
+        let maxDepth = 0;
+        const walk = (node, d) => { maxDepth = Math.max(maxDepth, d); (children.get(node.id)||[]).forEach(k => walk(k, d+1)); };
+        walk(root, 0);
+        bands.push({
+            x0: X0 - 120, x1: X0 + maxDepth * COL + 130,
+            y0: y0 - 34, y1: y1 - ROW + 34,
+            title: root.title || '任务树'
+        });
+        cursorY = y1 + TREE_GAP;
+    });
+
+    // 兜底：任何漏网的节点（理论上不会）按层级堆到末尾
+    nodes.forEach(n => {
+        if (!layout[n.id]) { layout[n.id] = { x: X0 + (n.level||0) * COL, y: cursorY }; cursorY += ROW; }
+    });
+    _graphLayoutBands = bands;
+    return layout;
+}
 function getDefaultNodePosition(n, levelMap) {
+    const cached = _graphLayoutCache && _graphLayoutCache[n.id];
+    if (cached) return cached;
     const lvl = n.level||0;
     const arr = levelMap[lvl] || [n];
     const index = Math.max(0, arr.indexOf(n));
@@ -2438,7 +2616,9 @@ function renderCalendar() {
         if(t.due_date){ const d=t.due_date.substring(0,10); if(!tasksByDate[d]) tasksByDate[d]=[]; tasksByDate[d].push(t); }
     });
     let html = '<div class="calendar-grid">';
-    ['日','一','二','三','四','五','六'].forEach(d=> html += `<div class="calendar-day-header">${d}</div>`);
+    /* 周末两列用金色区分（方舟周常界面的做法） */
+    ['日','一','二','三','四','五','六'].forEach((d,i)=>
+        html += `<div class="calendar-day-header${(i===0||i===6)?' is-weekend':''}">${d}</div>`);
     for(let i=0;i<firstDay;i++) html += '<div class="calendar-day other-month"></div>';
     const todayStr = new Date().toLocaleDateString('sv-SE');
     for(let day=1; day<=daysInMonth; day++){
@@ -2446,50 +2626,104 @@ function renderCalendar() {
         const tasks = tasksByDate[dateStr] || [];
         html += `<div class="calendar-day ${dateStr===todayStr?'today':''} ${tasks.length?'has-tasks':''}" data-date="${dateStr}">`;
         html += `<div class="calendar-day-number">${day}</div>`;
+        html += '<span class="calendar-day-add" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>';
         tasks.forEach(t=>{
             const priorityColor = getPriorityColor(t.priority);
             const statusIcon = t.status === 'done' ? '✓' : t.status === 'in_progress' ? '▶' : t.status === 'paused' ? '⏸' : '';
             /* 日历里的优先级星星也走同一套金星：金色 + 单颗倾斜，只堆数量 */
             const priorityStars = goldStars(t.priority);
             const title = escapeHtml(t.title);
-            if(t.task_line==='main') {
-                html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">
-                    <span class="calendar-task-icon"><i class="fa-solid fa-diamond"></i></span>
-                    <span class="calendar-task-status">${statusIcon}</span>
-                    <span class="calendar-task-bar" style="background:${priorityColor}"></span>
-                    <span class="calendar-task-stars">${priorityStars}</span>
-                    <span class="calendar-task-title">${title}</span>
-                </div>`;
-            } else {
-                html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">
-                    <span class="calendar-task-status">${statusIcon}</span>
-                    <span class="calendar-task-bar" style="background:${priorityColor}"></span>
-                    <span class="calendar-task-stars">${priorityStars}</span>
-                    <span class="calendar-task-title">${title}</span>
-                </div>`;
-            }
+            const lead = t.task_line === 'main'
+                ? '<span class="calendar-task-icon"><i class="fa-solid fa-diamond"></i></span>'
+                : '';
+            html += `<div class="calendar-task-indicator" title="${title} (优先级${t.priority})">` +
+                    lead +
+                    `<span class="calendar-task-status">${statusIcon}</span>` +
+                    `<span class="calendar-task-bar" style="background:${priorityColor}"></span>` +
+                    `<span class="calendar-task-stars">${priorityStars}</span>` +
+                    `<span class="calendar-task-title">${title}</span>` +
+                '</div>';
         });
         html += '</div>';
     }
     html += '</div>';
     container.innerHTML = html;
-    container.querySelectorAll('.calendar-day').forEach(el=>{
-        el.addEventListener('click', ()=>{ const date=el.dataset.date; showTasksForDate(date); });
+    container.querySelectorAll('.calendar-day[data-date]').forEach(el=>{
+        el.addEventListener('click', ()=>{ const date=el.dataset.date; if(date) showTasksForDate(date); });
     });
+}
+
+/* ===== 某一天的任务面板：可查看 / 添加多个 / 删除 ===== */
+let dayPanelDate = '';
+function dayTasksOf(dateStr){
+    return state.flatTasks.filter(t => !t.archived && !t.deleted && (
+        (t.due_date && t.due_date.substring(0,10) === dateStr) ||
+        (t.planned_start && t.planned_start.substring(0,10) === dateStr)
+    ));
+}
+function renderDayPanel(){
+    const body = DOM.dateTasksBody; if (!body) return;
+    DOM.dateTasksTitle.textContent = `${dayPanelDate} 任务`;
+    const tasks = dayTasksOf(dayPanelDate);
+    const rows = tasks.map(t => {
+        const st = t.status === 'done' ? '已完成' : t.status === 'in_progress' ? '进行中' : t.status === 'paused' ? '已暂停' : '待办';
+        return `<div class="dt-item" data-id="${t.id}">
+            <div class="dt-item-main">
+                <span class="dt-item-title">${escapeHtml(t.title)}</span>
+                <span class="dt-item-meta">${goldStars(t.priority)}<i>${st}</i></span>
+            </div>
+            <button class="dt-del" type="button" data-del="${t.id}" title="从这天移除"><i class="fa-solid fa-trash-can"></i></button>
+        </div>`;
+    }).join('');
+    body.innerHTML =
+        `<div class="dt-head"><span class="dt-count">共 ${tasks.length} 个任务</span></div>` +
+        '<div class="dt-add-row">' +
+            '<input type="text" class="form-input" id="dtAddInput" placeholder="给这天加一个任务…">' +
+            '<button class="btn btn-primary btn-medium" id="dtAddBtn" type="button"><i class="fa-solid fa-plus"></i><span>添加</span></button>' +
+        '</div>' +
+        `<div class="dt-list">${rows || '<div class="dt-empty">这天还没有任务，在上面输入标题添加</div>'}</div>`;
+
+    const input = body.querySelector('#dtAddInput');
+    const add = body.querySelector('#dtAddBtn');
+    if (add) add.addEventListener('click', () => addDayTask(input && input.value));
+    if (input) input.addEventListener('keydown', e => { if (e.key === 'Enter') addDayTask(input.value); });
+    body.querySelectorAll('[data-del]').forEach(b => {
+        b.addEventListener('click', e => { e.stopPropagation(); removeDayTask(parseInt(b.dataset.del, 10)); });
+    });
+    body.querySelectorAll('.dt-item').forEach(it => {
+        it.addEventListener('click', () => { closeAllModals(); openTaskDetail(parseInt(it.dataset.id, 10)); });
+    });
+    if (input) setTimeout(() => input.focus(), 60);
+}
+async function addDayTask(title){
+    const name = (title || '').trim();
+    if (!name) { showToast('先输入任务标题'); return; }
+    const created = await apiPost('/tasks', {
+        title: name,
+        priority: 1, task_line: 'side', track: 'daily', status: 'todo',
+        planned_start: `${dayPanelDate}T00:00`,
+        due_date: `${dayPanelDate}T23:59`
+    });
+    if (!created) return;
+    await loadTasks();
+    renderCalendar();
+    renderDayPanel();
+    showToast('已添加到这天');
+}
+async function removeDayTask(id){
+    const ok = await apiDelete(`/tasks/${id}`);
+    if (!ok) return;
+    await loadTasks();
+    renderCalendar();
+    renderDayPanel();
+    showToast('已从这天移除');
 }
 
 function getPriorityColor(priority){ const colors={1:'#999',2:'#7a9a5a',3:'#4a90d0',4:'#a080c8',5:'#e8b818',6:'#d43028'}; return colors[priority]||'#999'; }
 
 function showTasksForDate(dateStr){
-    const tasks = state.flatTasks.filter(t=>!t.archived&&!t.deleted&&t.due_date&&t.due_date.startsWith(dateStr));
-    if(tasks.length===0){ showToast('当天无任务'); return; }
-    DOM.dateTasksTitle.textContent = `${dateStr} 任务`;
-    DOM.dateTasksBody.innerHTML = '';
-    tasks.forEach(task=>{
-        const item = document.createElement('div'); item.className='tracking-subtask-item'; item.textContent=task.title;
-        item.addEventListener('click', ()=>{ closeAllModals(); openTaskDetail(task.id); });
-        DOM.dateTasksBody.appendChild(item);
-    });
+    dayPanelDate = dateStr;
+    renderDayPanel();
     openModal('dateTasksModal');
 }
 
@@ -2607,7 +2841,8 @@ function renderGiftPacks(){
         const card = document.createElement('div');
         card.className = `gift-pack-card gp-r${pack.rarity || 1}`;
         /* 售价不再放卡片右上角：那里和标题抢位置，且原版方舟的价格本来就钉在
-           底部操作键上。按钮直接做成价格牌——源石图标 + 单价，不再写「购买」二字。 */
+           底部那条操作带上（见 style.css 的 .gp-buy —— 与卡片等宽的通栏条）。
+           R20：条上写「购买」+ 价格，和原版一致；源石不够时整条置灰。 */
         const affordable = (state.resources.source_stone?.current_value || 0) >= pack.cost_source_stone;
         card.innerHTML =
             '<span class="gp-ribbon"></span>' +
@@ -2618,7 +2853,10 @@ function renderGiftPacks(){
             `<div class="gp-contents">${chips.join('') || '<span class="gp-chip-empty">内容物生成中</span>'}</div>` +
             `<button class="gp-buy${affordable ? '' : ' gp-buy-locked'}" type="button" ` +
                 `title="${affordable ? '购买' : '源石不足'}">` +
-                `${resIconHTML('source_stone')}<span>${pack.cost_source_stone}</span></button>`;
+                `<span class="gp-buy-text">购买</span>` +
+                `<span class="gp-buy-sep"></span>` +
+                `<span class="gp-buy-cost">${resIconHTML('source_stone')}<b>${pack.cost_source_stone}</b></span>` +
+            `</button>`;
         card.addEventListener('click', () => purchaseGiftPack(pack.id));
         grid.appendChild(card);
     });
@@ -2740,12 +2978,17 @@ function switchView(view) {
 
     if (view === 'graph') renderGraph();
     if (view === 'calendar') renderCalendar();
-    if (view === 'achievements') renderAchievements();
-    if (view === 'rewards') renderRealityRewards();
+    if (view === 'gacha') {
+        updateOperatorGachaBalance();
+        if (DOM.operatorGachaResult && !DOM.operatorGachaResult.children.length && !gachaBusy)
+            DOM.operatorGachaResult.innerHTML = '<div class="gh-idle-hint">点击下方「寻访」开始</div>';
+        loadOperatorRecords();
+    }
+    if (view === 'shop') renderShopPanel();
     if (view === 'profile') {
         updateResourceDisplay();
         renderProfileBadges();
-        renderGiftPacks();
+        renderProfileMedalCount();
         renderTransactions();
     }
     if (view === 'tasks') renderTasks();
@@ -4408,11 +4651,9 @@ async function handleGacha(){ const result=await apiPost('/achievements/draw'); 
     await loadResources(); await loadTransactions(); await loadRealityRewards(); showToast('抽取完成'); setTimeout(()=>closeAllModals(),3000); } }
 
 /* ===== 干员寻访（抽卡）：专门产出干员信物 ===== */
+/* R20：干员寻访不再走弹窗，直接切到独立视图 */
 function openOperatorGacha(){
-    openModal('operatorGachaModal');
-    updateOperatorGachaBalance();
-    DOM.operatorGachaResult.innerHTML = '';
-    loadOperatorRecords();
+    switchView('gacha');
 }
 /* 内联资源小图标：任何「有图标的东西」都优先摆图标，而不是写中文名。
    传 type（exp/lungmen/source_stone/orundum/sanity 或素材 key）。 */
@@ -4646,7 +4887,7 @@ async function handleOperatorGacha(count){
         updateOperatorGachaPity(result.pity);
         await loadResources(); await loadTransactions(); await loadRealityRewards();
         await loadOperatorRecords();
-        openModal('operatorGachaModal');   // 演出结束回到寻访界面看结果
+        switchView('gacha');               // 演出结束回到寻访视图看结果
         showToast(`寻访完成，消耗合成玉 ${result.cost}`);
     } finally {
         gachaBusy = false; setGachaButtons(true);
@@ -4656,14 +4897,26 @@ async function handleOperatorGacha(count){
 /* ===== 时装商店（源石购买，价格档位对齐原版） ===== */
 let skinFilter = 'all';
 let skinCache = [];
-let skinShelf = [];          // 每日轮换的货架（可能含未持有干员的时装）
+let skinShelf = [];          // 每周轮换的货架（可能含未持有干员的时装）
+let skinLoadFailed = false;  // 上一次 /skins 是否加载失败（用于区分"空货架"和"服务没起来"）
+/* R20：时装商店并入「采购中心 · 时装兑换」 */
 async function openSkinShop(){
-    openModal('skinShopModal');
+    switchView('shop');
+    switchShopTab('skin');
     await loadSkins();
 }
 async function loadSkins(){
     const data = await apiGet('/skins');
-    if (!data) return;
+    if (!data){
+        /* R20：后端没起来（或接口 500）时，apiGet 会返回 null。
+           以前这里直接 return，货架保持空数组，再点一下筛选就显示
+           「该筛选条件下没有时装」—— 把「服务没起来」误导成「没有这件时装」。
+           现在记一个失败标记，让 renderSkins 说清楚真正的原因。 */
+        skinLoadFailed = true;
+        renderSkins();
+        return;
+    }
+    skinLoadFailed = false;
     skinCache = data.skins || [];
     skinShelf = data.shop || [];
     if (DOM.skinShopBalance)
@@ -4726,7 +4979,11 @@ function renderSkins(){
     if (!items.length && !shelf.length){
         const empty = document.createElement('div');
         empty.className = 'skin-empty';
-        empty.textContent = '该筛选条件下没有时装';
+        // 区分两种"空"：服务没起来 vs 真的没有符合筛选的时装
+        empty.innerHTML = skinLoadFailed
+            ? '<i class="fa-solid fa-plug-circle-xmark"></i> 时装数据没加载出来——后端服务可能没启动。'
+              + '<br><span class="skin-empty-hint">先运行「一键启动.bat」，再重新打开这个窗口。</span>'
+            : '该筛选条件下没有时装';
         list.appendChild(empty);
         return;
     }

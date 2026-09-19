@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260919-243">
+    <link rel="stylesheet" href="static/style.css?v=20260919-245">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -94,8 +94,8 @@
                 <button class="nav-tab active" data-view="tasks"><i class="fa-solid fa-list-check"></i><span>任务</span></button>
                 <button class="nav-tab" data-view="graph"><i class="fa-solid fa-diagram-project"></i><span>图谱</span></button>
                 <button class="nav-tab" data-view="calendar"><i class="fa-solid fa-calendar-days"></i><span>日历</span></button>
-                <button class="nav-tab" data-view="achievements"><i class="fa-solid fa-award"></i><span>蚀刻章</span></button>
-                <button class="nav-tab" data-view="rewards"><i class="fa-solid fa-gift"></i><span>兑换</span></button>
+                <button class="nav-tab" data-view="gacha"><i class="fa-solid fa-crosshairs"></i><span>干员寻访</span></button>
+                <button class="nav-tab" data-view="shop"><i class="fa-solid fa-store"></i><span>采购中心</span></button>
                 <button class="nav-tab" data-view="profile"><i class="fa-solid fa-user"></i><span>主页</span></button>
                 <span class="resource-timestamp" id="resourceTimestamp"></span>
             </nav>
@@ -286,16 +286,120 @@
                 <div class="calendar-container" id="calendarContainer"></div>
             </section>
 
-            <!-- 成就视图 -->
-            <section class="view" id="view-achievements">
+            <!-- 干员寻访视图（原弹窗内容独立成页） -->
+            <section class="view" id="view-gacha">
                 <div class="view-header">
-                    <h2 class="view-title">蚀刻章</h2>
+                    <div class="view-title-group">
+                        <div class="gh-head-wrap">
+                            <span class="gh-head-mark"></span>
+                            <div class="gh-head-text">
+                                <h2 class="view-title">干员寻访</h2>
+                                <span class="gh-head-en">HEADHUNT</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="view-actions">
-                        <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
-                        <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
+                        <button type="button" class="icon-btn gh-info-btn" id="operatorGachaInfoBtn" title="概率详情" aria-label="概率详情"><i class="fa-solid fa-circle-info"></i></button>
                     </div>
                 </div>
-                <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
+                <div class="gh-view">
+                    <div class="gh-topbar">
+                        <div class="resource-balance-display" id="operatorGachaOrundumBalance"></div>
+                    </div>
+                    <div class="gh-info-panel" id="operatorGachaInfoPanel">
+                        <p class="micro-text" id="operatorGachaCostText">消耗 600 合成玉 / 次（十连 6000，第 10 抽保底 ≥4★；出率 6★2% / 5★8% / 4★50% / 3★40%，50 抽后软保底，99 抽必出 6★）</p>
+                    </div>
+                    <div class="gacha-pity-display" id="operatorGachaPity"></div>
+                    <!-- 本期精选卡池：每日轮换的真实干员立绘 -->
+                    <div class="op-featured" id="operatorFeatured"></div>
+                    <div class="gh-section-head"><span class="gh-section-kicker">寻访结果</span><span class="gh-section-note">RECRUITMENT RESULT</span></div>
+                    <div id="operatorGachaResult" class="gacha-result op-gacha-grid"></div>
+                    <div class="gh-section-head"><span class="gh-section-kicker">已寻访干员 / 信物</span><span class="gh-section-note">TOKENS</span></div>
+                    <div id="operatorTokenList" class="op-token-list"></div>
+                </div>
+                <!-- 底部操作条：方舟原版把「寻访 1 次 / 寻访 10 次」钉在界面最下方 -->
+                <div class="gh-actionbar gh-actionbar-view">
+                    <button class="gh-act" id="operatorGachaSingle">
+                        <span class="gh-act-label">寻访 <b>×1</b></span>
+                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">600</span>
+                    </button>
+                    <button class="gh-act primary" id="operatorGachaTen">
+                        <span class="gh-act-label">寻访 <b>×10</b></span>
+                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">6000</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 采购中心：蚀刻章 / 现实奖励 / 礼包 / 时装 四个内部视图切换 -->
+            <section class="view" id="view-shop">
+                <div class="view-header">
+                    <div class="view-title-group">
+                        <h2 class="view-title">采购中心</h2>
+                        <span class="view-title-en">PROCUREMENT</span>
+                    </div>
+                </div>
+                <div class="pc-tabbar" id="shopTabBar">
+                    <button class="pc-tab active" data-tab="medal"><i class="fa-solid fa-award"></i><span>蚀刻章</span></button>
+                    <button class="pc-tab" data-tab="reality"><i class="fa-solid fa-gift"></i><span>现实奖励</span></button>
+                    <button class="pc-tab" data-tab="pack"><i class="fa-solid fa-box"></i><span>礼包兑换</span></button>
+                    <button class="pc-tab" data-tab="skin"><i class="fa-solid fa-shirt"></i><span>时装兑换</span></button>
+                </div>
+
+                <!-- 蚀刻章 -->
+                <div class="pc-panel active" data-panel="medal">
+                    <div class="pc-panel-bar">
+                        <span class="pc-panel-note" id="shopMedalNote"></span>
+                        <div class="pc-panel-actions">
+                            <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
+                            <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
+                        </div>
+                    </div>
+                    <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
+                </div>
+
+                <!-- 现实奖励兑换 -->
+                <div class="pc-panel" data-panel="reality">
+                    <div class="pc-panel-bar">
+                        <span class="pc-panel-note">用等级 / 经验 / 完成数兑换现实中的自我奖励</span>
+                        <div class="pc-panel-actions">
+                            <button class="btn btn-primary btn-medium" id="newRealityRewardBtn"><i class="fa-solid fa-plus"></i><span>新建奖励</span></button>
+                        </div>
+                    </div>
+                    <div class="reality-rewards-list" id="realityRewardsList"></div>
+                </div>
+
+                <!-- 礼包兑换 -->
+                <div class="pc-panel" data-panel="pack">
+                    <div class="pc-panel-bar">
+                        <span class="pc-panel-note">每周一 04:00 轮换 · 源石支付</span>
+                        <div class="pc-panel-actions">
+                            <span class="pc-balance" id="packBalance"></span>
+                        </div>
+                    </div>
+                    <div class="gift-packs-grid pc-pack-grid" id="giftPacksGrid"></div>
+                </div>
+
+                <!-- 时装兑换 -->
+                <div class="pc-panel" data-panel="skin">
+                    <div class="pc-panel-bar">
+                        <span class="pc-panel-note">源石购买 · 只有已持有的干员才能下单</span>
+                        <div class="pc-panel-actions">
+                            <button type="button" class="icon-btn gh-info-btn" id="skinShopInfoBtn" title="定价 / 购买说明"><i class="fa-solid fa-circle-info"></i></button>
+                            <span class="pc-balance" id="skinShopBalance"></span>
+                        </div>
+                    </div>
+                    <div class="skin-info-panel" id="skinShopInfoPanel">
+                        <p id="skinShopHint">原版定价：15 静态立绘 / 18 特效 / 21 动态 / 24 动态+新语音 / 27 双形态。只有已持有的干员才能购买其时装。</p>
+                    </div>
+                    <div class="skin-filter-row" id="skinFilterRow">
+                        <button class="skin-filter-btn active" data-rarity="all">全部</button>
+                        <button class="skin-filter-btn" data-rarity="6">6★</button>
+                        <button class="skin-filter-btn" data-rarity="5">5★</button>
+                        <button class="skin-filter-btn" data-rarity="4">4★</button>
+                        <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
+                    </div>
+                    <div id="skinShopList" class="skin-shop-list"></div>
+                </div>
             </section>
 
             <!-- 个人主页 -->
@@ -325,24 +429,42 @@
                             <button class="btn btn-secondary btn-medium" id="skinShopBtn"><i class="fa-solid fa-shirt"></i><span>时装商店</span></button>
                         </div>
                     </div>
+                    <!-- R20：蚀刻章收进主页，做成可点开的入口按钮（点整块→采购中心·蚀刻章；点单个→看大图） -->
+                    <div class="profile-entry-card clickable" id="profileMedalEntry" title="查看全部蚀刻章">
+                        <span class="pe-mark"><i class="fa-solid fa-award"></i></span>
+                        <div class="pe-text">
+                            <span class="pe-title">蚀刻章</span>
+                            <span class="pe-sub" id="profileMedalCount">—</span>
+                        </div>
+                        <span class="pe-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+                    </div>
                     <div class="profile-badges"><h3 class="section-subtitle">已解锁蚀刻章</h3><div class="profile-badges-grid" id="profileBadgesGrid"></div></div>
-                    <div class="profile-gift-packs"><h3 class="section-subtitle">今日补给</h3><div class="gift-packs-grid" id="giftPacksGrid"></div></div>
+                    <div class="profile-entries">
+                        <button class="profile-entry-card clickable" id="profilePackEntry" type="button" title="前往礼包兑换">
+                            <span class="pe-mark"><i class="fa-solid fa-box"></i></span>
+                            <div class="pe-text"><span class="pe-title">礼包兑换</span><span class="pe-sub">每周轮换 · 源石支付</span></div>
+                            <span class="pe-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+                        </button>
+                        <button class="profile-entry-card clickable" id="profileSkinEntry" type="button" title="前往时装兑换">
+                            <span class="pe-mark"><i class="fa-solid fa-shirt"></i></span>
+                            <div class="pe-text"><span class="pe-title">时装兑换</span><span class="pe-sub">已持有干员可下单</span></div>
+                            <span class="pe-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+                        </button>
+                        <button class="profile-entry-card clickable" id="profileRealityEntry" type="button" title="前往现实奖励兑换">
+                            <span class="pe-mark"><i class="fa-solid fa-gift"></i></span>
+                            <div class="pe-text"><span class="pe-title">现实奖励</span><span class="pe-sub">达成就兑现</span></div>
+                            <span class="pe-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+                        </button>
+                        <button class="profile-entry-card clickable" id="profileGachaEntry" type="button" title="前往干员寻访">
+                            <span class="pe-mark"><i class="fa-solid fa-crosshairs"></i></span>
+                            <div class="pe-text"><span class="pe-title">干员寻访</span><span class="pe-sub">600 合成玉 / 次</span></div>
+                            <span class="pe-arrow"><i class="fa-solid fa-chevron-right"></i></span>
+                        </button>
+                    </div>
                     <div class="profile-transactions"><h3 class="section-subtitle">资源流水</h3><div class="transactions-list" id="transactionsList"></div></div>
                 </div>
             </section>
 
-            <!-- 现实奖励兑换视图 -->
-            <section class="view" id="view-rewards">
-                <div class="view-header">
-                    <div class="view-title-group">
-                        <h2 class="view-title">现实奖励兑换</h2>
-                        <div class="view-actions">
-                            <button class="btn btn-primary btn-medium" id="newRealityRewardBtn"><i class="fa-solid fa-plus"></i><span>新建奖励</span></button>
-                        </div>
-                    </div>
-                </div>
-                <div class="reality-rewards-list" id="realityRewardsList"></div>
-            </section>
         </main>
 
         <!-- 弹窗：任务编辑 -->
@@ -537,72 +659,6 @@
                 </div>
             </div>
         </div>
-        <!-- 干员寻访（抽卡）弹窗 -->
-        <div class="modal-container hidden" id="operatorGachaModal">
-            <div class="modal modal-gacha modal-op-gacha">
-                <div class="modal-header">
-                    <div class="gh-head-wrap">
-                        <span class="gh-head-mark"></span>
-                        <div class="gh-head-text">
-                            <h3 class="modal-title">干员寻访</h3>
-                            <span class="gh-head-en">HEADHUNT</span>
-                        </div>
-                    </div>
-                    <button type="button" class="icon-btn gh-info-btn" id="operatorGachaInfoBtn" title="概率详情" aria-label="概率详情"><i class="fa-solid fa-circle-info"></i></button>
-                    <button class="icon-btn modal-close" id="operatorGachaClose"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body gacha-body">
-                    <div class="gh-topbar">
-                        <div class="resource-balance-display" id="operatorGachaOrundumBalance"></div>
-                    </div>
-                    <div class="gh-info-panel" id="operatorGachaInfoPanel">
-                        <p class="micro-text" id="operatorGachaCostText">消耗 600 合成玉 / 次（十连 6000，第 10 抽保底 ≥4★；出率 6★2% / 5★8% / 4★50% / 3★40%，50 抽后软保底，99 抽必出 6★）</p>
-                    </div>
-                    <div class="gacha-pity-display" id="operatorGachaPity"></div>
-                    <!-- 本期精选卡池：每日轮换的真实干员立绘，抽卡前先把卡池铺满 -->
-                    <div class="op-featured" id="operatorFeatured"></div>
-                    <div id="operatorGachaResult" class="gacha-result op-gacha-grid"></div>
-                    <h4 class="section-subtitle" id="operatorTokenTitle">已寻访干员 / 信物</h4>
-                    <div id="operatorTokenList" class="op-token-list"></div>
-                </div>
-                <!-- 底部操作条：方舟原版把「寻访 1 次 / 寻访 10 次」钉在界面最下方 -->
-                <div class="gh-actionbar">
-                    <button class="gh-act" id="operatorGachaSingle">
-                        <span class="gh-act-label">寻访 <b>×1</b></span>
-                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">600</span>
-                    </button>
-                    <button class="gh-act primary" id="operatorGachaTen">
-                        <span class="gh-act-label">寻访 <b>×10</b></span>
-                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">6000</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-        <!-- 时装商店弹窗（源石购买，价格档位对齐明日方舟原版） -->
-        <div class="modal-container hidden" id="skinShopModal">
-            <div class="modal modal-skin-shop">
-                <div class="modal-header">
-                    <h3 class="modal-title">时装商店</h3>
-                    <!-- 定价说明不再糊在正文里：收进 ⓘ，想看才展开 -->
-                    <button class="icon-btn skin-info-btn" id="skinShopInfoBtn" title="定价 / 购买说明"><i class="fa-solid fa-circle-info"></i></button>
-                    <button class="icon-btn modal-close" id="skinShopClose"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body">
-                    <div class="skin-info-panel" id="skinShopInfoPanel">
-                        <p id="skinShopHint">原版定价：15 静态立绘 / 18 特效 / 21 动态 / 24 动态+新语音 / 27 双形态。只有已持有的干员才能购买其时装。</p>
-                    </div>
-                    <div class="resource-balance-display" id="skinShopBalance"></div>
-                    <div class="skin-filter-row" id="skinFilterRow">
-                        <button class="skin-filter-btn active" data-rarity="all">全部</button>
-                        <button class="skin-filter-btn" data-rarity="6">6★</button>
-                        <button class="skin-filter-btn" data-rarity="5">5★</button>
-                        <button class="skin-filter-btn" data-rarity="4">4★</button>
-                        <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
-                    </div>
-                    <div id="skinShopList" class="skin-shop-list"></div>
-                </div>
-            </div>
-        </div>
         <!-- 现实奖励弹窗 -->
         <div class="modal-container hidden" id="realityRewardModal">
             <div class="modal modal-reward-edit">
@@ -714,6 +770,6 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260919-243"></script>
+    <script src="static/app.js?v=20260919-245"></script>
 </body>
 </html>

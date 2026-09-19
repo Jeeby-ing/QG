@@ -300,10 +300,11 @@ body { font-family:var(--font-main); background-color:var(--bg-base-1); color:va
     mix-blend-mode:overlay;
 }
 body[data-view="tasks"] .bg-texture-large { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E"); }
-body[data-view="graph"] .bg-texture-large { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stars'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.1' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stars)' opacity='0.5'/%3E%3C/svg%3E"); }
+body[data-view="graph"] .bg-texture-large,
+body[data-view="gacha"] .bg-texture-large { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stars'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.1' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stars)' opacity='0.5'/%3E%3C/svg%3E"); }
 body[data-view="calendar"] .bg-texture-large { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='industrial'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.05' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23industrial)' opacity='0.3'/%3E%3C/svg%3E"); }
-body[data-view="achievements"] .bg-texture-large,
-body[data-view="rewards"] .bg-texture-large,
+/* R20：蚀刻章 / 兑换 两个视图已并入「采购中心」——背景纹理跟着改挂到新视图名上 */
+body[data-view="shop"] .bg-texture-large,
 body[data-view="profile"] .bg-texture-large { background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 800 600' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='ornate'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.08' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23ornate)' opacity='0.35'/%3E%3C/svg%3E"); }
 
 /* 细噪点纹理 (全局覆盖) */
@@ -1555,8 +1556,10 @@ body.focus-mode .tracking-expanded {
    用户反馈「色条太长了」。改成 fit-content，长度由星星数量决定。
    标题起始列仍由 .task-stars 的定宽（--task-star-col）锁死，父子卡片不会错位。 */
 .task-stars .star-bg { width:fit-content; max-width:100%; min-width:0; flex:0 0 auto; }
-/* 卡片内金星略收，保证 6★ 底板不超出星列（超了会被 overflow:hidden 裁掉） */
-.task-stars .g-star { font-size:13px; }
+/* 卡片内金星：R20 用户要求「再大一些」→ 13px 提到 16px。
+   星列随之加宽（--task-star-col 96px → 116px），保证 6★ 底板不超出被裁。
+   自检：6★ 底板宽 ≈ 6×16 − 5×2.56 + 18 ≈ 101px ≤ 116 − 8 = 108px。 */
+.task-stars .g-star { font-size:16px; }
 /* 金星压在 6★ 的光带之上（光带是 ::before，z-index:0） */
 .star-bg .g-stars { position:relative; z-index:1; }
 
@@ -2907,7 +2910,9 @@ body.focus-mode .tracking-expanded {
 .skin-lightbox-close:hover { background:rgba(48,56,70,0.95); transform:scale(1.08); }
 .skin-buy-btn:disabled { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.45); cursor:not-allowed; filter:none; transform:none; }
 .skin-owned-tag { font-size:12px; color:#7dffb0; font-weight:700; }
-.skin-empty { padding:24px; text-align:center; color:rgba(220,225,235,0.6); font-size:13px; }
+.skin-empty { padding:28px 24px; text-align:center; color:rgba(220,225,235,0.6); font-size:13px; line-height:1.9; }
+.skin-empty i { margin-right:6px; color:rgba(255,208,40,0.75); }
+.skin-empty-hint { font-size:12px; color:var(--text-muted-3); }
 @media (max-width:768px){ .skin-shop-list { grid-template-columns:1fr; } }
 
 .particle-container {
@@ -4667,6 +4672,8 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     .task-stars { width:auto; min-width:0; margin-bottom:0; padding:0; }
     .star-bg { width:auto; min-width:0; height:24px; padding:0 7px; border-radius:12px; }
     .star-bg .star { font-size:13px; }
+    /* 窄屏星星略收一点，避免 6★ 底板把标题挤到下一行（桌面端才用 16px） */
+    .task-stars .g-star { font-size:14px; }
     .task-main { padding:6px 8px; gap:3px 6px; }
     .task-title { font-size:15px; }
     .task-tags { flex:1 1 auto; min-width:0; }
@@ -4913,32 +4920,51 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     line-height:1.2;
 }
 .gp-chip-empty { font-size:11px; color:var(--text-muted-3); }
-/* margin-top:auto —— 让长短不一的礼包卡片，购买按钮都贴在卡片底部对齐 */
-/* 购买按钮 = 价格牌：直接显示「源石图标 + 单价」，按钮上不再写「购买」二字 */
+/* 购买按钮 = 卡片底部的一条「通栏条」（R20 按原版重做）
+   ------------------------------------------------------------
+   用户原话：「这个购买按钮，你搜搜原游戏的样式是啥样的，我记得下面有一个条是你这个按钮，
+   就是看着很舒服的感觉，不是嵌入式的按钮卡片」。
+   原版的商店条目底部确实就是一条与卡片等宽的扁条：没有独立圆角、没有浮起投影、
+   靠一条 1px 分隔线和主内容分开，悬停时整条点亮 —— 它是「卡片的下沿」，不是「卡里的按钮」。
+   所以这里：
+     · 负 margin 抵掉 .gift-pack-card 的 padding，让条铺满整张卡片底边
+     · border-radius 归零，只留 top 1px 分隔线（卡片自身的 14px 圆角 + overflow:hidden 会收边）
+     · 不写 backdrop-filter / 外投影，保持"扁平一条"的观感
+   ⚠️ 这段必须放在第 8 节之后，且 .gp-buy 不能进第 8 节那两个 :where() 列表，
+      否则会被"方块玻璃按钮"的规则覆盖成嵌入式按钮。 */
 .gp-buy {
-    margin-top:auto; padding:10px 0; border-radius:10px;
+    margin:auto -16px -14px -20px;      /* 上 auto：贴卡片底；右/下/左：抵掉卡片 padding */
+    padding:11px 0;
     display:flex; align-items:center; justify-content:center; gap:9px;
-    border:1px solid rgba(255,214,110,0.65);
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.05) 44%, rgba(120,66,0,0.32) 100%),
-        linear-gradient(180deg, #F7D06A 0%, #E0A81C 100%);
-    color:#3A2400; font-size:17px; font-weight:800; letter-spacing:0.02em;
-    font-family:var(--font-display);
+    border:none;
+    border-top:1px solid rgba(255,255,255,0.09);
+    border-radius:0;
+    background:rgba(255,255,255,0.045);
+    color:var(--highlight-gold-1);
+    font-family:inherit;
+    font-size:15px; font-weight:700; letter-spacing:0.04em;
     cursor:pointer;
-    text-shadow:0 1px 0 rgba(255,255,255,0.35);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.7),
-        inset 0 -2px 5px rgba(110,66,0,0.4),
-        0 4px 14px rgba(240,180,40,0.3);
-    transition:transform .12s ease, box-shadow .12s ease, filter .16s ease;
+    text-shadow:none; box-shadow:none;
+    transition:background .16s ease, border-color .16s ease, color .16s ease;
 }
-.gp-buy img { width:24px; height:24px; object-fit:contain; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
-.gp-buy:hover { filter:brightness(1.07); }
-.gp-buy:active { transform:translateY(2px); box-shadow:inset 0 2px 6px rgba(90,55,0,0.65), 0 1px 2px rgba(0,0,0,0.4); }
-.gp-buy.gp-buy-locked {
-    background:linear-gradient(180deg, rgba(255,255,255,0.10), rgba(0,0,0,0.25)), linear-gradient(180deg, #3B3E45, #24262B);
-    border-color:rgba(255,255,255,0.16); color:var(--text-muted-2);
-    text-shadow:none; box-shadow:inset 0 1px 0 rgba(255,255,255,0.16); cursor:not-allowed; filter:none;
+.gp-buy img { width:20px; height:20px; object-fit:contain; filter:none; }
+/* 条内三段：购买 / 竖分隔 / 价格 */
+.gp-buy-text { font-size:14.5px; letter-spacing:0.14em; }
+.gp-buy-sep { width:1px; height:15px; background:rgba(255,255,255,0.14); }
+.gp-buy-cost { display:inline-flex; align-items:center; gap:6px; }
+.gp-buy-cost b { font-family:var(--font-mono); font-size:15px; font-weight:700; }
+.gp-buy:hover {
+    background:rgba(232,184,24,0.16);
+    border-top-color:rgba(255,208,40,0.55);
+    color:#FFE9A8;
+}
+.gp-buy:active { background:rgba(232,184,24,0.26); transform:none; }
+.gp-buy.gp-buy-locked,
+.gp-buy:disabled {
+    background:rgba(255,255,255,0.025);
+    border-top-color:rgba(255,255,255,0.07);
+    color:var(--text-muted-3);
+    cursor:not-allowed;
 }
 
 /* 时装商店：无可购买项时的说明条 */
@@ -5449,7 +5475,9 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .gp-chip.is-mat { width:64px; min-width:64px; padding:0; }
 .gp-chip.is-res img,
 .gp-chip.is-mat img { width:42px; height:42px; }
-.gp-buy { margin-top:auto; width:100%; padding:10px 0; }
+/* ⚠️ 别再给 .gp-buy 写 width:100% —— 它的通栏效果是靠负 margin 抵掉卡片 padding 实现的，
+   再加 width:100% 会横向溢出（宽度按内容盒算，负 margin 又往外拉）。
+   几何一律由「礼包卡片」那一节的 .gp-buy 定义。 */
 
 /* ============================================================
    7) 资源兑换（原版换物窗口）
@@ -5579,7 +5607,9 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
    才能和标题严格对齐（.task-main 自己的 18px padding 已经算在外层了）。 */
 /* 40px = .task-top-row 的 gap(8) + 折叠钮/占位(22) + 它的右外边距(2) + 再一个 gap(8)，
    正好等于标题相对 .task-main 内容左边缘的偏移，描述行按它缩进才与标题同列。 */
-.task-card { --task-star-col:96px; --task-lead:calc(var(--task-star-col) + 40px); }
+/* 星列宽度：R20 星星放大到 16px 后，96px 装不下 6★ 底板（会被 overflow:hidden 裁掉），
+   加宽到 116px。标题起始列 = 星列宽 + 40px，会自动跟着右移，父子卡片仍严格对齐。 */
+.task-card { --task-star-col:116px; --task-lead:calc(var(--task-star-col) + 40px); }
 .task-stars { flex:0 0 var(--task-star-col); width:var(--task-star-col); min-width:0; }
 /* 宽度必须与 .task-collapse-btn 完全一致（22px + 2px 右外边距），
    差 2px 父子标题就会错开一列 */
@@ -5663,7 +5693,6 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .skin-filter-btn:where(:not(.active)),
 .gh-act:where(:not(.primary)),
 .ex-step,
-.gp-buy.gp-buy-locked,
 .btn-secondary,
 .game-btn:where(:not(.btn-gold):not(.btn-primary):not(.btn-danger)) {
     background: rgba(20, 21, 22, 0.80);
@@ -5700,10 +5729,11 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 }
 
 /* ---- 8.2 主/选中态：同一块玻璃、同一套几何，只是染成金色 ---- */
+/* ⚠️ .gp-buy 不进这个列表：礼包购买键是卡片底部的一条「通栏条」，
+   几何与这套方块按钮完全不同，单独在第 8.3 节定义。 */
 .skin-filter-btn.active,
 .gh-act.primary,
 .ex-max,
-.gp-buy,
 .btn-diamond,
 .game-btn.btn-gold {
     background: rgba(232,184,24,0.20);
@@ -5720,7 +5750,6 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .skin-filter-btn.active:hover,
 .gh-act.primary:hover:not(:disabled),
 .ex-max:hover,
-.gp-buy:hover,
 .btn-diamond:hover,
 .game-btn.btn-gold:hover:not(:disabled) {
     background: rgba(232,184,24,0.32);
@@ -5733,7 +5762,6 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .skin-filter-btn.active:active,
 .gh-act.primary:active:not(:disabled),
 .ex-max:active,
-.gp-buy:active,
 .btn-diamond:active,
 .game-btn.btn-gold:active:not(:disabled) {
     transform: translateY(1px);
@@ -5761,16 +5789,8 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     color: var(--text-secondary-1);
 }
 
-/* 礼包购买按钮：别再拿方舟数字字体撑成金色大块，回到按钮字号 */
-.gp-buy {
-    font-family: inherit;
-    font-size: 15px;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 9px 0;
-    gap: 7px;
-}
-.gp-buy img { width: 20px; height: 20px; filter: none; }
+/* 礼包购买按钮的完整定义在「礼包卡片」那一节（.gp-buy = 卡片底部通栏条），
+   这里不再重复覆盖，避免两处打架。 */
 
 
 /* ============================================================
@@ -5794,3 +5814,251 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .task-colorbar { display:none !important; }
 
 /* 左侧分级表达已经取消，border-left 保持中性细边（见 1364 行） */
+
+
+/* ============================================================
+   10) R20 —— 采购中心 / 干员寻访视图 / 主页入口 / 卡片装饰 / 日历重做
+   ============================================================ */
+
+/* ---- 10.1 视图标题的英文副标（方舟标题栏惯例） ---- */
+.view-title-en {
+    font-family: var(--font-display, var(--font-accent, sans-serif));
+    font-size: 11px; letter-spacing: 0.34em;
+    color: var(--text-muted-3); text-transform: uppercase;
+    padding: 3px 10px; border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 2px; background: rgba(20,21,22,0.6);
+}
+
+/* ---- 10.2 采购中心：内部标签条 ---- */
+.pc-tabbar {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin: 0 0 18px; padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.pc-tab {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px;
+    background: rgba(20,21,22,0.80);
+    border: 1px solid rgba(83,83,83,0.90);
+    border-radius: 2px;
+    color: var(--text-secondary-1);
+    font-size: 13.5px; letter-spacing: 0.10em;
+    cursor: pointer;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    transition: border-color .16s ease, background .16s ease, color .16s ease, box-shadow .16s ease;
+}
+.pc-tab i { font-size: 13px; }
+.pc-tab:hover {
+    border-color: #22BBFF; color: var(--text-primary);
+    box-shadow: 0 0 0 1px rgba(34,187,255,0.25), 0 0 12px rgba(34,187,255,0.28);
+}
+.pc-tab.active {
+    background: rgba(232,184,24,0.28);
+    border-color: rgba(255,214,110,0.55);
+    color: #FFE9A8; font-weight: 700;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.45), 0 0 12px rgba(232,184,24,0.18);
+}
+/* 子页面：默认隐藏，.active 才显示 */
+.pc-panel { display: none; }
+.pc-panel.active { display: block; animation: viewFadeIn .22s ease forwards; }
+.pc-panel-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 14px;
+}
+.pc-panel-note { font-size: 12px; color: var(--text-muted-3); letter-spacing: 0.05em; }
+.pc-panel-actions { display: flex; align-items: center; gap: 8px; }
+.pc-balance { display: inline-flex; align-items: center; }
+
+/* ---- 10.3 干员寻访独立视图 ---- */
+.gh-view { padding-bottom: 12px; }
+.gh-head-wrap { display: flex; align-items: center; gap: 12px; }
+.gh-head-mark {
+    width: 4px; height: 30px; flex: 0 0 4px;
+    background: linear-gradient(180deg, var(--highlight-gold-1), rgba(232,184,24,0.05));
+}
+.gh-head-text { display: flex; flex-direction: column; gap: 2px; }
+.gh-head-en { font-size: 10px; letter-spacing: 0.34em; color: var(--text-muted-3); }
+.gh-section-head {
+    display: flex; align-items: baseline; gap: 12px;
+    margin: 22px 0 10px; padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.gh-section-kicker { font-size: 14px; font-weight: 700; letter-spacing: 0.10em; color: var(--text-secondary-3); }
+.gh-section-note { font-size: 10px; letter-spacing: 0.30em; color: var(--text-muted-2); }
+.gh-idle-hint {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 90px; font-size: 12.5px; letter-spacing: 0.14em;
+    color: var(--text-muted-2);
+    border: 1px dashed rgba(255,255,255,0.10); border-radius: 4px;
+    background: rgba(20,21,22,0.35);
+}
+/* 视图里的操作条：跟着内容滚，不钉死（整页已经是滚动容器） */
+.gh-actionbar-view {
+    position: sticky; bottom: 0; margin-top: 20px;
+    background: linear-gradient(180deg, rgba(14,14,16,0), rgba(14,14,16,0.94) 42%);
+    padding-top: 14px;
+}
+
+/* ---- 10.4 主页入口卡片（可点开的按钮） ---- */
+.profile-entries {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 12px; margin: 14px 0 20px;
+}
+.profile-entry-card {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    padding: 14px 16px; text-align: left;
+    background: rgba(20,21,22,0.80);
+    border: 1px solid rgba(83,83,83,0.90);
+    border-radius: 2px;
+    color: var(--text-secondary-1);
+    cursor: pointer; font: inherit;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    transition: border-color .16s ease, background .16s ease, box-shadow .16s ease, color .16s ease;
+}
+.profile-entry-card:hover {
+    border-color: #22BBFF; color: var(--text-primary);
+    box-shadow: 0 0 0 1px rgba(34,187,255,0.25), 0 0 12px rgba(34,187,255,0.28);
+}
+.profile-entry-card:active { box-shadow: inset 0 2px 6px rgba(0,0,0,0.55); }
+.pe-mark {
+    flex: 0 0 34px; width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,214,110,0.34); border-radius: 2px;
+    background: rgba(232,184,24,0.12);
+    color: var(--highlight-gold-1); font-size: 15px;
+}
+.pe-text { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.pe-title { font-size: 14px; font-weight: 600; letter-spacing: 0.06em; color: var(--text-primary-4); }
+.pe-sub { font-size: 11.5px; color: var(--text-muted-3); }
+.pe-arrow { flex: 0 0 auto; font-size: 12px; color: var(--text-muted-2); }
+/* 蚀刻章入口做成整块卡片，放在已解锁蚀刻章网格上方 */
+#profileMedalEntry { margin: 14px 0 4px; }
+
+/* ---- 10.5 卡片装饰：告别"纯黑卡片" ----
+   只动 background-color / background-image / border-color，
+   不动布局与尺寸 —— 纯视觉层，改坏也不影响功能。 */
+.task-card,
+.achievement-card,
+.gift-pack-card,
+.skin-card {
+    --card-deco: rgba(255,255,255,0.14);
+    background-color: rgba(38,38,45,0.74);
+    background-image:
+        /* 1 竖向提亮：上半部抬起来一点，避免整块死黑 */
+        linear-gradient(180deg, rgba(255,255,255,0.055), rgba(0,0,0,0.10) 72%),
+        /* 2 顶部一道细高光（方舟卡片都有的那一条） */
+        linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.13) 20%, rgba(255,255,255,0.02) 66%, rgba(255,255,255,0) 100%),
+        /* 3~6 左上 / 右下 角标刻线 */
+        linear-gradient(var(--card-deco), var(--card-deco)),
+        linear-gradient(var(--card-deco), var(--card-deco)),
+        linear-gradient(var(--card-deco), var(--card-deco)),
+        linear-gradient(var(--card-deco), var(--card-deco)),
+        /* 7 右下角斜纹底纹 */
+        repeating-linear-gradient(135deg, rgba(255,255,255,0.020) 0 2px, rgba(255,255,255,0) 2px 8px);
+    background-size: 100% 100%, 100% 2px, 13px 1px, 1px 13px, 13px 1px, 1px 13px, 78px 78px;
+    background-position: 0 0, 0 0, left 9px top 0, left 0 top 9px, right 9px bottom 0, right 0 bottom 9px, right 0 bottom 0;
+    background-repeat: no-repeat;
+    border-color: rgba(255,255,255,0.09);
+}
+
+/* ---- 10.6 日历重做 ---- */
+.calendar-container { padding-bottom: 28px; }
+.calendar-container .calendar-grid {
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px; padding: 14px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.16)),
+        rgba(24,24,28,0.55);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+.calendar-container .calendar-day-header {
+    text-align: center; font-size: 11px; letter-spacing: 0.22em;
+    color: var(--text-muted-3); padding: 4px 0 9px; margin-bottom: 2px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.calendar-container .calendar-day-header.is-weekend { color: rgba(232,184,24,0.70); }
+.calendar-container .calendar-day {
+    min-height: 104px; padding: 8px 8px 10px;
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 5px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.10)),
+        rgba(28,28,32,0.55);
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: border-color .16s ease, background .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.calendar-container .calendar-day:hover {
+    transform: translateY(-2px);
+    border-color: rgba(34,187,255,0.55);
+    box-shadow: 0 0 0 1px rgba(34,187,255,0.18), 0 6px 16px rgba(0,0,0,0.45);
+}
+.calendar-container .calendar-day.other-month { opacity: 0.28; pointer-events: none; }
+.calendar-container .calendar-day.today {
+    border-color: rgba(232,184,24,0.62);
+    box-shadow: 0 0 14px rgba(232,184,24,0.18), inset 0 0 0 1px rgba(232,184,24,0.10);
+}
+.calendar-container .calendar-day.has-tasks { background-color: rgba(58,128,208,0.10); }
+.calendar-day-number {
+    font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--text-secondary-3); margin-bottom: 6px;
+    font-family: var(--font-mono, inherit);
+}
+.calendar-day.today .calendar-day-number { color: var(--highlight-gold-1); }
+/* 悬停时出现的「+」：提示这一天可以加任务 */
+.calendar-day-add {
+    position: absolute; top: 6px; right: 6px;
+    width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(34,187,255,0.5); border-radius: 2px;
+    background: rgba(34,187,255,0.10); color: #22BBFF;
+    font-size: 11px; opacity: 0; transition: opacity .16s ease;
+}
+.calendar-day:hover .calendar-day-add { opacity: 1; }
+.calendar-task-indicator {
+    display: flex; align-items: center; gap: 4px;
+    margin: 2px 0; padding: 3px 5px;
+    background: rgba(0,0,0,0.36); border-radius: 3px;
+    border-left: 2px solid rgba(255,255,255,0.14);
+    font-size: 10.5px; overflow: hidden;
+}
+.calendar-task-indicator:hover { background: rgba(255,255,255,0.09); }
+.calendar-task-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 某天的任务面板 */
+.dt-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 12px;
+}
+.dt-count { font-size: 12px; color: var(--text-muted-3); }
+.dt-add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+.dt-add-row .form-input { flex: 1 1 auto; }
+.dt-list { display: flex; flex-direction: column; gap: 8px; max-height: 46vh; overflow-y: auto; }
+.dt-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 4px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.030), rgba(0,0,0,0.10)), rgba(28,28,32,0.55);
+}
+.dt-item-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.dt-item-title { font-size: 13.5px; color: var(--text-primary-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dt-item-meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text-muted-3); }
+.dt-del {
+    flex: 0 0 auto; width: 30px; height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20,21,22,0.80);
+    border: 1px solid rgba(83,83,83,0.90); border-radius: 2px;
+    color: var(--text-secondary-1); cursor: pointer;
+    transition: border-color .16s ease, color .16s ease;
+}
+.dt-del:hover { border-color: var(--highlight-red-1); color: var(--highlight-red-2); }
+.dt-empty { padding: 22px 0; text-align: center; font-size: 12.5px; color: var(--text-muted-2); }
+
+@media (max-width: 768px) {
+    .calendar-container .calendar-grid { gap: 5px; padding: 8px; }
+    .calendar-container .calendar-day { min-height: 76px; padding: 5px; }
+    .calendar-day-number { font-size: 11px; margin-bottom: 3px; }
+    .calendar-task-indicator { font-size: 9px; padding: 2px 3px; }
+    .pc-tab { padding: 8px 13px; font-size: 12.5px; }
+    .gh-actionbar-view { position: static; background: none; padding-top: 8px; }
+}
