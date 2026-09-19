@@ -1550,7 +1550,14 @@ body.focus-mode .tracking-expanded {
     z-index:0;
 }
 .star-bg.priority-6 .star { position:relative; z-index:1; }
-.star-bg.priority-6 { min-width: 122px; padding-right: 12px; }
+
+/* 底板宽度必须交给外层 .task-stars（--task-star-col，96px）控制。
+   ⚠️ 这里原来写的是 .star-bg.priority-6 { min-width:122px } —— 6★ 底板比星列宽 26px，
+   标题整列被顶到右边，父子卡片的文字就对不齐了。改成「宽度全收、只留颜色」：
+   底板只负责分级配色，几何一律由 .task-stars 决定。 */
+.task-stars .star-bg { width:100%; min-width:0; }
+/* 金星压在 6★ 的彩虹光带之上（光带是 ::before，z-index:0） */
+.star-bg .g-stars { position:relative; z-index:1; }
 
 /* ===== 任务主内容 ===== */
 .task-main { flex:1; display:flex; flex-direction:column; padding:12px 18px; gap:4px; position:relative; z-index:2; min-width:0; }
@@ -3668,14 +3675,15 @@ body.wallpaper-video .bg-layer {
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
 }
 .task-detail-stars { margin-bottom: 12px; }
-/* 星级牌：宽度跟着星星走（原来写死 150px，星少时右边空一大块，看着像没做完） */
+/* 星级牌：宽度跟着星星走（原来写死 150px，星少时右边空一大块，看着像没做完）。
+   ⚠️ 只写几何，不写 background / border ——
+   这条选择器是 (0,2,0)，和 .star-bg.priority-N 同级但位置更靠后，
+   一旦在这里给底色就会把分级色条整条盖掉（色条在详情里「看不见」就是这个原因）。
+   配色交给 .star-bg.priority-N，与列表卡片完全一致。 */
 .task-detail-stars .star-bg {
     display:inline-flex; align-items:center; justify-content:center;
     width:auto; min-width:0; height:42px; padding:0 16px;
     border-radius:21px;
-    background:rgba(0,0,0,0.45);
-    border:1px solid rgba(232,184,24,0.28);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.06), 0 0 18px rgba(232,184,24,0.10);
 }
 .task-detail-title {
     font-size: 26px;
@@ -5034,11 +5042,14 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .res-amt b { font-family:var(--font-display); font-size:1.32em; font-weight:700; color:var(--text-primary); letter-spacing:0.02em; }
 /* 「当前持有」整条：给一个明确的基准字号，让里面的 em 单位有依托 */
 .resource-balance-display { font-size:16px; }
+/* 「当前持有」条：磨砂玻璃卡（R18）—— 原来那版是「竖向渐变 + 顶内高光 + 投影」
+   的实体板材，和全站玻璃语言不一致。 */
 #operatorGachaOrundumBalance, #skinShopBalance, #exchangeLungmenBalance {
     padding:9px 14px; border-radius:11px;
-    background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.22));
-    border:1px solid rgba(255,255,255,0.09);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 8px rgba(0,0,0,0.3);
+    background:var(--glass-2);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,0.10);
+    box-shadow:0 2px 10px rgba(0,0,0,0.26);
 }
 /* 用户连续三轮反馈「当前持有太小」——这次直接按视觉主信息量级给字号，
    不再只加 1~2px。 */
@@ -5455,21 +5466,28 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 /* ⓘ 现在与关闭按钮同在标题栏右侧，共用同一套 icon-btn 尺寸，不再错位 */
 .modal-header .gh-info-btn { position:static; margin-left:auto; margin-right:8px; }
 .ex-rate { margin-bottom:10px; }
-/* 之前这里是一个独立的圆角卡片（背景 + 边框），窗口里于是套了好几层「卡片」，
-   看起来像内嵌了一堆小窗。改成透明、无边界的舞台，直接铺在弹窗里。 */
+/* R16 把这里的圆角卡片背景/边框整条删了（理由：「套了好几层小窗」），
+   结果资源图标变成浮在弹窗上的裸图 —— 用户 R18 判定「卡片样式全部不合格」。
+   恢复：舞台是一张磨砂玻璃卡，资源图标各自压在一块圆角凹槽里。
+   ⚠️ 只恢复材质，R16 做的「消耗/获得」标注、大号数字、箭头对齐全部保留。 */
 .ex-stage {
     display:flex; align-items:flex-start; justify-content:center; gap:34px;
-    padding:14px 10px 6px; margin:4px 0 14px; border-radius:0;
-    background:none;
-    border:none;
+    padding:18px 14px; margin:6px 0 14px; border-radius:14px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.18)),
+        radial-gradient(ellipse at 50% 30%, rgba(90,150,220,0.12), transparent 70%);
+    border:1px solid rgba(255,255,255,0.08);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
 }
 .ex-side { display:flex; flex-direction:column; align-items:center; gap:7px; min-width:96px; }
 .ex-res {
-    position:relative; width:78px; height:78px; border-radius:0;
+    position:relative; width:78px; height:78px; border-radius:14px;
     display:flex; align-items:center; justify-content:center;
-    background:none; border:none; box-shadow:none;
+    background:radial-gradient(circle at 50% 36%, rgba(255,255,255,0.10), rgba(0,0,0,0.35) 70%);
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow:inset 0 0 18px rgba(0,0,0,0.5);
 }
-.ex-res img { width:78px; height:78px; object-fit:contain; filter:drop-shadow(0 5px 16px rgba(0,0,0,0.8)) drop-shadow(0 0 14px rgba(255,190,60,0.18)); }
+.ex-res img { width:56px; height:56px; object-fit:contain; filter:drop-shadow(0 3px 8px rgba(0,0,0,0.6)); }
 .ex-res-name { font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--text-primary-2); letter-spacing:0.16em; }
 /* 「消耗 / 获得」明确标注 + 大号数字：中间不再是「源石 → 当前持有合成玉」这种会被误读成
    折算结果的排布（用户反馈的歧义点） */
@@ -5637,89 +5655,72 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 
 
 /* ============================================================
-   8) 按钮语言统一 —— 时装筛选 / 寻访 / 礼包购买 / 兑换步进 全部归回 .btn 体系
+   8) 按钮语言统一 —— 磨砂玻璃（R18 回退）
    ------------------------------------------------------------
-   病根：这几个按钮各自用了「实心双渐变厚板」——
-   中性态是不透明的 #43474F→#2C2F35，主态是不透明的 #FFE28A→#F0B429→#C8860C，
-   外加 inset 0 -1px 底部暗线 + 文字投影。而全局 .btn 是半透明玻璃底（--glass-2）
-   + backdrop-filter，.btn-diamond / .game-btn.btn-gold 的金色是 rgba(232,184,24,·)
-   的晕染。两种材质放一起就是两个产品，用户看出来的「风格不一样」就是它。
-   统一做法：底色换成 .btn 的玻璃，主态换成 .btn-diamond / .game-btn.btn-gold
-   的金色晕染；材质（内高光、外投影、按压下沉）按同一套参数保留。
+   ⚠️ R15/R16 给这几个按钮加过「实心双渐变厚板 + 顶面内高光 + 底面暗边 + 文字投影」
+   的写实材质（中性态不透明 #43474F→#2C2F35，主态不透明 #FFE28A→#F0B429→#C8860C），
+   R17 又叠了一层竖向三段渐变。用户明确否掉：这是「偏写实」，不是本站的风格。
+   本站的语言是「磨砂玻璃」—— 半透明玻璃底（--glass-2）+ 背景模糊 + 1px 亮边，
+   没有内高光、没有底面暗线、没有文字投影。物理反馈只保留「悬停上浮 / 按下去陷」。
+   本段选择器一律套 :where() 把权重压到 (0,1,0)，保证后面的 :hover / :active 能覆盖。
    ============================================================ */
 
-/* ---- 8.1 中性态：对齐 .btn / .btn-secondary ---- */
-/* 材质层：顶 1px 高光 + 底 1px 暗面 + 外投影 —— 三件套参数在两组里完全一致，
-   所以不会产生新的风格差，只是把静止态的「扁平色块」补成有厚度的一块。
-   选择器一律套 :where() 把权重压到 (0,1,0)，保证后面的 :hover / :active
-   仍能覆盖它（否则 hover 的抬升阴影会被这条静止态压掉）。 */
+/* ---- 8.1 中性态：磨砂玻璃 ---- */
 .skin-filter-btn:where(:not(.active)),
 .gh-act:where(:not(.primary)),
 .ex-step,
 .gp-buy.gp-buy-locked,
 .btn-secondary,
 .game-btn:where(:not(.btn-gold):not(.btn-primary):not(.btn-danger)) {
-    background: linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0.02) 46%, rgba(0,0,0,0.16) 100%),
-                var(--glass-2);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: var(--glass-2);
+    border: 1px solid rgba(255,255,255,0.14);
     border-radius: 8px;
     color: var(--text-secondary-1);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     text-shadow: none;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.13),
-        inset 0 -1px 0 rgba(0,0,0,0.34),
-        0 2px 7px rgba(0,0,0,0.34);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.26);
     transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .16s ease,
-                background .16s ease, color .16s ease, border-color .16s ease, filter .16s ease;
+                background .16s ease, color .16s ease, border-color .16s ease;
 }
 .skin-filter-btn:hover,
 .gh-act:hover:not(:disabled),
 .ex-step:hover,
 .btn-secondary:hover,
 .game-btn:hover:not(:disabled) {
-    background: linear-gradient(180deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 46%, rgba(0,0,0,0.10) 100%),
-                var(--glass-2);
-    border-color: rgba(255,255,255,0.22);
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.26);
     color: var(--text-primary);
+    filter: none; /* 顶掉 R15/R16 加的 filter:brightness(1.2) —— 那是实体材质的做法 */
     transform: translateY(-2px);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.22),
-        inset 0 -1px 0 rgba(0,0,0,0.26),
-        0 7px 18px rgba(0,0,0,0.46);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.40);
 }
 .skin-filter-btn:active,
 .gh-act:active:not(:disabled),
 .ex-step:active,
 .btn-secondary:active,
 .game-btn:active:not(:disabled) {
-    transform: translateY(1px) scale(0.98);
-    box-shadow:
-        inset 0 2px 6px rgba(0,0,0,0.45),
-        inset 0 -1px 0 rgba(255,255,255,0.05),
-        0 1px 2px rgba(0,0,0,0.3);
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,0.35);
 }
 
-/* ---- 8.2 主/选中态：对齐 .btn-diamond / .game-btn.btn-gold（金色晕染，不是实心金块） ---- */
+/* ---- 8.2 主/选中态：同一块玻璃，只是染成金色 ---- */
 .skin-filter-btn.active,
 .gh-act.primary,
 .ex-max,
 .gp-buy,
 .btn-diamond,
 .game-btn.btn-gold {
-    background: linear-gradient(180deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.05) 44%, rgba(120,70,0,0.24) 100%),
-                linear-gradient(135deg, rgba(232,184,24,0.30), rgba(232,184,24,0.13));
+    background: rgba(232,184,24,0.20);
     border: 1px solid rgba(255,214,110,0.52);
     border-radius: 8px;
     color: var(--highlight-gold-1);
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     text-shadow: none;
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.36),
-        inset 0 -2px 6px rgba(110,66,0,0.30),
-        0 3px 13px rgba(232,184,24,0.24);
+    box-shadow: 0 2px 12px rgba(232,184,24,0.16);
     transition: transform .14s cubic-bezier(.2,.8,.2,1), box-shadow .16s ease,
-                background .16s ease, color .16s ease, border-color .16s ease, filter .16s ease;
+                background .16s ease, color .16s ease, border-color .16s ease;
 }
 .skin-filter-btn.active:hover,
 .gh-act.primary:hover:not(:disabled),
@@ -5727,15 +5728,12 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .gp-buy:hover,
 .btn-diamond:hover,
 .game-btn.btn-gold:hover:not(:disabled) {
-    background: linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0.08) 44%, rgba(120,70,0,0.18) 100%),
-                linear-gradient(135deg, rgba(232,184,24,0.40), rgba(232,184,24,0.18));
+    background: rgba(232,184,24,0.32);
     border-color: rgba(255,226,150,0.78);
     color: #FFE9A8;
+    filter: none; /* 同上：不要 brightness 提亮，玻璃靠提 alpha 就够了 */
     transform: translateY(-2px);
-    box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.48),
-        inset 0 -2px 6px rgba(110,66,0,0.22),
-        0 9px 24px rgba(232,184,24,0.34);
+    box-shadow: 0 10px 24px rgba(232,184,24,0.28);
 }
 .skin-filter-btn.active:active,
 .gh-act.primary:active:not(:disabled),
@@ -5743,12 +5741,12 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .gp-buy:active,
 .btn-diamond:active,
 .game-btn.btn-gold:active:not(:disabled) {
-    transform: translateY(1px) scale(0.98);
-    box-shadow:
-        inset 0 2px 7px rgba(120,80,0,0.48),
-        inset 0 -1px 0 rgba(255,255,255,0.10),
-        0 1px 2px rgba(0,0,0,0.3);
+    transform: translateY(1px);
+    box-shadow: inset 0 2px 7px rgba(120,80,0,0.38);
 }
+/* 筛选芯片的选中态要比普通按钮更"跳"一点，但用同一支金色、同一块玻璃，
+   只把 alpha 提上去 —— 不能换色号，否则又变成"两种风格"。 */
+.skin-filter-btn.active { background: rgba(232,184,24,0.32); color: #FFE9A8; font-weight:700; }
 
 /* 寻访按钮里两行文字的配色跟着主态走（原来写死深棕 #5A3A00，配玻璃底会发脏） */
 .gh-act .gh-act-label,

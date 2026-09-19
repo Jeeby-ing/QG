@@ -1756,9 +1756,15 @@ function createTaskCard(task) {
     // 星级徽章原先独占一行（36px 高 + 8px 下边距），现改为与标题同行，直接省掉一整行高度
     const stars = document.createElement('div');
     stars.className = 'task-stars';
-    /* 全站统一：星星只靠「数量」表达强度，一律金色单颗倾斜。
-       优先级数值仍然留在 data-priority / title 里，筛选用得到、悬停也看得到。 */
-    stars.innerHTML = goldStars(task.priority);
+    /* 星级底板 = 用户说的「星星下面的背景色条」：
+       星星本身仍然一律金色（只靠数量表达强度），但底板按星级换色 ——
+       1★~6★ 各一套渐变，规则在 style.css 的 .star-bg.priority-N。
+       ⚠️ 这段类名不能丢：e71cdb7「全站金星统一」时把 priority-N 摘掉了，
+       于是底板退成一块中性玻璃、色条消失（R15~R17 一直没找回来）。 */
+    const starBg = document.createElement('div');
+    starBg.className = `star-bg priority-${task.priority}`;
+    starBg.innerHTML = goldStars(task.priority);
+    stars.appendChild(starBg);
     stars.title = `优先级 ${task.priority}`;
     topRow.appendChild(stars);
     const title = document.createElement('span');
@@ -4200,7 +4206,8 @@ async function openTaskDetail(taskId){
     const heroStars=document.createElement('div');
     heroStars.className='task-detail-stars';
     const starPlate=document.createElement('div');
-    starPlate.className='star-bg';
+    // 详情头部的星级牌同样带 priority-N —— 与列表卡片共用一套分级色条
+    starPlate.className=`star-bg priority-${task.priority}`;
     starPlate.innerHTML=goldStars(task.priority);
     starPlate.title=`优先级 ${task.priority}`;
     heroStars.appendChild(starPlate);
