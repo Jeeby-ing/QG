@@ -1711,14 +1711,10 @@ function createTaskCard(task) {
         claimBadge.className = 'task-claim-badge';
         claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
         card.appendChild(claimBadge);
-    } else if (task.status === 'done') {
-        // 已完成且奖励已领：绿圈对勾（勾在圆里居中，不再顶到上沿）
-        const completedBadge = document.createElement('div');
-        completedBadge.className = 'task-completed-badge';
-        completedBadge.innerHTML = '<i class="fa-solid fa-check"></i>';
-        completedBadge.title = '已完成';
-        card.appendChild(completedBadge);
     }
+    /* 已完成且奖励已领：不放任何角标。
+       R19 用户明确要求去掉右上角那个绿色对勾 —— 原来的 completed 版本
+       （标题删除线 + 整卡压暗，见 .task-card.status-done）就已经足够表意。 */
 
     // 批量选择模式：卡片左侧显示圆形勾选框
     if (state.selectionMode) {
@@ -1739,15 +1735,8 @@ function createTaskCard(task) {
     }
     card.appendChild(indent);
 
-    /* 左侧分级色条：用独立元素，不用伪元素。
-       卡片的 ::before 是噪点层、::after 是"优先级顶部微光"，且后者由
-       .task-card[data-priority="N"]::after 以更高特异性声明 background ——
-       色条只要还在 ::after 上就永远被它盖掉（历史遗留的"色条看不见"根因）。
-       position:absolute 不参与 flex 排布，所以直接挂在卡片上即可。 */
-    const colorBar = document.createElement('span');
-    colorBar.className = 'task-colorbar';
-    colorBar.setAttribute('aria-hidden', 'true');
-    card.appendChild(colorBar);
+    /* 左侧分级色条 .task-colorbar 已移除（R19）：原版任务卡左边没有这条竖带，
+       是我 R17 多加的。分级表达全部交给星星下面的 .star-bg.priority-N 底板。 */
 
     const main = document.createElement('div');
     main.className = 'task-main';
@@ -3082,19 +3071,12 @@ async function completeTaskAndHandleReward(taskId) {
 
     const updatedTask = state.flatTasks.find(t => t.id === taskId);
     if (updatedTask && updatedTask.status === 'done') {
-        const hasReward = hasActualReward(updatedTask);
-        if (hasReward) {
-            if (rewardModalTimer) clearTimeout(rewardModalTimer);
-            rewardModalTimer = setTimeout(() => {
-                if (state.currentView === 'tasks' || document.getElementById('taskDetailModal').classList.contains('show')) {
-                    if (!document.querySelector('.modal-container.show')) {
-                        openRewardModal(taskId);
-                    }
-                } else {
-                    showToast('任务完成，奖励可稍后在任务列表领取');
-                }
-                rewardModalTimer = null;
-            }, 200);
+        /* R19：快捷完成后【不再自动弹】领取奖励窗口 ——
+           用户要的是自己点卡片再领。这里只给一句提示；卡片会带上 .claimable
+           并在右上角挂「可领取」，点整张卡走 claimTaskFromCard()。
+           （旧行为：200ms 后 openRewardModal 强弹，打断连续勾任务的节奏。） */
+        if (hasActualReward(updatedTask)) {
+            showToast('任务完成 · 点击卡片领取奖励');
         } else {
             showToast('任务已完成');
         }
@@ -3190,14 +3172,10 @@ async function updateCount(taskId, delta){
             await loadRealityRewards();
             const updatedTask=state.flatTasks.find(t=>t.id===taskId);
             if(updatedTask && updatedTask.status==='done'){
+                /* R19：与 completeTaskAndHandleReward 一致 —— 计数达标也不自动弹窗，
+                   改为提示 + 卡片「可领取」，由用户点卡片自行领取。 */
                 if(hasActualReward(updatedTask)){
-                    setTimeout(()=>{
-                        if(state.currentView==='tasks'||document.getElementById('taskDetailModal').classList.contains('show')){
-                            if(!document.querySelector('.modal-container.show')) openRewardModal(taskId);
-                        } else {
-                            showToast('任务完成，奖励可稍后在任务列表领取');
-                        }
-                    },200);
+                    showToast('任务完成 · 点击卡片领取奖励');
                 } else {
                     showToast('任务已完成');
                 }
@@ -3602,90 +3580,59 @@ function spawnParticlesGatherThenFly(sourceElement) {
 }
 
 /**
- * 方舟风格奖励动画：
- * 1. 源元素金色脉冲
- * 2. 浮动奖励数字（+exp / +源石 等）向上飘并淡出
- * 3. 少量精致粒子（星形/圆形）从源飘向资源栏
- * 4. 资源栏图标短暂放大闪烁
+ * 领取反馈动画（R19 重做）
+ * 旧版是「8 个随机 ✦/★/+/✧ 文字 + 15 个随机方块/圆点乱飞」—— 用户直说太丑，已整体删掉。
+ * 新版只做两件克制的事，对齐方舟原版那种"一闪即收"的反馈：
+ *   1) 源位置扩散两道金色光环（纯圆环，无字符、无方块碎片）
+ *   2) 顶部资源栏数字/图标做一次 0.2s 的缩放回弹
+ * 全程 ≤ 520ms，不挡视线、不抢后续操作。
  */
 function playRewardFlyEffect(sourceElement, resultData) {
     const container = DOM.particleContainer;
     if (!container) return;
 
-    const resourceBar = document.querySelector('.resource-display');
-    const barRect = resourceBar ? resourceBar.getBoundingClientRect() : { left: window.innerWidth - 120, top: 8, width: 100 };
-    const startRect = sourceElement ? sourceElement.getBoundingClientRect() : { left: window.innerWidth / 2 - 60, top: window.innerHeight / 2 - 60, width: 120, height: 120 };
+    const startRect = sourceElement
+        ? sourceElement.getBoundingClientRect()
+        : { left: window.innerWidth / 2 - 60, top: window.innerHeight / 2 - 60, width: 120, height: 120 };
     const cx = startRect.left + startRect.width / 2;
     const cy = startRect.top + startRect.height / 2;
 
-    // ── 阶段1：源元素金色脉冲 ──
-    if (sourceElement) {
-        sourceElement.style.transition = 'box-shadow 0.15s ease';
-        sourceElement.style.boxShadow = '0 0 30px rgba(232,184,24,0.7), 0 0 60px rgba(232,184,24,0.3)';
-        setTimeout(() => { sourceElement.style.boxShadow = ''; }, 400);
-    }
-
-    // ── 阶段2：浮动奖励文字 ──
-    const floatTexts = ['✦', '★', '+', '✧'];
-    const textColors = ['#E8B818', '#F8D840', '#6AB0E8', '#60C890', '#C87830'];
-    for (let i = 0; i < 8; i++) {
-        const el = document.createElement('div');
-        el.textContent = floatTexts[i % floatTexts.length];
-        el.style.cssText = `
-            position:fixed; z-index:3000; pointer-events:none;
-            left:${cx + (Math.random() - 0.5) * 60}px; top:${cy + (Math.random() - 0.5) * 30}px;
-            font-size:${14 + Math.random() * 12}px; color:${textColors[i % textColors.length]};
-            font-weight:bold; text-shadow:0 0 8px currentColor, 0 2px 4px rgba(0,0,0,0.5);
-            opacity:1; transition:all 0.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+    // ── 1) 金色光环扩散（两道，错开 90ms）──
+    const base = Math.max(startRect.width, startRect.height, 60);
+    for (let i = 0; i < 2; i++) {
+        const ring = document.createElement('div');
+        const r0 = base * (i === 0 ? 0.28 : 0.20);
+        const r1 = base * (i === 0 ? 0.62 : 0.78);
+        ring.style.cssText = `
+            position:fixed; z-index:2600; pointer-events:none;
+            left:${cx}px; top:${cy}px;
+            width:${r0 * 2}px; height:${r0 * 2}px;
+            margin-left:${-r0}px; margin-top:${-r0}px;
+            border-radius:50%;
+            border:1.5px solid rgba(255,214,96,${i === 0 ? 0.85 : 0.55});
+            box-shadow:0 0 12px rgba(255,196,60,0.35), inset 0 0 10px rgba(255,214,96,0.18);
+            opacity:0;
+            transform:scale(0.85);
+            transition:transform 0.5s cubic-bezier(0.16,0.84,0.44,1), opacity 0.5s ease-out;
         `;
-        container.appendChild(el);
+        container.appendChild(ring);
         requestAnimationFrame(() => {
-            el.style.transform = `translateY(-${50 + Math.random() * 40}px) scale(${1.2 + Math.random() * 0.5})`;
-            el.style.opacity = '0';
+            ring.style.opacity = '0.95';
+            ring.style.transform = `scale(${r1 / r0})`;
+            setTimeout(() => { ring.style.opacity = '0'; }, 130);
         });
-        setTimeout(() => el.remove(), 900);
+        setTimeout(() => ring.remove(), i * 90 + 620);
     }
 
-    // ── 阶段3：精致粒子飘向资源栏（少量，15个足够）──
-    const pColors = ['#E8B818', '#F8D840', '#6AB0E8', '#FAE060', '#60C890'];
-    const particleCount = 15;
-    for (let i = 0; i < particleCount; i++) {
-        const p = document.createElement('div');
-        const size = 4 + Math.random() * 6;
-        const color = pColors[i % pColors.length];
-        const isStar = Math.random() > 0.5;
-
-        p.style.cssText = `
-            position:fixed; z-index:2500; pointer-events:none;
-            width:${size}px; height:${size}px;
-            background:${color};
-            box-shadow:0 0 ${size}px ${color}, 0 0 ${size*2}px ${color}40;
-            border-radius:${isStar ? '0' : '50%'};
-            ${isStar ? 'clip-path:polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)' : ''}
-            left:${cx + (Math.random()-0.5)*30}px; top:${cy + (Math.random()-0.5)*30}px;
-            opacity:0.9;
-            transition:all 0.7s cubic-bezier(0.25,0.46,0.45,0.94);
-        `;
-        container.appendChild(p);
-
-        requestAnimationFrame(() => {
-            const tx = barRect.left + Math.random() * barRect.width;
-            const ty = barRect.top + 10 + Math.random() * 16;
-            p.style.transform = `translate(${tx - parseFloat(p.style.left)}px, ${ty - parseFloat(p.style.top)}px) scale(0.25) rotate(${Math.random()*360}deg)`;
-            p.style.opacity = '0';
-        });
-        setTimeout(() => p.remove(), 800);
-    }
-
-    // ── 阶段4：资源栏图标闪烁 ──
+    // ── 2) 资源栏回弹（缩放 + 一次金色描边闪）──
     setTimeout(() => {
         document.querySelectorAll('.resource-icon, .res-icon').forEach(icon => {
-            icon.style.transition = 'transform 0.2s ease, filter 0.2s ease';
-            icon.style.transform = 'scale(1.25)';
-            icon.style.filter = 'drop-shadow(0 0 8px rgba(232,184,24,0.8)) brightness(1.3)';
-            setTimeout(() => { icon.style.transform = ''; icon.style.filter = ''; }, 250);
+            icon.style.transition = 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), filter 0.18s ease';
+            icon.style.transform = 'scale(1.18)';
+            icon.style.filter = 'drop-shadow(0 0 6px rgba(255,196,60,0.55))';
+            setTimeout(() => { icon.style.transform = ''; icon.style.filter = ''; }, 200);
         });
-    }, 350);
+    }, 160);
 }
 
 async function handleClaimAll(){
@@ -4387,18 +4334,20 @@ function showPackRewardModal(granted){
 async function purchaseGiftPack(packId){ const result=await apiPost(`/gift-packs/${packId}/purchase`); if(result){ loadGiftPacks(); loadResources(); loadTransactions(); loadRealityRewards(); const rewards=result.rewards; if(rewards&&rewards.length){ showPackRewardModal(rewards); } else showToast('领取成功'); } }
 
 /* 兑换窗口的主体就是「多少源石 → 多少合成玉」：
-   左「消耗 N」、右「获得 N×180」，两侧数字随输入实时变化。
+   左 N、右 N×180，两侧数字随输入实时变化。
+   R19：用户要求「不要写消耗1获得180，数字即可」—— 所以两侧只渲染数字，
+   「消耗 / 获得」的字样整条去掉；方向由图标 + 名称 + 中间箭头表达，不会读错。
    持有量只出现在顶部那一条 —— 绝不再塞进中间箭头两边，
    因为「2 源石 → 594 合成玉」会被直接读成折算结果（用户反馈的歧义点）。 */
 function updateExchangeCost(){
     const amount = Math.max(0, parseFloat(DOM.exchangeAmount?.value) || 0);
     const gained = amount * EXCHANGE_RATE_STONE_TO_ORUNDUM;
     const from = document.getElementById('exchangeOwnFrom');
-    if (from) from.innerHTML = '<span>消耗</span>' + `<b>${formatWhNum(amount)}</b>`;
+    if (from) from.innerHTML = `<b>${formatWhNum(amount)}</b>`;
     const to = document.getElementById('exchangeOwnTo');
     if (to) {
         to.classList.add('is-gain');
-        to.innerHTML = '<span>获得</span>' + `<b>${formatWhNum(gained)}</b>`;
+        to.innerHTML = `<b>${formatWhNum(gained)}</b>`;
     }
     const el = DOM.exchangeCostDisplay;
     /* 这一条原来复读「1 源石 = 180 合成玉」——上方大字已经同时给出消耗与获得，

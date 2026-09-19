@@ -352,18 +352,20 @@ ARK_GIFT_PACKS = [
 
 
 def _shop_day_index() -> int:
-    """「游戏日序号」——从 2026-01-01 04:00 起算的天数，每过一个 04:00 严格 +1。
+    """「货架周期序号」——从 2026-01-01 04:00 起算的【周数】，每过一个周一 04:00 严格 +1。
 
-    和 _stable_index（散列出随机下标）不同，这个值每天必然递增，
-    拿它当轮换窗口的起点，就能保证「相邻两天上架的礼包一定不一样」，
-    而不会出现散列撞车导致连着两天同一批的情况。
+    R19：刷新周期由「每日」改回「每周」（用户：抽卡处/皮肤处/礼包处按周刷新更合理，
+    每天换一批太快，刚看中的东西第二天就没了）。
+    和 _stable_index（散列出随机下标）不同，这个值每周必然递增，
+    拿它当轮换窗口的起点，就能保证「相邻两周上架的礼包一定不一样」，
+    而不会出现散列撞车导致连着两周同一批的情况。
     """
     base = datetime(2026, 1, 1, REPEAT_RESET_HOUR).astimezone()
-    return (period_start('daily') - base).days
+    return (period_start('weekly') - base).days // 7
 
 
 def _rolling_pick(seq: list, day_index: int, k: int, offset: int = 0) -> list:
-    """按天序号滚动取 k 个：窗口每天整体错开一格，走完一圈自动回到开头。"""
+    """按周期序号滚动取 k 个：窗口每期整体错开一格，走完一圈自动回到开头。"""
     n = len(seq)
     if n == 0:
         return []
@@ -372,34 +374,37 @@ def _rolling_pick(seq: list, day_index: int, k: int, offset: int = 0) -> list:
 
 
 def generate_weekly_packs(cur):
-    """礼包货架轮换（函数名沿用，避免改动调用点；周期已从「每周」改为「每日」）。
+    """礼包货架轮换（R19：周期回到「每周」，每周一 04:00 换一批）。
 
-    原来只在每周一 04:00 换一批，用户一周内看到的永远是同样的几个包。
-    现在接到与「精选卡池 / 时装货架」相同的每日 04:00 分界：
       · 罗德岛补给卡仍是常驻锚点（对应原版月卡，不该消失）
-      · 其余 3~4 个按游戏日序号滚动上架 —— 当天结果固定（刷新不变），跨天自动换
+      · 其余 3 个按周期序号滚动上架 —— 本周内结果固定（刷新不变），跨周自动换
+      · 总数固定为 4（1 锚点 + 3 滚动）—— 偶数个，两行两列铺满，
+        不再出现「3+1 缺一块」的丑排版（原来是 3 + day%2，可能为 5 个）
     """
-    start = period_start('daily').astimezone(timezone.utc)
-    end = start + timedelta(days=1)
+    start = period_start('weekly').astimezone(timezone.utc)
+    end = start + timedelta(days=7)
     # ⚠️ 时间口径必须统一成 UTC：/api/gift-packs 用 now_iso()（UTC）做字符串比较，
     #    若这里写本地时区的 "+08:00" 串，就能和 "…+00:00" 比出大小关系错误，
     #    礼包会被整批过滤掉（表现为货架空白）。
     now = now_iso()
-    # 清掉过期与「上一个周期遗留的未购买礼包」：
-    # 从周改为日后，旧的一周礼包 available_until 还没到，不清就会一直挂在货架上。
-    # 用 datetime() 归一化比较，避免时区偏移把时间窗算错。
+    # 清掉过期包 + 「不是本周期起点生成的遗留包」。
+    # R19 从日更改回周更时踩到的坑：日更时代生成的包窗口是 1 天，
+    # 它们的 available_from 落在本周窗口内（于是不会被"早于周期起点"的条件命中），
+    # 会一直挂在货架上，导致货架同时出现新旧两批、数量也不是偶数。
+    # ⚠️ 这里用【字符串精确比较 available_from】，不用 datetime() 归一化：
+    #    存储串带 "+08:00" 偏移，SQLite 的 datetime() 对带偏移的 ISO 串会返回 NULL，
+    #    NULL 参与比较恒为假 —— 于是"删不掉"，这正是日更→周更后货架不清的根因。
     cur.execute("""DELETE FROM gift_packs
                    WHERE purchased = 0
-                     AND (datetime(available_until) < datetime(?) OR datetime(available_from) < datetime(?))""",
+                     AND (datetime(available_until) < datetime(?) OR available_from <> ?)""",
                 (now, start.isoformat()))
-    cur.execute("""SELECT COUNT(*) FROM gift_packs
-                   WHERE datetime(available_from) >= datetime(?) AND datetime(available_from) < datetime(?)""",
-                (start.isoformat(), end.isoformat()))
+    cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from = ?", (start.isoformat(),))
     if cur.fetchone()[0] == 0:
         day = _shop_day_index()
         anchor = next(p for p in ARK_GIFT_PACKS if p["name"] == "罗德岛补给卡")
         others = [p for p in ARK_GIFT_PACKS if p is not anchor]
-        chosen = [anchor] + _rolling_pick(others, day, 3 + (day % 2))
+        # 固定 4 个（1 常驻 + 3 滚动）：偶数，网格不会缺角
+        chosen = [anchor] + _rolling_pick(others, day, 3)
         for pack in chosen:
             n, lo, hi = pack["materials"]
             mats = [{"type": k, "amount": a} for k, a in _pick_pack_materials(n, lo, hi)]
@@ -419,8 +424,8 @@ def generate_weekly_packs(cur):
 def background_weekly_pack_refresh():
     while True:
         now = _local_now()
-        # 下一个 04:00（今天的已过就是明天的）
-        next_reset = period_start('daily') + timedelta(days=1)
+        # 下一个周期起点：本周一 04:00（已过就是下周一）
+        next_reset = period_start('weekly') + timedelta(days=7)
         sleep_seconds = max(30.0, (next_reset - now).total_seconds())
         time.sleep(sleep_seconds)
         try:
@@ -1194,6 +1199,12 @@ def _legacy_create_repeat_copy(cur, task_id: int):
     # 副本不继承父任务和前置依赖
     reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
     reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
+    # R19：周期副本同样要能产出源石 —— 原来这里直接透传 task 的 0，
+    # 于是「重复任务」永远给不出源石（这也是用户觉得源石不够用的原因之一）
+    reward_source_stone = task["reward_source_stone"] or auto_reward_source_stone(
+        task["priority"], task["task_line"])
+    reward_orundum = task["reward_orundum"] or auto_reward_orundum(
+        task["priority"], task["task_line"])
     cur.execute("""
         INSERT INTO tasks (
             parent_id, title, description, priority, task_line, status, progress_mode, progress,
@@ -1222,8 +1233,8 @@ def _legacy_create_repeat_copy(cur, task_id: int):
         0,
         reward_exp,
         reward_lungmen,
-        task["reward_source_stone"],
-        task["reward_orundum"],
+        reward_source_stone,
+        reward_orundum,
         task["notes"],
         0,
         0,
@@ -1260,6 +1271,12 @@ def get_task_with_tags(cur, task_id: int):
         else:
             reward_lungmen = task["priority"] * 100
         task_dict["reward_lungmen"] = reward_lungmen
+    # R19：列表/详情里显示的源石、合成玉也按同一口径兜底，
+    # 否则 UI 上写 0、实际发奖却有钱，用户会以为"任务不给源石"。
+    if (task_dict["reward_source_stone"] or 0) == 0:
+        task_dict["reward_source_stone"] = auto_reward_source_stone(task["priority"], task["task_line"])
+    if (task_dict["reward_orundum"] or 0) == 0:
+        task_dict["reward_orundum"] = auto_reward_orundum(task["priority"], task["task_line"])
     cur.execute("""
         SELECT t.name, t.color FROM tags t
         JOIN task_tags tt ON t.id = tt.tag_id
@@ -1739,6 +1756,11 @@ async def get_tasks(
                 else:
                     reward_lungmen = task["priority"] * 100
                 task_dict["reward_lungmen"] = reward_lungmen
+            # R19：源石 / 合成玉同样兜底（与 _grant_task_rewards 同口径）
+            if (task_dict["reward_source_stone"] or 0) == 0:
+                task_dict["reward_source_stone"] = auto_reward_source_stone(task["priority"], task["task_line"])
+            if (task_dict["reward_orundum"] or 0) == 0:
+                task_dict["reward_orundum"] = auto_reward_orundum(task["priority"], task["task_line"])
             task_dict["tags"] = tag_map.get(task["id"], [])
             result.append(task_dict)
     return {"data": result}
@@ -2286,6 +2308,44 @@ async def complete_task(task_id: int):
     return {"data": {"id": task_id, "status": "done"}}
 
 
+# ---------- 任务奖励：源石 / 合成玉的自动计算 ----------
+# R19：用户反馈「现在的任务拿不到源石，源石不够用」。
+# 根因：只有 exp / 龙门币在代码里做了自动计算，源石和合成玉直接读 DB 的
+# reward_source_stone / reward_orundum，而这两个字段默认 0 —— 除非 AI 生成任务时
+# 正好写进 drop_config，否则完成任务永远发不出源石。
+# 这里补上和 exp/龙门币同款的自动兜底，数值写死成下面两张表，方便后续单独调。
+#
+#   源石：按优先级分档。源石是硬通货，低星任务也给 1 颗保底，
+#         主线额外 +1（对应原版"主线关卡首通给源石"）。
+#   合成玉：随优先级线性增长（30/星），是凑抽卡零头的主要来源。
+#   兑换口径：1 源石 = 180 合成玉，单抽 600 合成玉。
+STONE_BY_PRIORITY = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 5}
+ORUNDUM_PER_PRIORITY = 30
+
+
+def _norm_priority(p) -> int:
+    try:
+        p = int(p or 1)
+    except (TypeError, ValueError):
+        p = 1
+    return 1 if p < 1 else (6 if p > 6 else p)
+
+
+def auto_reward_source_stone(priority, task_line: str = '') -> int:
+    """任务源石奖励：优先级分档 + 主线加成。"""
+    p = _norm_priority(priority)
+    stone = STONE_BY_PRIORITY[p]
+    if task_line == 'main':
+        stone += 1
+    return stone
+
+
+def auto_reward_orundum(priority, task_line: str = '') -> int:
+    """任务合成玉奖励：每星 30，主线再加 30。"""
+    p = _norm_priority(priority)
+    return p * ORUNDUM_PER_PRIORITY + (ORUNDUM_PER_PRIORITY if task_line == 'main' else 0)
+
+
 def _grant_task_rewards(cur, task):
     """给单个任务结算奖励：基础资源 + 掉落素材入仓，并标记为已领取。
 
@@ -2306,11 +2366,20 @@ def _grant_task_rewards(cur, task):
         reward_lungmen = task["reward_lungmen"]
     else:
         reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
+    # R19：源石 / 合成玉同样兜底自动计算（DB 里为 0 说明「没指定」，不是「不给」）
+    if task["reward_source_stone"] != 0:
+        reward_stone = task["reward_source_stone"]
+    else:
+        reward_stone = auto_reward_source_stone(task["priority"], task["task_line"])
+    if task["reward_orundum"] != 0:
+        reward_orundum = task["reward_orundum"]
+    else:
+        reward_orundum = auto_reward_orundum(task["priority"], task["task_line"])
     rewards = {
         'exp': reward_exp,
         'lungmen': reward_lungmen,
-        'source_stone': task["reward_source_stone"],
-        'orundum': task["reward_orundum"],
+        'source_stone': reward_stone,
+        'orundum': reward_orundum,
     }
     drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
     rewards['source_stone'] += drop_rewards['source_stone']
@@ -2426,11 +2495,20 @@ async def claim_all_rewards():
                 reward_lungmen = task["reward_lungmen"]
             else:
                 reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
+            # R19：与 _grant_task_rewards 同一口径，源石 / 合成玉兜底自动计算
+            if task["reward_source_stone"] != 0:
+                reward_stone = task["reward_source_stone"]
+            else:
+                reward_stone = auto_reward_source_stone(task["priority"], task["task_line"])
+            if task["reward_orundum"] != 0:
+                reward_orundum = task["reward_orundum"]
+            else:
+                reward_orundum = auto_reward_orundum(task["priority"], task["task_line"])
             rewards = {
                 'exp': reward_exp,
                 'lungmen': reward_lungmen,
-                'source_stone': task["reward_source_stone"],
-                'orundum': task["reward_orundum"],
+                'source_stone': reward_stone,
+                'orundum': reward_orundum,
             }
             drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
             rewards['source_stone'] += drop_rewards['source_stone']
@@ -2903,11 +2981,12 @@ CHARACTER_BY_ID = _load_character_by_id()
 
 
 def _daily_key(salt: str) -> str:
-    """每天换一批的种子：让「精选卡池 / 时装货架」每天都有新鲜感。
+    """轮换种子（R19：由「每天」改为「每周」—— 抽卡精选 / 时装货架按周更新）。
 
-    同样以凌晨 04:00 为分界，和任务重置保持同一天。
+    以每周一 04:00 为分界：同一周内刷新页面结果固定，跨周自动换一批。
+    函数名沿用，避免改动调用点。
     """
-    return f"{salt}:{period_start('daily').strftime('%Y%m%d')}"
+    return f"{salt}:{period_start('weekly').strftime('%Y%m%d')}"
 
 
 def _rotate(seq: list, seed: str, n: int) -> list:
@@ -2919,7 +2998,7 @@ def _rotate(seq: list, seed: str, n: int) -> list:
 
 
 def featured_operators() -> dict:
-    """寻访弹窗顶部的「本期精选」：每日轮换，只挑有立绘的干员。
+    """寻访弹窗顶部的「本期精选」：每周轮换，只挑有立绘的干员。
 
     返回 {six: [...], five: [...], four: [...]}，前端用来铺立绘展示条，
     让卡池在没有抽卡记录时也不是一片空白。
@@ -2932,7 +3011,7 @@ def featured_operators() -> dict:
         "six": pick(6, 1),
         "five": pick(5, 4),
         "four": pick(4, 6),
-        "date": period_start('daily').strftime("%Y-%m-%d"),
+        "date": period_start('weekly').strftime("%Y-%m-%d"),
     }
 
 
@@ -3161,7 +3240,7 @@ def build_skins_for_operator(op: dict) -> list:
 
 
 def build_skin_shop(owned_op_ids: set, limit: int = 18) -> list:
-    """时装商店的「货架」：每日轮换一批真实皮肤。
+    """时装商店的「货架」：每周轮换一批真实皮肤（R19：与卡池/礼包统一为周更）。
 
     原版的时装商店本来就会摆出你还没有的干员的皮肤——买得到、穿不上。
     这里同样处理：未持有干员的时装 unlocked=False，前端只给预览不给下单，
