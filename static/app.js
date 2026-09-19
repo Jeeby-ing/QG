@@ -463,12 +463,15 @@ function bindEvents() {
     DOM.calPrevMonth.addEventListener('click', () => changeMonth(-1));
     DOM.calNextMonth.addEventListener('click', () => changeMonth(1));
 
-    DOM.graphZoomIn.addEventListener('click', () => setGraphZoom(0.2));
-    DOM.graphZoomOut.addEventListener('click', () => setGraphZoom(-0.2));
+    // R21：连续倍率缩放，不再一次性跳一大档
+    DOM.graphZoomIn.addEventListener('click', () => setGraphZoom(1.25));
+    DOM.graphZoomOut.addEventListener('click', () => setGraphZoom(1 / 1.25));
     DOM.graphReset.addEventListener('click', resetGraph);
     DOM.graphSvg.addEventListener('wheel', (e) => {
         e.preventDefault();
-        setGraphZoom(e.deltaY > 0 ? -0.1 : 0.1);
+        // 滚轮每格 1.10 倍，并以鼠标位置为锚点 —— 缩到哪儿就盯着哪儿
+        const p = graphPointFromEvent(e);
+        setGraphZoom(e.deltaY > 0 ? 1 / 1.10 : 1.10, p.x, p.y);
     }, { passive: false });
 
     DOM.customBadgeBtn.addEventListener('click', () => openModal('badgeModal'));
@@ -579,7 +582,7 @@ function bindEvents() {
         const btn = e.target.closest('.pc-tab');
         if (!btn) return;
         switchShopTab(btn.dataset.tab);
-        if (btn.dataset.tab === 'skin') loadSkins();
+        if (btn.dataset.tab === 'skin') { skinTabLoaded = true; loadSkins(); }
     });
     /* R20：主页的四个入口卡片 —— 直接跳到采购中心对应子页 / 寻访视图 */
     if (DOM.profileMedalEntry) DOM.profileMedalEntry.addEventListener('click', () => { switchView('shop'); switchShopTab('medal'); });
@@ -828,7 +831,9 @@ function renderCurrentView() {
 }
 
 /* ===== 采购中心：内部视图切换 ===== */
-let shopTab = 'medal';
+/* R21：默认子页改成「时装兑换」（用户要求第一个显示时装），顺序 时装→礼包→蚀刻章→现实奖励 */
+let shopTab = 'skin';
+let skinTabLoaded = false;   // 时装数据只在第一次切进来时拉一次
 function switchShopTab(tab){
     shopTab = tab;
     if (DOM.shopTabBar) DOM.shopTabBar.querySelectorAll('.pc-tab')
@@ -841,6 +846,10 @@ function renderShopPanel(){
     if (shopTab === 'reality') renderRealityRewards();
     if (shopTab === 'pack')    { renderGiftPacks(); updatePackBalance(); }
     if (shopTab === 'skin')    renderSkins();
+}
+/* 切到采购中心时：时装是默认子页，数据要主动拉一次（否则第一次进来是空货架） */
+function ensureShopData(){
+    if (shopTab === 'skin' && !skinTabLoaded){ skinTabLoaded = true; loadSkins(); }
 }
 function updateShopMedalNote(){
     const el = document.getElementById('shopMedalNote'); if (!el) return;
@@ -2158,6 +2167,15 @@ function handleDragEnd() { draggedTaskId = null; }
 
 function seededRandom(seed) { return function() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }; }
 
+/* 图谱节点配色（R21）：每种状态一条自上而下渐变，顶亮底深，不用近黑底 + 外发光 */
+const GRAPH_NODE_COLORS = {
+    todo:       { from:'#39404f', to:'#22262f', stroke:'rgba(236,239,245,0.30)', bar:'rgba(236,239,245,0.34)', hi:'rgba(255,255,255,0.10)' },
+    in_progress:{ from:'#1f4f75', to:'#132b41', stroke:'#6BA6E8',                 bar:'#3A80D0',               hi:'rgba(130,190,255,0.22)' },
+    paused:     { from:'#5f4d21', to:'#372d16', stroke:'#E2BC46',                 bar:'#D4A520',               hi:'rgba(255,214,110,0.20)' },
+    done:       { from:'#235440', to:'#143029', stroke:'#71CE90',                 bar:'#5FB37A',               hi:'rgba(140,240,180,0.18)' },
+    cancelled:  { from:'#3d3d47', to:'#24242a', stroke:'#82828E',                 bar:'#6A6A74',               hi:'rgba(255,255,255,0.07)' },
+    blocked:    { from:'#5f2b27', to:'#371917', stroke:'#E8514A',                 bar:'#D43028',               hi:'rgba(255,140,130,0.20)' },
+};
 function renderGraph() {
     const svg = DOM.graphSvg;
     svg.innerHTML = '';
@@ -2175,10 +2193,16 @@ function renderGraph() {
     filter.setAttribute('id', 'graphNoise');
     filter.innerHTML = `<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.15 0"/><feComposite operator="over" in2="SourceGraphic"/>`;
     defs.appendChild(filter);
-    const glowFilter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
-    glowFilter.setAttribute('id', 'graphGlow');
-    glowFilter.innerHTML = `<feGaussianBlur stdDeviation="3" result="blur"/><feComposite in="SourceGraphic" in2="blur" operator="over"/>`;
-    defs.appendChild(glowFilter);
+    // 每种状态的节点渐变（替代原来的近黑纯色 + 高斯外发光）
+    Object.keys(GRAPH_NODE_COLORS).forEach(k => {
+        const c = GRAPH_NODE_COLORS[k];
+        const lg = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
+        lg.setAttribute('id', `gnode-${k}`);
+        lg.setAttribute('x1', '0'); lg.setAttribute('y1', '0');
+        lg.setAttribute('x2', '0'); lg.setAttribute('y2', '1');
+        lg.innerHTML = `<stop offset="0%" stop-color="${c.from}"/><stop offset="100%" stop-color="${c.to}"/>`;
+        defs.appendChild(lg);
+    });
     svg.appendChild(defs);
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     const levelMap = {};
@@ -2228,7 +2252,8 @@ function renderGraph() {
                     const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
                     path.setAttribute('d', d);
                     path.setAttribute('fill', 'none');
-                    path.setAttribute('stroke', idx === 0 ? 'rgba(0,194,255,0.55)' : 'rgba(0,194,255,0.85)');
+                    // R21：纯青 #00C2FF 在暗底上非常"网页味"，压成钢蓝更贴方舟 UI
+                    path.setAttribute('stroke', idx === 0 ? 'rgba(150,205,235,0.42)' : 'rgba(165,215,240,0.72)');
                     path.setAttribute('stroke-width', cfg.width);
                     path.setAttribute('stroke-opacity', cfg.opacity);
                     path.setAttribute('stroke-dasharray', cfg.dash);
@@ -2260,22 +2285,19 @@ function renderGraph() {
         const cx = pos.x, cy = pos.y;
         const W = 170, H = 60, rx = 10;
         // 状态色（复用任务卡片同款色条）
-        const statusColors = {
-            todo:     { fill: 'rgba(28,32,44,0.94)',  stroke: 'rgba(255,255,255,0.14)', bar: 'rgba(255,255,255,0.10)' },
-            in_progress: { fill: 'rgba(16,40,58,0.94)',   stroke: '#3A80D0',          bar: 'rgba(58,128,208,0.65)' },
-            paused:   { fill: 'rgba(50,45,28,0.94)',   stroke: '#D4A520',          bar: 'rgba(212,165,32,0.55)' },
-            done:     { fill: 'rgba(22,44,34,0.93)',   stroke: '#5FB37A',           bar: 'rgba(95,179,122,0.5)' },
-            cancelled:{ fill: 'rgba(30,30,34,0.92)',   stroke: '#6A6A74',           bar: 'rgba(106,106,116,0.35)' },
-            blocked:  { fill: 'rgba(46,28,28,0.95)',   stroke: '#D43028',           bar: 'rgba(212,48,40,0.5)' }
-        };
-        const sc = isBlocked(n) ? statusColors.blocked : (statusColors[n.status] || statusColors.todo);
+        /* R21：节点不再是「纯黑卡片」。
+           旧版用 rgba(28,32,44,…) 这种近黑底 + 高斯模糊外发光，
+           在暗色界面上就是一坨糊掉的黑块（用户原话「还是这黑色卡片，好丑」）。
+           改成每种状态一条自上而下的渐变：顶部提亮、底部收深，
+           取消外发光，改描边 + 顶部高光线来表达材质。 */
+        const status = isBlocked(n) ? 'blocked' : (n.status || 'todo');
+        const sc = GRAPH_NODE_COLORS[status] || GRAPH_NODE_COLORS.todo;
         // 节点主体
         const rect = document.createElementNS('http://www.w3.org/2000/svg','rect');
         rect.setAttribute('x', cx - W/2); rect.setAttribute('y', cy - H/2);
         rect.setAttribute('width', W); rect.setAttribute('height', H); rect.setAttribute('rx', rx);
-        rect.setAttribute('fill', sc.fill);
-        rect.setAttribute('stroke', sc.stroke); rect.setAttribute('stroke-width','1.5');
-        rect.setAttribute('filter','url(#graphGlow)');
+        rect.setAttribute('fill', `url(#gnode-${status})`);
+        rect.setAttribute('stroke', sc.stroke); rect.setAttribute('stroke-width','1.4');
         rect.classList.add('graph-node', `status-${n.status}`);
         rect.dataset.priority = n.priority;
         rect.dataset.taskId = n.id;  // 拖拽时用于DOM查找
@@ -2291,6 +2313,12 @@ function renderGraph() {
         bar.setAttribute('fill', sc.bar); bar.setAttribute('opacity','1');
         bar.dataset.taskId = n.id;
         g.appendChild(bar);
+        // 顶部高光线：一条 1px 亮线取代原来的高斯外发光，材质感来自"边"不是"光"
+        const hi = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        hi.setAttribute('x', cx - W/2 + 7); hi.setAttribute('y', cy - H/2 + 1.5);
+        hi.setAttribute('width', W - 14); hi.setAttribute('height', 1);
+        hi.setAttribute('fill', sc.hi);
+        g.appendChild(hi);
         // 标题——从色条右侧开始，不再从卡片中间开始
         const text = document.createElementNS('http://www.w3.org/2000/svg','text');
         text.setAttribute('x', cx - W/2 + 14); text.setAttribute('y', cy - 3);
@@ -2352,11 +2380,26 @@ function renderGraph() {
         });
         if (!isFinite(_minX)) { _minX = 0; _minY = 0; _maxX = 640; _maxY = 440; }
         const _pad = 100;
-        const _vx = Math.max(0, _minX - _pad);
-        const _vy = Math.max(0, _minY - _pad);
+        let _vx = Math.max(0, _minX - _pad);
+        let _vy = Math.max(0, _minY - _pad);
         const _vw = Math.max(_maxX - _minX + _pad * 2, 640);
         const _vh = Math.max(_maxY - _minY + _pad * 2, 440);
-        state.graphViewBox = { x: _vx, y: _vy, width: _vw, height: _vh };
+        /* 把 viewBox 补足成容器的宽高比。
+           SVG 默认 preserveAspectRatio=meet，内容很宽时会上下留大片空白、
+           很高时左右留白；补足比例再居中，内容才能真的铺满画布，
+           也不会在缩放时出现"看着忽大忽小"的错觉。 */
+        let _bw = _vw, _bh = _vh;
+        const _box = DOM.graphSvg.getBoundingClientRect();
+        if (_box.width > 0 && _box.height > 0) {
+            const _ar = _box.width / _box.height;
+            if (_bw / _bh < _ar) { _bw = _bh * _ar; }
+            else                 { _bh = _bw / _ar; }
+        }
+        _vx -= (_bw - _vw) / 2;
+        _vy -= (_bh - _vh) / 2;
+        state.graphViewBox = { x: _vx, y: _vy, width: _bw, height: _bh };
+        state.graphBaseWidth = _bw;
+        state.graphBaseHeight = _bh;
         state.graphScale = 1;
     }
     // 始终用当前 viewBox 渲染（不管是 auto-fit 还是用户手动设定的）
@@ -2384,13 +2427,18 @@ function buildGraphTreeLayout(nodes) {
         .filter(n => !n.parent_id || !byId.has(n.parent_id))
         .sort((a,b) => (a.sort_order||0) - (b.sort_order||0));
 
-    const COL = 268;      // 每深入一层的水平间距
-    const ROW = 98;       // 树内行距
-    const TREE_GAP = 86;  // 树与树之间的留白
-    const X0 = 165;
+    const COL = 250;      // 每深入一层的水平间距
+    const ROW = 94;       // 树内行距
+    const TREE_GAP = 62;  // 同一列内，树与树之间的纵向留白
+    const COL_GAP = 96;   // 列与列之间的横向留白
+    const X0 = 165, Y0 = 80;
+    /* 单列最多堆几行：超过就换一列往右排。
+       旧版是「所有树串成一列往下堆」，任务一多就变成一条细长的纵向长条
+       （用户：整体都是纵向挤开的）。现在按这个上限分栏，
+       整体宽高比接近 16:9，不会再出现拉不完的竖条。 */
+    const MAX_ROWS_PER_COL = 7;
     const layout = {};
     const bands = [];
-    let cursorY = 80;
 
     // 一棵树占多少行 = 它的叶子数
     const measure = (node) => {
@@ -2398,35 +2446,59 @@ function buildGraphTreeLayout(nodes) {
         if (!kids.length) return 1;
         return kids.reduce((s, k) => s + measure(k), 0);
     };
-    const place = (node, depth, slotStart) => {
+    const depthOf = (node) => {
+        const kids = children.get(node.id) || [];
+        if (!kids.length) return 0;
+        return 1 + Math.max(...kids.map(depthOf));
+    };
+    const place = (node, depth, slotStart, originX, originY) => {
         const kids = children.get(node.id) || [];
         if (!kids.length) {
-            layout[node.id] = { x: X0 + depth * COL, y: cursorY + slotStart * ROW };
+            layout[node.id] = { x: originX + depth * COL, y: originY + slotStart * ROW };
             return;
         }
         let off = slotStart;
-        kids.forEach(k => { place(k, depth + 1, off); off += measure(k); });
+        kids.forEach(k => { place(k, depth + 1, off, originX, originY); off += measure(k); });
         // 父节点垂直居中于它的孩子们之间（比顶格对齐更像"树"）
         const first = layout[kids[0].id].y;
         const last  = layout[kids[kids.length - 1].id].y;
-        layout[node.id] = { x: X0 + depth * COL, y: (first + last) / 2 };
+        layout[node.id] = { x: originX + depth * COL, y: (first + last) / 2 };
     };
 
-    roots.forEach(root => {
-        const rows = Math.max(1, measure(root));
-        const y0 = cursorY;
-        place(root, 0, 0);
-        const y1 = cursorY + rows * ROW;
-        let maxDepth = 0;
-        const walk = (node, d) => { maxDepth = Math.max(maxDepth, d); (children.get(node.id)||[]).forEach(k => walk(k, d+1)); };
-        walk(root, 0);
-        bands.push({
-            x0: X0 - 120, x1: X0 + maxDepth * COL + 130,
-            y0: y0 - 34, y1: y1 - ROW + 34,
-            title: root.title || '任务树'
-        });
-        cursorY = y1 + TREE_GAP;
+    // 1) 先量好每棵树的高度（行）与深度（层）
+    const trees = roots.map(root => ({
+        root, rows: Math.max(1, measure(root)), depth: depthOf(root),
+    }));
+    // 2) 贪心分栏：装不下就往右开一列
+    const cols = [];
+    trees.forEach(t => {
+        let c = cols[cols.length - 1];
+        if (!c || (c.rows > 0 && c.rows + t.rows > MAX_ROWS_PER_COL)) {
+            c = { trees: [], rows: 0, depth: 0 };
+            cols.push(c);
+        }
+        c.trees.push(t);
+        c.rows += t.rows + 1;                 // +1 = 树间留白的一行
+        c.depth = Math.max(c.depth, t.depth);
     });
+    // 3) 逐列摆放
+    let colX = X0;
+    cols.forEach(c => {
+        let cursorY = Y0;
+        c.trees.forEach(t => {
+            const y0 = cursorY;
+            place(t.root, 0, 0, colX, cursorY);
+            const y1 = cursorY + t.rows * ROW;
+            bands.push({
+                x0: colX - 118, x1: colX + t.depth * COL + 128,
+                y0: y0 - 34, y1: y1 - ROW + 34,
+                title: t.root.title || '任务树'
+            });
+            cursorY = y1 + TREE_GAP;
+        });
+        colX += (c.depth + 1) * COL + COL_GAP;
+    });
+    let cursorY = Y0;
 
     // 兜底：任何漏网的节点（理论上不会）按层级堆到末尾
     nodes.forEach(n => {
@@ -2727,27 +2799,85 @@ function showTasksForDate(dateStr){
     openModal('dateTasksModal');
 }
 
+/* 解锁记录里的成就 id：后端新版本会给 achievement_id，
+   老版本/缓存里只有 id —— 两个都认，避免"计数有、卡不亮"。 */
+function achIdOf(u){ return (u && (u.achievement_id ?? u.id)) || null; }
+
+/* 蚀刻章档位（后端 badge_config.tier）：决定外圈材质与底注文字 */
+const ACH_TIER_LABEL = { bronze:'BRONZE', silver:'SILVER', gold:'GOLD', diamond:'DIAMOND' };
+const ACH_TIER_METAL = { bronze:'#c08a54', silver:'#c9d2dd', gold:'#e8b818', diamond:'#8fd0ff' };
+
+/* 解析 badge_config：后端给的是 JSON 串。老数据可能是 NULL —— 兜底也要给个能看的样子。 */
+function achBadgeConf(ach){
+    let conf = {};
+    if (ach && ach.badge_config){
+        if (typeof ach.badge_config === 'object') conf = ach.badge_config;
+        else { try { conf = JSON.parse(ach.badge_config) || {}; } catch(e){ conf = {}; } }
+    }
+    const tier = conf.tier || 'bronze';
+    return {
+        icon: conf.icon || 'fa-award',
+        color: conf.color || '#c8b78a',
+        tier,
+        metal: conf.metal || ACH_TIER_METAL[tier] || ACH_TIER_METAL.bronze,
+        pattern: conf.pattern || 'none',
+        text: conf.text || '',
+        image: conf.image_path || ''
+    };
+}
+/* 一枚蚀刻章的徽记本体：外圈材质环 + 内盘 + 纹样 + 中心图标/文字/自定义图 */
+function achMedalHTML(c){
+    const core = c.image
+        ? `<img class="badge-custom-img" src="${escapeHtml(c.image)}" alt="">`
+        : (c.text
+            ? `<span class="badge-custom-text">${escapeHtml(c.text)}</span>`
+            : `<i class="fa-solid ${c.icon}"></i>`);
+    return '<div class="badge-medal">' +
+        '<span class="badge-ring"></span>' +
+        '<span class="badge-plate"></span>' +
+        `<span class="badge-icon pattern-${c.pattern}">${core}</span>` +
+    '</div>';
+}
+
 function renderAchievements(){
     // 防止数据未加载完时渲染导致"先亮后灭"闪烁
     if(!state.achievements.length || !state.unlockedAchievements) return;
-    const grid=DOM.achievementsGrid; grid.innerHTML='';
-    const unlockedIds = new Set(state.unlockedAchievements.map(u => u.achievement_id));
+    const grid=DOM.achievementsGrid; if(!grid) return;
+    grid.innerHTML='';
+    const unlockedIds = new Set(state.unlockedAchievements.map(achIdOf).filter(Boolean));
     state.achievements.forEach(ach=>{
         const unlocked = unlockedIds.has(ach.id);
-        // 默认 locked（暗），只有确认解锁才加 unlocked 类（亮）
+        const c = achBadgeConf(ach);
         const card=document.createElement('div');
-        card.className='achievement-card' + (unlocked ? ' unlocked' : '');
-        card.classList.add(!unlocked ? 'locked' : '');
-        const icon=document.createElement('div'); icon.className='badge-icon'; icon.innerHTML='<i class="fa-solid fa-award"></i>';
-        const name=document.createElement('div'); name.className='achievement-name'; name.textContent=ach.name;
-        const desc=document.createElement('div'); desc.className='achievement-desc'; desc.textContent=ach.description;
-        card.appendChild(icon); card.appendChild(name); card.appendChild(desc); grid.appendChild(card);
+        card.className = 'achievement-card ' + (unlocked ? 'unlocked' : 'locked');
+        card.dataset.tier = c.tier;
+        card.style.setProperty('--ach-color', c.color);
+        card.style.setProperty('--ach-metal', c.metal);
+        card.title = `${ach.name}\n${ach.description}${unlocked ? '\n已解锁' : '\n未解锁'}`;
+        card.innerHTML = achMedalHTML(c) +
+            '<div class="achievement-tier">' + (ACH_TIER_LABEL[c.tier] || c.tier) + '</div>' +
+            `<div class="achievement-name">${escapeHtml(ach.name)}</div>` +
+            `<div class="achievement-desc">${escapeHtml(ach.description)}</div>` +
+            '<div class="achievement-state">' + (unlocked ? '<i class="fa-solid fa-check"></i> 已解锁' : '<i class="fa-solid fa-lock"></i> 未解锁') + '</div>';
+        grid.appendChild(card);
     });
 }
 
-function renderProfileBadges(){ const grid=DOM.profileBadgesGrid; grid.innerHTML='';
-    state.unlockedAchievements.forEach(u=>{ const ach=state.achievements.find(a=>a.id===u.achievement_id); if(ach){
-        const div=document.createElement('div'); div.className='badge-icon'; div.innerHTML='<i class="fa-solid fa-award"></i>'; div.title=ach.name; grid.appendChild(div);
+function renderProfileBadges(){
+    const grid=DOM.profileBadgesGrid; if(!grid) return; grid.innerHTML='';
+    if(!state.unlockedAchievements) return;
+    state.unlockedAchievements.forEach(u=>{ const ach=state.achievements.find(a=>a.id===achIdOf(u)); if(ach){
+        const c = achBadgeConf(ach);
+        const div=document.createElement('div');
+        div.className='badge-icon profile-badge';
+        div.style.setProperty('--ach-color', c.color);
+        div.style.setProperty('--ach-metal', c.metal);
+        div.innerHTML = c.image
+            ? `<img class="badge-custom-img" src="${escapeHtml(c.image)}" alt="">`
+            : (c.text ? `<span class="badge-custom-text">${escapeHtml(c.text)}</span>`
+                      : `<i class="fa-solid ${c.icon}"></i>`);
+        div.title = ach.name;
+        grid.appendChild(div);
     }});
 }
 
@@ -2799,6 +2929,8 @@ function parsePackContents(pack){
     if (typeof cfg === 'string'){ try { cfg = JSON.parse(cfg); } catch(e){ cfg = {}; } }
     cfg = cfg || {};
     const res = Object.assign({}, cfg.resources || {}, cfg.fixed || {});
+    // R21：部分礼包额外产出 1 件限定时装（原版不能用源石兑换的那批）
+    const skinDrop = Number(cfg.skin_drop) || 0;
     const mats = [];
     (cfg.materials || []).forEach(m => mats.push({ key: m.type, amount: Number(m.amount) || 1 }));
     (cfg.random || []).forEach(s => {
@@ -2808,7 +2940,7 @@ function parsePackContents(pack){
         if (GP_RES_NAME[k]) res[k] = (res[k] || 0) + n;
         else mats.push({ key: k, amount: n });
     });
-    return { res, mats };
+    return { res, mats, skinDrop };
 }
 function renderGiftPacks(){
     const grid = DOM.giftPacksGrid; if (!grid) return;
@@ -2819,8 +2951,13 @@ function renderGiftPacks(){
         return;
     }
     avail.forEach(pack => {
-        const { res, mats } = parsePackContents(pack);
+        const { res, mats, skinDrop } = parsePackContents(pack);
         const chips = [];
+        // 限定时装：单独一枚紫色 chip，和普通素材区分开
+        if (skinDrop){
+            chips.push(`<span class="gp-chip is-skin" title="随机获得 1 件限定时装">` +
+                `<i class="fa-solid fa-shirt"></i><b>×${skinDrop}</b><i>限定时装</i></span>`);
+        }
         // 货币类：与素材类保持同一种「图标 / 数量 / 名称」三件套排布。
         // （以前货币只给图标+数字、素材给三行，两种卡片高度不齐，看着就是「排列不一致」。）
         GP_RES_ORDER.forEach(k => {
@@ -2984,7 +3121,7 @@ function switchView(view) {
             DOM.operatorGachaResult.innerHTML = '<div class="gh-idle-hint">点击下方「寻访」开始</div>';
         loadOperatorRecords();
     }
-    if (view === 'shop') renderShopPanel();
+    if (view === 'shop') { renderShopPanel(); ensureShopData(); }
     if (view === 'profile') {
         updateResourceDisplay();
         renderProfileBadges();
@@ -4361,19 +4498,46 @@ async function createCustomBadge(){ const name=DOM.badgeName.value.trim(); const
     if(customText) formData.append('custom_text',customText); if(imageFile) formData.append('image',imageFile);
     const result=await apiPost('/achievements/custom',formData,true); if(result){ closeAllModals(); loadAchievements(); } }
 
-function setGraphZoom(delta){
-    const newScale=Math.max(0.3,Math.min(3,state.graphScale+delta));
-    if(newScale===state.graphScale) return;
-    const view=state.graphViewBox;
-    // 以当前视口中心为锚点缩放
-    const cx=view.x+view.width/2, cy=view.y+view.height/2;
-    const newWidth=state.graphBaseWidth/newScale;
-    const newHeight=state.graphBaseHeight/newScale;
-    view.x=cx-newWidth/2; view.y=cy-newHeight/2;
-    view.width=newWidth; view.height=newHeight;
-    state.graphScale=newScale;
-    state.graphUserPanned = true;  // 标记用户手动操作，阻止auto-fit
-    DOM.graphSvg.setAttribute('viewBox',`${view.x} ${view.y} ${view.width} ${view.height}`);
+/* 连续缩放（R21）
+   旧版是「scale 每次 ±0.2，宽度 = 固定 800 / scale」。
+   问题在于 auto-fit 之后 viewBox 宽高早就被改成内容实际尺寸（可能 1600×1400），
+   而缩放却拿死值 800 当基准 —— 于是轻轻点一下放大，视口直接从 1600 跳到 667，
+   视觉上"突然变成这么大"。
+   现在改成：以当前 viewBox 为基准做倍率缩放，锚点（鼠标位置 / 视口中心）保持不动，
+   步长也调细（滚轮 1.10、按钮 1.25），缩放是连续的、想停哪停哪。 */
+const GRAPH_ZOOM_MIN = 0.2, GRAPH_ZOOM_MAX = 6;
+function setGraphZoom(factor, anchorX, anchorY){
+    const view = state.graphViewBox;
+    const cur = state.graphScale || 1;
+    let next = cur * (factor || 1);
+    next = Math.max(GRAPH_ZOOM_MIN, Math.min(GRAPH_ZOOM_MAX, next));
+    if (Math.abs(next - cur) < 1e-6) return;
+    const k = next / cur;                       // >1 = 放大
+    const ax = (anchorX == null) ? view.x + view.width  / 2 : anchorX;
+    const ay = (anchorY == null) ? view.y + view.height / 2 : anchorY;
+    view.x = ax - (ax - view.x) / k;
+    view.y = ay - (ay - view.y) / k;
+    view.width  = view.width  / k;
+    view.height = view.height / k;
+    state.graphScale = next;
+    state.graphUserPanned = true;               // 标记用户手动操作，阻止 auto-fit
+    DOM.graphSvg.setAttribute('viewBox', `${view.x} ${view.y} ${view.width} ${view.height}`);
+}
+/* 把屏幕坐标换算成 SVG 用户坐标，用于「以鼠标为锚点缩放」 */
+function graphPointFromEvent(e){
+    const svg = DOM.graphSvg;
+    try {
+        const pt = svg.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        const m = svg.getScreenCTM();
+        if (m) return pt.matrixTransform(m.inverse());
+    } catch (_) { /* 退回下面的近似换算 */ }
+    const r = svg.getBoundingClientRect();
+    const v = state.graphViewBox;
+    return {
+        x: v.x + (e.clientX - r.left) / Math.max(1, r.width)  * v.width,
+        y: v.y + (e.clientY - r.top)  / Math.max(1, r.height) * v.height,
+    };
 }
 function resetGraph(){
     state.graphScale=1;
@@ -4542,6 +4706,32 @@ function showPackRewardModal(granted){
     granted.forEach(g => {
         const key = g.key, val = Math.floor(Number(g.amount) || 0);
         if(val <= 0) return;
+        /* R21：限定时装奖励 —— 原版不能用源石兑换的那批皮肤，
+           用皮肤立绘本身当奖励图标，比通用宝箱更能体现"开出了什么"。 */
+        if(key === 'skin' && g.skin){
+            const sk = g.skin;
+            const scard = document.createElement('div'); scard.className = 'reward-circle-card';
+            const scircle = document.createElement('div'); scircle.className = 'reward-circle';
+            const sring = document.createElement('div'); sring.className = 'reward-ring';
+            sring.style.setProperty('--ring-color', '#c07ae8');
+            const sicon = document.createElement('div'); sicon.className = 'reward-icon-wrap';
+            if(sk.image){
+                const sim = document.createElement('img');
+                sim.src = `/static/${sk.image}`; sim.alt = sk.skin_name || '限定时装';
+                sim.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+                sim.addEventListener('error', () => { sicon.innerHTML = DROP_CHEST_SVG; });
+                sicon.appendChild(sim);
+            } else { sicon.innerHTML = DROP_CHEST_SVG; }
+            const snum = document.createElement('div'); snum.className = 'reward-num-badge'; snum.textContent = 'x1';
+            scircle.appendChild(sring); scircle.appendChild(sicon); scircle.appendChild(snum);
+            scard.appendChild(scircle);
+            const slabel = document.createElement('div'); slabel.className = 'reward-label';
+            slabel.textContent = sk.skin_name || '限定时装';
+            slabel.title = `${sk.operator_name || ''} · ${sk.tier_label || ''}`;
+            scard.appendChild(slabel);
+            grid.appendChild(scard);
+            return;
+        }
         const entry = resolve(key);
         let name = key, color = 'var(--highlight-gold-1)', ckey = null;
         if(entry){ name = entry[0]; color = entry[1]; ckey = entry[2]; }
@@ -4928,6 +5118,7 @@ async function handleOperatorGacha(count){
 let skinFilter = 'all';
 let skinCache = [];
 let skinShelf = [];          // 每周轮换的货架（可能含未持有干员的时装）
+let skinLimitedPool = [];    // R21：限定时装池（原版不能源石兑换，只从礼包随机奖励产出）
 let skinLoadFailed = false;  // 上一次 /skins 是否加载失败（用于区分"空货架"和"服务没起来"）
 /* R20：时装商店并入「采购中心 · 时装兑换」 */
 async function openSkinShop(){
@@ -4949,6 +5140,7 @@ async function loadSkins(){
     skinLoadFailed = false;
     skinCache = data.skins || [];
     skinShelf = data.shop || [];
+    skinLimitedPool = data.limited_pool || [];
     if (DOM.skinShopBalance)
         DOM.skinShopBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('source_stone', data.source_stone)}`;
     renderSkins();
@@ -4957,12 +5149,14 @@ async function loadSkins(){
 function buildSkinCard(s, stone){
     const card = document.createElement('div');
     card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}`;
-    const canBuy = s.unlocked !== false;
+    const canBuy = s.unlocked !== false && !s.limited;
     const btn = s.owned
         ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
-        : (canBuy
-            ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
-            : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>');
+        : (s.limited
+            ? '<span class="skin-limited-tag"><i class="fa-solid fa-gift"></i>礼包限定</span>'
+            : (canBuy
+                ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
+                : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>'));
     const img = s.image ? `/static/${s.image}` : '';
     card.innerHTML =
         `<div class="skin-art" data-skin-id="${escapeHtml(s.skin_id || '')}"${img ? ` style="background-image:url('${img}')"` : ''}>` +
@@ -5026,7 +5220,11 @@ function renderSkins(){
         list.appendChild(hint);
     }
     addSection('可购买', items.length ? `${items.length} 件属于已持有干员` : '', items, false);
-    addSection('商店货架 · 每日轮换', '未持有干员的时装只可预览，抽到干员后即可购买', shelf, true);
+    addSection('商店货架 · 每周轮换', '未持有干员的时装只可预览，抽到干员后即可购买', shelf, true);
+    /* R21：限定时装单独成区。原版里这批皮肤不能用源石直接兑换，
+       所以这里没有购买按钮，只能靠带「限定时装」标记的礼包开出来。 */
+    addSection('限定时装 · 只走礼包', '原版不可用源石兑换，仅从标注「限定时装」的礼包随机产出',
+               skinLimitedPool.filter(pass), true);
 
     list.querySelectorAll('.skin-buy-btn').forEach(b => {
         b.addEventListener('click', () => handleSkinPurchase(b.dataset.skin));
@@ -5228,6 +5426,34 @@ function bindSkinPreview(){
         openSkinPreview(full, op, nm, thumb);
     });
 }
+/* 本期精选 · 六星双 UP 卡（R21）
+   整卡即立绘：星级与名字压在底部同一块底板上，卡面是一整块，不做左右分栏。 */
+const OP_PROFESSION_CN = {
+    PIONEER:'先锋', WARRIOR:'近卫', TANK:'重装', SNIPER:'狙击', CASTER:'术师',
+    MEDIC:'医疗', SUPPORT:'辅助', SPECIAL:'特种',
+};
+function buildFeaturedDuoCard(o){
+    const art = o.portrait ? `/static/${o.portrait}` : '';
+    const tok = o.token_icon ? `/static/${o.token_icon}` : '';
+    const prof = OP_PROFESSION_CN[o.profession] || o.profession || '';
+    const el = document.createElement('div');
+    el.className = 'op-duo-card';
+    el.innerHTML =
+        `<div class="op-duo-art"${art ? ` style="background-image:url('${art}')"` : ''}>` +
+            (art ? '' : '<i class="fa-solid fa-user-astronaut"></i>') +
+        '</div>' +
+        '<div class="op-duo-scrim"></div>' +
+        '<span class="op-duo-up">UP</span>' +
+        '<div class="op-duo-plate">' +
+            `<span class="op-duo-stars">${goldStars(o.rarity)}</span>` +
+            `<span class="op-duo-name">${escapeHtml(o.name)}</span>` +
+            `<span class="op-duo-sub">${tok ? `<img class="op-duo-token" src="${tok}" alt="">` : ''}` +
+                `<span>${escapeHtml(prof)}</span>` +
+                '<span class="op-duo-dot">·</span><span>信物自动入库</span>' +
+            '</span>' +
+        '</div>';
+    return el;
+}
 /* 本期精选卡池：把每日轮换的干员立绘铺出来。
    抽卡记录为空时，这里是弹窗里唯一有画面的地方 —— 所以不能省。 */
 function renderOperatorFeatured(featured){
@@ -5235,34 +5461,26 @@ function renderOperatorFeatured(featured){
     if (!box) return;
     box.innerHTML = '';
     if (!featured) return;
-    const hero = (featured.six || [])[0];
+    const six = featured.six || [];
     const five = featured.five || [];
     const four = featured.four || [];
-    if (!hero && !five.length && !four.length) return;
+    if (!six.length && !five.length && !four.length) return;
 
     const head = document.createElement('div');
     head.className = 'op-featured-head';
     head.innerHTML = '<span class="op-featured-kicker">本 期 精 选</span>' +
-        `<span class="op-featured-date">${escapeHtml(featured.date || '')} · 每日轮换</span>`;
+        `<span class="op-featured-date">${escapeHtml(featured.date || '')} · 每周轮换</span>`;
     box.appendChild(head);
 
-    if (hero){
-        const art = hero.portrait ? `/static/${hero.portrait}` : '';
-        const tok = hero.token_icon ? `/static/${hero.token_icon}` : '';
-        const el = document.createElement('div');
-        el.className = 'op-hero';
-        el.innerHTML =
-            `<div class="op-hero-art"${art ? ` style="background-image:url('${art}')"` : ''}></div>` +
-            '<div class="op-hero-veil"></div>' +
-            '<div class="op-hero-info">' +
-                '<span class="op-hero-rarity">' + goldStars(hero.rarity) + '</span>' +
-                `<span class="op-hero-name">${escapeHtml(hero.name)}</span>` +
-                '<span class="op-hero-sub">' +
-                    (tok ? `<img class="op-hero-token" src="${tok}" alt="">` : '') +
-                    '<span>寻访获得后信物自动入库</span>' +
-                '</span>' +
-            '</div>';
-        box.appendChild(el);
+    /* R21：六星改成「双 UP」两张并列。
+       旧版是「左文字右立绘」的左右分栏 —— 名字和头像各占一半，中间一刀切开，
+       信息被割裂；这里改成整张卡就是立绘，星级 + 名字压在立绘底部同一块底板上，
+       卡面是一个整体，不再是拼贴。 */
+    if (six.length){
+        const duo = document.createElement('div');
+        duo.className = 'op-hero-duo';
+        six.slice(0, 2).forEach(o => duo.appendChild(buildFeaturedDuoCard(o)));
+        box.appendChild(duo);
     }
 
     const chips = (title, arr, cls) => {
@@ -5696,9 +5914,9 @@ function checkLevelUp(){ const currentLevel=calculateLevel(state.resources.exp?.
         setTimeout(()=>DOM.levelUpOverlay.classList.remove('show'),3000); loadResources(); }
     else if(state.lastLevel===0) state.lastLevel=currentLevel; }
 function checkNewUnlocks(){ const storedIds=JSON.parse(localStorage.getItem('unlockedAchievementIds')||'[]');
-    const newUnlocks=state.unlockedAchievements.filter(u=>!storedIds.includes(u.achievement_id));
-    newUnlocks.forEach((u,index)=>{ setTimeout(()=>{ const ach=state.achievements.find(a=>a.id===u.achievement_id);
+    const newUnlocks=state.unlockedAchievements.filter(u=>!storedIds.includes(achIdOf(u)));
+    newUnlocks.forEach((u,index)=>{ setTimeout(()=>{ const ach=state.achievements.find(a=>a.id===achIdOf(u));
         if(ach){ DOM.badgeNotifName.textContent=ach.name; DOM.badgeNotification.classList.add('show'); setTimeout(()=>DOM.badgeNotification.classList.remove('show'),3000); } },index*3000); });
-    if(newUnlocks.length){ const updatedIds=[...storedIds,...newUnlocks.map(u=>u.achievement_id)]; localStorage.setItem('unlockedAchievementIds',JSON.stringify(updatedIds)); } }
+    if(newUnlocks.length){ const updatedIds=[...storedIds,...newUnlocks.map(achIdOf).filter(Boolean)]; localStorage.setItem('unlockedAchievementIds',JSON.stringify(updatedIds)); } }
 function formatDate(dateStr){ if(!dateStr) return '无'; let d=new Date(dateStr); if(isNaN(d.getTime())) d=new Date(dateStr.replace(' ','T')+'Z'); return isNaN(d.getTime())?dateStr:d.toLocaleString(); }
 function escapeHtml(str){ if(!str) return ''; const div=document.createElement('div'); div.textContent=str; return div.innerHTML; }

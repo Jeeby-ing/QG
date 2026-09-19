@@ -50,6 +50,117 @@ def db_cursor():
         conn.close()
 
 
+# ------------------------------------------------------------
+#  预置蚀刻章（对齐方舟的「蚀刻章套组」：按套组分类、每套多枚、逐级点亮）
+#  tuple = (id, name, description, condition_type, condition_value,
+#           reward_exp, reward_lungmen, icon, color, tier)
+#    · icon  = Font Awesome 类名。**每枚都不一样** —— 之前全站统一用 fa-award，
+#              66 枚章长成同一个样子，用户直接说"不喜欢这个统一的勋章图标"。
+#    · color = 该枚的主题色（图标发光 / 卡片描边）
+#    · tier  = bronze | silver | gold | diamond  （外圈材质，体现难度档位）
+# ------------------------------------------------------------
+TIER_METAL = {
+    "bronze":  "#c08a54",
+    "silver":  "#c9d2dd",
+    "gold":    "#e8b818",
+    "diamond": "#8fd0ff",
+}
+
+PRESET_ACHIEVEMENTS = [
+    # ── 基建奖章 · 创建任务 ─────────────────────────────
+    ("first_task",  "初次启程",   "创建第一个任务",     "task_count_created", 1,   10,  0,   "fa-seedling",        "#7fbf7f", "bronze"),
+    ("create_5",    "渐入佳境",   "创建 5 个任务",      "task_count_created", 5,   30,  0,   "fa-leaf",            "#7fbf7f", "bronze"),
+    ("create_10",   "十全十美",   "创建 10 个任务",     "task_count_created", 10,  50,  0,   "fa-list-check",      "#7fbf7f", "silver"),
+    ("create_25",   "规划者",     "创建 25 个任务",     "task_count_created", 25,  120, 0,   "fa-clipboard-list",  "#7fbf7f", "silver"),
+    ("create_50",   "任务大师",   "创建 50 个任务",     "task_count_created", 50,  200, 0,   "fa-diagram-project","#7fbf7f", "gold"),
+    ("create_100",  "百川归海",   "创建 100 个任务",    "task_count_created", 100, 400, 0,   "fa-layer-group",     "#7fbf7f", "gold"),
+    ("create_250",  "蓝图构筑",   "创建 250 个任务",    "task_count_created", 250, 900, 0,   "fa-drafting-compass","#7fbf7f","diamond"),
+
+    # ── 成长奖章 · 完成任务 ─────────────────────────────
+    ("complete_first", "初次完成",  "完成第一个任务",   "task_count_completed", 1,   20,  0,   "fa-circle-check",    "#4a90e0", "bronze"),
+    ("complete_5",     "旗开得胜",  "完成 5 个任务",    "task_count_completed", 5,   60,  0,   "fa-flag",            "#4a90e0", "bronze"),
+    ("complete_10",    "小有成就",  "完成 10 个任务",   "task_count_completed", 10,  100, 0,   "fa-thumbs-up",       "#4a90e0", "silver"),
+    ("complete_25",    "步履不停",  "完成 25 个任务",   "task_count_completed", 25,  220, 0,   "fa-shoe-prints",     "#4a90e0", "silver"),
+    ("complete_50",    "任务达人",  "完成 50 个任务",   "task_count_completed", 50,  500, 0,   "fa-medal",           "#4a90e0", "gold"),
+    ("complete_100",   "百炼成钢",  "完成 100 个任务",  "task_count_completed", 100, 1000,0,   "fa-hammer",          "#4a90e0", "gold"),
+    ("complete_200",   "千锤百炼",  "完成 200 个任务",  "task_count_completed", 200, 2000,0,   "fa-fire",            "#4a90e0", "gold"),
+    ("complete_500",   "功不唐捐",  "完成 500 个任务",  "task_count_completed", 500, 5000,0,   "fa-trophy",          "#4a90e0", "diamond"),
+
+    # ── 章节奖章 · 主线推进 ─────────────────────────────
+    ("main_1",   "启程",     "完成第一个主线任务", "task_count_completed_main", 1,  30,  0,  "fa-play",           "#e8b818", "bronze"),
+    ("main_10",  "主线推进者","完成 10 个主线任务", "task_count_completed_main", 10, 150, 0,  "fa-mountain",       "#e8b818", "silver"),
+    ("main_25",  "长征",     "完成 25 个主线任务", "task_count_completed_main", 25, 400, 0,  "fa-map",            "#e8b818", "gold"),
+    ("main_50",  "旗帜",     "完成 50 个主线任务", "task_count_completed_main", 50, 800, 0,  "fa-flag-checkered", "#e8b818", "gold"),
+    ("main_100", "传奇",     "完成 100 个主线任务","task_count_completed_main", 100,2000,0,  "fa-crown",          "#e8b818", "diamond"),
+
+    # ── 记录奖章 · 支线探索 ─────────────────────────────
+    ("side_1",   "侧身而过", "完成第一个支线任务", "task_count_completed_side", 1,  10,  0,  "fa-feather",   "#a080c8", "bronze"),
+    ("side_20",  "支线探索者","完成 20 个支线任务", "task_count_completed_side", 20, 150, 0,  "fa-compass",   "#a080c8", "silver"),
+    ("side_50",  "行遍四方", "完成 50 个支线任务", "task_count_completed_side", 50, 400, 0,  "fa-map-location-dot", "#a080c8", "gold"),
+    ("side_100", "万象拾遗", "完成 100 个支线任务","task_count_completed_side", 100,900, 0,  "fa-gem",       "#a080c8", "diamond"),
+
+    # ── 成长奖章 · 专注时长 ─────────────────────────────
+    ("track_1h",   "专注一小时", "累计追踪 1 小时",   "tracking_hours_total", 1,   30,  0,   "fa-hourglass-start", "#22b3c9", "bronze"),
+    ("track_5h",   "静水流深",   "累计追踪 5 小时",   "tracking_hours_total", 5,   80,  0,   "fa-stopwatch",       "#22b3c9", "bronze"),
+    ("track_10h",  "专注十小时", "累计追踪 10 小时",  "tracking_hours_total", 10,  100, 0,   "fa-clock",           "#22b3c9", "silver"),
+    ("track_25h",  "心流",       "累计追踪 25 小时",  "tracking_hours_total", 25,  260, 0,   "fa-water",           "#22b3c9", "silver"),
+    ("track_50h",  "专注大师",   "累计追踪 50 小时",  "tracking_hours_total", 50,  500, 0,   "fa-hourglass-half",  "#22b3c9", "gold"),
+    ("track_100h", "时间管理",   "累计追踪 100 小时", "tracking_hours_total", 100, 1100,0,   "fa-infinity",        "#22b3c9", "gold"),
+    ("track_200h", "刻时者",     "累计追踪 200 小时", "tracking_hours_total", 200, 2400,0,   "fa-hourglass-end",   "#22b3c9", "diamond"),
+    ("track_500h", "时间之外",   "累计追踪 500 小时", "tracking_hours_total", 500, 6000,0,   "fa-wand-sparkles",   "#22b3c9", "diamond"),
+
+    # ── 履历奖章 · 连续打卡 ─────────────────────────────
+    ("streak_2",   "两日不辍",   "连续 2 天完成任务",  "streak_days", 2,   20,  0,   "fa-forward",         "#e0703a", "bronze"),
+    ("streak_3",   "三日之约",   "连续 3 天完成任务",  "streak_days", 3,   50,  0,   "fa-calendar-day",    "#e0703a", "bronze"),
+    ("streak_7",   "七日之约",   "连续 7 天完成任务",  "streak_days", 7,   100, 0,   "fa-calendar-week",   "#e0703a", "silver"),
+    ("streak_14",  "半月无休",   "连续 14 天完成任务", "streak_days", 14,  220, 0,   "fa-calendar-minus",  "#e0703a", "silver"),
+    ("streak_30",  "月度坚持",   "连续 30 天完成任务", "streak_days", 30,  500, 0,   "fa-calendar-check",  "#e0703a", "gold"),
+    ("streak_60",  "双月之志",   "连续 60 天完成任务", "streak_days", 60,  1100,0,   "fa-calendar-plus",   "#e0703a", "gold"),
+    ("streak_100", "百日之功",   "连续 100 天完成任务","streak_days", 100, 2200,0,   "fa-meteor",          "#e0703a", "diamond"),
+    ("streak_365", "岁岁年年",   "连续 365 天完成任务","streak_days", 365, 8000,0,   "fa-sun",             "#e0703a", "diamond"),
+
+    # ── 履历奖章 · 等级 ────────────────────────────────
+    ("level_2",   "初露锋芒", "达到 2 级",  "level_reached", 2,   20,  0,  "fa-arrow-up",       "#ffd76a", "bronze"),
+    ("level_5",   "崭露头角", "达到 5 级",  "level_reached", 5,   100, 0,  "fa-star",           "#ffd76a", "silver"),
+    ("level_10",  "术业专攻", "达到 10 级", "level_reached", 10,  260, 0,  "fa-graduation-cap", "#ffd76a", "silver"),
+    ("level_20",  "登堂入室", "达到 20 级", "level_reached", 20,  600, 0,  "fa-lightbulb",      "#ffd76a", "gold"),
+    ("level_30",  "学界栋梁", "达到 30 级", "level_reached", 30,  1200,0,  "fa-book-open",      "#ffd76a", "gold"),
+    ("level_50",  "一代宗师", "达到 50 级", "level_reached", 50,  2600,0,  "fa-scroll",         "#ffd76a", "diamond"),
+    ("level_100", "传说",     "达到 100 级","level_reached", 100, 8000,0,  "fa-dragon",         "#ffd76a", "diamond"),
+
+    # ── 活动奖章 · 干员寻访 ─────────────────────────────
+    ("gacha_1",   "第一次寻访", "累计寻访 1 次",   "gacha_draws", 1,   20,  0,   "fa-crosshairs",     "#d43028", "bronze"),
+    ("gacha_10",  "十连",       "累计寻访 10 次",  "gacha_draws", 10,  100, 0,   "fa-bullseye",       "#d43028", "bronze"),
+    ("gacha_50",  "千里挑一",   "累计寻访 50 次",  "gacha_draws", 50,  400, 0,   "fa-magnifying-glass","#d43028", "silver"),
+    ("gacha_100", "百里挑一",   "累计寻访 100 次", "gacha_draws", 100, 700, 0,   "fa-dice",           "#d43028", "silver"),
+    ("gacha_300", "寻访专家",   "累计寻访 300 次", "gacha_draws", 300, 1800,0,   "fa-shuffle",        "#d43028", "gold"),
+    ("gacha_600", "寻访大师",   "累计寻访 600 次", "gacha_draws", 600, 4000,0,   "fa-wand-magic-sparkles","#d43028","diamond"),
+
+    # ── 活动奖章 · 补给 / 时装 ──────────────────────────
+    ("pack_first", "初次购买", "购买第一个礼包",  "gift_pack_purchased", 1,  20,  0,  "fa-box",        "#c9a227", "bronze"),
+    ("pack_5",     "补给常客", "购买 5 个礼包",   "gift_pack_purchased", 5,  120, 0,  "fa-box-open",   "#c9a227", "silver"),
+    ("pack_10",    "补给大户", "购买 10 个礼包",  "gift_pack_purchased", 10, 260, 0,  "fa-sack-dollar","#c9a227", "gold"),
+    ("pack_25",    "罗德岛金主","购买 25 个礼包", "gift_pack_purchased", 25, 700, 0,  "fa-coins",      "#c9a227", "diamond"),
+    ("skin_1",     "换身衣服", "拥有第一件时装",  "skins_owned", 1,  30,  0,  "fa-shirt",      "#e07ab0", "bronze"),
+    ("skin_5",     "衣柜初成", "拥有 5 件时装",   "skins_owned", 5,  150, 0,  "fa-hat-wizard", "#e07ab0", "silver"),
+    ("skin_15",    "时装收藏家","拥有 15 件时装", "skins_owned", 15, 400, 0,  "fa-gem",        "#e07ab0", "gold"),
+    ("skin_30",    "整装待发", "拥有 30 件时装",  "skins_owned", 30, 900, 0,  "fa-star-half-stroke","#e07ab0","diamond"),
+
+    # ── 成长奖章 · 番茄钟 ───────────────────────────────
+    ("pomo_1",   "第一个番茄", "完成 1 次番茄钟",   "pomodoro_count", 1,   20,  0,  "fa-apple-whole", "#6fbf9f", "bronze"),
+    ("pomo_10",  "番茄入门",   "完成 10 次番茄钟",  "pomodoro_count", 10,  100, 0,  "fa-mug-hot",     "#6fbf9f", "silver"),
+    ("pomo_50",  "番茄熟练工", "完成 50 次番茄钟",  "pomodoro_count", 50,  400, 0,  "fa-bell",        "#6fbf9f", "gold"),
+    ("pomo_100", "番茄专家",   "完成 100 次番茄钟", "pomodoro_count", 100, 900, 0,  "fa-utensils",    "#6fbf9f", "diamond"),
+
+    # ── 记录奖章 · 数据 ────────────────────────────────
+    ("import_1",  "数据迁移",   "导入一次数据",   "import_count", 1, 30,  0, "fa-file-import",  "#8ab4d8", "bronze"),
+    ("import_5",  "数据常客",   "导入 5 次数据",  "import_count", 5, 150, 0, "fa-cloud-arrow-up","#8ab4d8","silver"),
+    ("op_1",      "初次招募",   "拥有第一位干员", "operators_owned", 1, 30, 0, "fa-user-astronaut","#7fa8d8","bronze"),
+    ("op_20",     "小队成形",   "拥有 20 位干员", "operators_owned", 20, 300, 0,"fa-people-group", "#7fa8d8", "silver"),
+    ("op_60",     "满编罗德岛", "拥有 60 位干员", "operators_owned", 60, 900, 0,"fa-users-rectangle","#7fa8d8","gold"),
+]
+
+
 def init_db():
     with db_cursor() as cur:
         cur.executescript("""
@@ -287,34 +398,30 @@ def init_db():
                 _s['categories'] = ["学习", "健身", "工作", "生活", "其他"]
                 cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(_s),))
 
-        # 预置成就
-        achievements = [
-            ("first_task", "初次启程", "创建第一个任务", "task_count_created", 1, 10, 0, 0, 0, 0),
-            ("create_10", "十全十美", "创建10个任务", "task_count_created", 10, 50, 0, 0, 0, 0),
-            ("create_50", "任务大师", "创建50个任务", "task_count_created", 50, 200, 0, 0, 0, 0),
-            ("complete_first", "初次完成", "完成第一个任务", "task_count_completed", 1, 20, 0, 0, 0, 0),
-            ("complete_10", "小有成就", "完成10个任务", "task_count_completed", 10, 100, 0, 0, 0, 0),
-            ("complete_50", "任务达人", "完成50个任务", "task_count_completed", 50, 500, 0, 0, 0, 0),
-            ("complete_100", "百炼成钢", "完成100个任务", "task_count_completed", 100, 1000, 0, 0, 0, 0),
-            ("main_10", "主线推进者", "完成10个主线任务", "task_count_completed_main", 10, 150, 0, 0, 0, 0),
-            ("side_20", "支线探索者", "完成20个支线任务", "task_count_completed_side", 20, 150, 0, 0, 0, 0),
-            ("track_1h", "专注一小时", "累计追踪1小时", "tracking_hours_total", 1, 30, 0, 0, 0, 0),
-            ("track_10h", "专注十小时", "累计追踪10小时", "tracking_hours_total", 10, 100, 0, 0, 0, 0),
-            ("track_50h", "专注大师", "累计追踪50小时", "tracking_hours_total", 50, 500, 0, 0, 0, 0),
-            ("streak_3", "三日之约", "连续3天有完成任务", "streak_days", 3, 50, 0, 0, 0, 0),
-            ("streak_7", "七日之约", "连续7天有完成任务", "streak_days", 7, 100, 0, 0, 0, 0),
-            ("streak_30", "月度坚持", "连续30天有完成任务", "streak_days", 30, 500, 0, 0, 0, 0),
-            ("pack_first", "初次购买", "购买第一个礼包", "gift_pack_purchased", 1, 20, 0, 0, 0, 0),
-            ("level_5", "初露锋芒", "达到5级", "level_reached", 5, 100, 0, 0, 0, 0),
-        ]
-        for ach in achievements:
+        # 预置蚀刻章：先 INSERT OR IGNORE 保住解锁记录，再无条件 UPDATE 把定义刷新成最新
+        # （老库里这批章的 badge_config 是 NULL → 渲染成全站同一个 fa-award，必须刷）
+        for (aid, name, desc, ctype, cval, exp, lm, icon, color, tier) in PRESET_ACHIEVEMENTS:
+            conf = json.dumps({"icon": icon, "color": color, "tier": tier,
+                               "metal": TIER_METAL.get(tier, TIER_METAL["bronze"])},
+                              ensure_ascii=False)
             cur.execute("""
-                INSERT OR IGNORE INTO achievements 
-                (id, name, description, condition_type, condition_value, reward_exp, reward_lungmen, reward_source_stone, reward_orundum, hidden)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, ach)
+                INSERT OR IGNORE INTO achievements
+                (id, name, description, condition_type, condition_value,
+                 reward_exp, reward_lungmen, reward_source_stone, reward_orundum, badge_config, hidden)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0)
+            """, (aid, name, desc, ctype, cval, exp, lm, conf))
+            cur.execute("""
+                UPDATE achievements
+                SET name = ?, description = ?, condition_type = ?, condition_value = ?,
+                    reward_exp = ?, reward_lungmen = ?, badge_config = ?
+                WHERE id = ?
+            """, (name, desc, ctype, cval, exp, lm, conf, aid))
 
         generate_weekly_packs(cur)
+        # 老数据补点亮：创建/完成/专注/连续这些是"历史累计值"，只有发生新的完成事件才会
+        # 触发 check_achievement —— 于是老用户进来看到的是一片全灭（用户："我怎么不知道我做了九个"）。
+        # 启动时统一扫一遍，把已达成的直接补上。
+        sweep_achievements(cur)
 
 
 # ------------------------------------------------------------
@@ -325,6 +432,9 @@ def init_db():
 #  统一用「至纯源石」购买，产出龙门币 / 合成玉 / 理智 / 经验 / 仓库素材。
 #  （按用户设定：龙门币与源石只能由任务或礼包产出，不能被兑换出来。）
 # ------------------------------------------------------------
+# 每周上架的礼包数量（1 个常驻锚点 + 滚动位）。R21：4 → 8，用户嫌太少。
+WEEKLY_PACK_COUNT = 8
+
 ARK_GIFT_PACKS = [
     {"name": "新人组合包", "description": "罗德岛新人补给：龙门币 + 基础养成素材",
      "pack_type": "fixed", "rarity": "common", "cost_source_stone": 3,
@@ -348,6 +458,31 @@ ARK_GIFT_PACKS = [
      "pack_type": "mixed", "rarity": "legendary", "cost_source_stone": 70,
      "resources": {"orundum": 6000, "source_stone": 20, "lungmen": 60000, "exp": 4000},
      "materials": (6, 3, 5)},
+    # ---- R21 新增：货架从 4 个扩到 8 个，并加入「限定时装」随机奖励 ----
+    {"name": "理智应急包", "description": "小额补给：理智 + 龙门币，随取随用",
+     "pack_type": "fixed", "rarity": "common", "cost_source_stone": 5,
+     "resources": {"sanity": 320, "lungmen": 12000}, "materials": (2, 0, 1)},
+    {"name": "龙门币周转箱", "description": "纯龙门币补给，缓解养成开销",
+     "pack_type": "fixed", "rarity": "common", "cost_source_stone": 10,
+     "resources": {"lungmen": 45000, "exp": 1200}, "materials": (2, 0, 1)},
+    {"name": "素材周转箱", "description": "随机养成素材，品类杂但量大",
+     "pack_type": "mixed", "rarity": "rare", "cost_source_stone": 16,
+     "resources": {"lungmen": 24000}, "materials": (6, 1, 4)},
+    {"name": "精英化材料包", "description": "面向精英化的进阶素材集合",
+     "pack_type": "fixed", "rarity": "rare", "cost_source_stone": 22,
+     "resources": {"exp": 5000, "sanity": 600}, "materials": (7, 2, 5)},
+    {"name": "时装特典包", "description": "养成资源 + 1 件限定时装（不在商店直售）",
+     "pack_type": "mixed", "rarity": "epic", "cost_source_stone": 32,
+     "resources": {"lungmen": 40000, "orundum": 1200}, "materials": (5, 2, 4),
+     "skin_drop": 1},
+    {"name": "限定衣装箱", "description": "高阶养成资源 + 1 件限定时装（不在商店直售）",
+     "pack_type": "mixed", "rarity": "epic", "cost_source_stone": 46,
+     "resources": {"lungmen": 70000, "exp": 6000, "orundum": 2400}, "materials": (6, 2, 5),
+     "skin_drop": 1},
+    {"name": "周年庆典包", "description": "庆典限定：顶级资源 + 1 件限定时装",
+     "pack_type": "mixed", "rarity": "legendary", "cost_source_stone": 88,
+     "resources": {"orundum": 6000, "source_stone": 24, "lungmen": 90000, "exp": 8000},
+     "materials": (8, 3, 5), "skin_drop": 1},
 ]
 
 
@@ -398,13 +533,30 @@ def generate_weekly_packs(cur):
                    WHERE purchased = 0
                      AND (datetime(available_until) < datetime(?) OR available_from <> ?)""",
                 (now, start.isoformat()))
-    cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from = ?", (start.isoformat(),))
-    if cur.fetchone()[0] == 0:
+    # R21：货架数量从 4 提到 8。已在架上但数量对不上的旧批次（比如上一次
+    #      还是 4 个生成出来的）要整批换掉，否则用户看到的永远还是四个。
+    cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from = ? AND purchased = 0",
+                (start.isoformat(),))
+    _n = cur.fetchone()[0]
+    # 只有「本周期还没上架」或「上架数量和当前设定不符且本周一件都还没买」时才重铺，
+    # 否则用户买了几件后一重启货架就整批换新，等于白送。
+    cur.execute("SELECT COUNT(*) FROM gift_packs WHERE available_from = ? AND purchased = 1",
+                (start.isoformat(),))
+    bought_this_period = cur.fetchone()[0]
+    if _n != WEEKLY_PACK_COUNT and bought_this_period == 0:
+        cur.execute("DELETE FROM gift_packs WHERE purchased = 0 AND available_from = ?",
+                    (start.isoformat(),))
         day = _shop_day_index()
         anchor = next(p for p in ARK_GIFT_PACKS if p["name"] == "罗德岛补给卡")
         others = [p for p in ARK_GIFT_PACKS if p is not anchor]
-        # 固定 4 个（1 常驻 + 3 滚动）：偶数，网格不会缺角
-        chosen = [anchor] + _rolling_pick(others, day, 3)
+        # R21：货架从 4 个扩到 8 个（1 常驻 + 7 滚动）——用户嫌「只有四个」，
+        #      8 个仍保持偶数，两列/四列网格都不会缺角。
+        chosen = [anchor] + _rolling_pick(others, day, 7)
+        # 每周至少保证 1 个「限定时装」包上架，否则限定时装永远拿不到
+        if not any(p.get("skin_drop") for p in chosen):
+            skin_packs = [p for p in ARK_GIFT_PACKS if p.get("skin_drop")]
+            if skin_packs:
+                chosen[-1] = skin_packs[day % len(skin_packs)]
         for pack in chosen:
             n, lo, hi = pack["materials"]
             mats = [{"type": k, "amount": a} for k, a in _pick_pack_materials(n, lo, hi)]
@@ -414,6 +566,8 @@ def generate_weekly_packs(cur):
                            "random": [f"{m['type']}:{m['amount']}" for m in mats]}
             else:
                 content = {"resources": dict(pack["resources"]), "materials": mats}
+            if pack.get("skin_drop"):
+                content["skin_drop"] = int(pack["skin_drop"])
             cur.execute("""
                 INSERT INTO gift_packs (name, description, pack_type, content_config, cost_source_stone, rarity, available_from, available_until)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -698,6 +852,48 @@ def check_achievement(cur, condition_type: str, current_value: float, task_id: i
                 add_resource(cur, 'orundum', ach["reward_orundum"], f'achievement_{ach["id"]}', task_id)
             new_exp = get_resource(cur, 'exp')
             check_and_apply_level_up(cur, old_exp, new_exp)
+
+
+def sweep_achievements(cur):
+    """按当前数据把「累计型」蚀刻章统一补点亮一次。
+
+    check_achievement 只在事件发生时被调用（新建任务 / 完成任务 / 停止追踪…），
+    所以对一个已经有历史数据的库来说，那些早就该亮的章永远不会亮 ——
+    界面看起来就是「明明有 9 条解锁记录，卡片却一张都不发光」。
+    这里在启动时（以及导入数据后）把每种条件的当前值算一遍。
+    单项失败不影响其它项，也不要让它挡住启动。"""
+    def _scalar(sql, params=()):
+        try:
+            cur.execute(sql, params)
+            row = cur.fetchone()
+            if row is None:
+                return 0
+            v = row[0]
+            return v if v is not None else 0
+        except Exception:
+            return 0
+
+    checks = {
+        'task_count_created':        _scalar("SELECT COUNT(*) FROM tasks WHERE deleted = 0"),
+        'task_count_completed':      _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND deleted = 0"),
+        'task_count_completed_main': _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'main' AND deleted = 0"),
+        'task_count_completed_side': _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'side' AND deleted = 0"),
+        'tracking_hours_total':      _scalar("SELECT COALESCE(SUM(duration_seconds), 0) FROM tracking_sessions WHERE ended_at IS NOT NULL") / 3600.0,
+        'gift_pack_purchased':       _scalar("SELECT COUNT(*) FROM gift_packs WHERE purchased = 1"),
+        'gacha_draws':               _scalar("SELECT COALESCE(CAST(value AS INTEGER), 0) FROM gacha_pity WHERE key = 'total_pulls'"),
+        'operators_owned':           _scalar("SELECT COUNT(*) FROM operator_records"),
+        'skins_owned':               _scalar("SELECT COUNT(*) FROM skins_owned"),
+        'pomodoro_count':            _scalar("SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed'"),
+    }
+    for ctype, value in checks.items():
+        try:
+            check_achievement(cur, ctype, value, None)
+        except Exception:
+            continue
+    try:
+        check_achievement(cur, 'streak_days', calculate_streak_days(cur), None)
+    except Exception:
+        pass
 
 
 def update_parent_progress(cur, parent_id: int):
@@ -2275,6 +2471,9 @@ async def stop_pomodoro():
         """, (now_iso(),))
         cur.execute("SELECT * FROM pomodoro_sessions WHERE status = 'completed' ORDER BY ended_at DESC LIMIT 1")
         session = cur.fetchone()
+        # 番茄钟类蚀刻章
+        cur.execute("SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed'")
+        check_achievement(cur, 'pomodoro_count', cur.fetchone()[0], None)
         return {"data": dict(session) if session else None}
 
 
@@ -2754,6 +2953,23 @@ async def purchase_gift_pack(pack_id: int):
                             _grant(res_type, float(amount_str))
                         except ValueError:
                             pass
+        # R21：限定时装随机奖励 —— 原版不能用源石直接兑换的那批皮肤，
+        #      时装商店不卖，只从带 skin_drop 的礼包里产出（用户要求）。
+        if content_config.get("skin_drop"):
+            owned_skins = {r[0] for r in cur.execute("SELECT skin_id FROM skins_owned").fetchall()}
+            pool = [s for s in limited_skin_pool(12) if s["skin_id"] not in owned_skins]
+            if not pool:                       # 池子都拿完了就允许重复（不至于买了没东西）
+                pool = limited_skin_pool(12)
+            if pool:
+                pick = random.choice(pool)
+                cur.execute("""INSERT OR IGNORE INTO skins_owned
+                               (skin_id, operator_id, operator_name, skin_name, cost_source_stone)
+                               VALUES (?, ?, ?, ?, 0)""",
+                            (pick["skin_id"], pick["operator_id"], pick["operator_name"],
+                             pick["skin_name"]))
+                granted.append({"key": "skin", "amount": 1, "skin": pick})
+            cur.execute("SELECT COUNT(*) FROM skins_owned")
+            check_achievement(cur, 'skins_owned', cur.fetchone()[0], None)
         cur.execute("UPDATE gift_packs SET purchased = 1 WHERE id = ?", (pack_id,))
         cur.execute("SELECT COUNT(*) FROM gift_packs WHERE purchased = 1")
         purchased_count = cur.fetchone()[0]
@@ -2774,8 +2990,12 @@ async def get_achievements():
 @app.get("/api/achievements/unlocked")
 async def get_unlocked_achievements():
     with db_cursor() as cur:
+        # ⚠️ 必须显式别名出 achievement_id：`a.*` 里那列叫 id，
+        #    前端 renderAchievements / renderProfileBadges / checkNewUnlocks 读的是
+        #    u.achievement_id —— 不别名就永远是 undefined，解锁数对得上但一张卡都点不亮。
         cur.execute("""
-            SELECT a.*, au.unlocked_at, au.task_id
+            SELECT a.*, au.achievement_id AS achievement_id,
+                   au.unlocked_at, au.task_id
             FROM achievements a
             JOIN achievement_unlocks au ON a.id = au.achievement_id
             ORDER BY au.unlocked_at DESC
@@ -2980,6 +3200,35 @@ def _load_character_by_id() -> dict:
 CHARACTER_BY_ID = _load_character_by_id()
 
 
+def _load_character_by_id_all() -> dict:
+    """在 CHARACTER_BY_ID 的基础上补回 rarity 0 —— 也就是 1★ 干员。
+
+    官方表里 rarity 0 里混着召唤物 / 敌方单位 / 场景物件（853 条），
+    所以上面那个函数整体排除了 0，结果就是**一星干员一件时装都查不到**
+    （Lancet-2 / Castle-3 / THRM-EX 这些的皮肤在货架上直接消失）。
+    这里只收 char_ 前缀且职业非空的条目（11 名，全是真实可玩的一星干员），
+    专门给时装商店反查「这件皮肤属于谁」用。
+    """
+    try:
+        with open(CHARACTER_TABLE_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    out = {}
+    for cid, v in data.items():
+        name = v.get("name")
+        if not name or not cid.startswith("char_"):
+            continue
+        if not (v.get("profession") or ""):
+            continue
+        out[cid] = {"name": name, "rarity": (v.get("rarity") or 0) + 1,
+                    "profession": v.get("profession") or ""}
+    return out
+
+
+CHARACTER_BY_ID_ALL = _load_character_by_id_all()
+
+
 def _daily_key(salt: str) -> str:
     """轮换种子（R19：由「每天」改为「每周」—— 抽卡精选 / 时装货架按周更新）。
 
@@ -3007,8 +3256,10 @@ def featured_operators() -> dict:
         cand = [op for op in OPERATOR_POOL if op["rarity"] == rarity and op.get("portrait")]
         return _rotate(cand, _daily_key(f"featured:{rarity}"), n)
 
+    # R21：六星给两个 —— 原版标准寻访本来就是「双 UP」，
+    #      只摆一个既不像卡池，也让精选位显得空。
     return {
-        "six": pick(6, 1),
+        "six": pick(6, 2),
         "five": pick(5, 4),
         "four": pick(4, 6),
         "date": period_start('weekly').strftime("%Y-%m-%d"),
@@ -3110,6 +3361,10 @@ async def gacha_operator(req: GachaOperatorRequest):
         since = _gacha_pity_get(cur, "since_last_6star", 0)
         total = _gacha_pity_get(cur, "total_pulls", 0)
         balance = get_resource(cur, "orundum")
+        # 寻访 / 干员相关的蚀刻章（累计寻访次数、已招募干员数）
+        check_achievement(cur, 'gacha_draws', total, None)
+        cur.execute("SELECT COUNT(*) FROM operator_records")
+        check_achievement(cur, 'operators_owned', cur.fetchone()[0], None)
     return {
         "data": {
             "results": results,
@@ -3164,6 +3419,7 @@ async def gacha_operator_records():
 #  只列出「已持有」干员的时装——和原版一致：没有这名干员就穿不了他的皮肤。
 # ============================================================
 SKIN_TIER_LABEL = {
+    9:  "默认服装",
     15: "静态立绘",
     18: "特效时装",
     21: "动态立绘",
@@ -3171,13 +3427,20 @@ SKIN_TIER_LABEL = {
     27: "双形态 · 全新语音",
 }
 # 各星级干员可能出现的档位（越稀有越容易出豪华皮）
+# R21：补上 1★ / 2★ 两档 —— 原版里低星干员只有「默认服装」这一档，
+#      价格也最低，这样时装商店 1~6 星六个档位才不会整片空缺。
 SKIN_TIERS_BY_RARITY = {
     6: [21, 24, 24, 27],
     5: [18, 21, 21, 24],
     4: [15, 18, 18, 21],
     3: [15, 18],
-    2: [15],
+    2: [9],
+    1: [9],
 }
+# 限定时装：档位在「动态立绘 · 全新语音」（24 源石）及以上的皮肤，
+# 对应原版里那些**不能用源石直接兑换**的活动 / 联动 / 赛季限定皮。
+# 它们不进时装商店货架，只从礼包的随机奖励里出（用户 R21 要求）。
+SKIN_LIMITED_TIER = 24
 # 每位干员生成的时装数量
 SKIN_COUNT_BY_RARITY = {6: 2, 5: 2, 4: 1, 3: 1, 2: 1}
 SKIN_SERIES = [
@@ -3216,8 +3479,9 @@ def build_skins_for_operator(op: dict) -> list:
                 "skin_name": s["name"],
                 "series": s.get("group") or "",
                 "image": s.get("file"),
-                "tier_label": SKIN_TIER_LABEL[price],
+                "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
                 "cost": price,
+                "limited": price >= SKIN_LIMITED_TIER,
             })
         return skins
     # 无收录皮肤：退回生成式占位
@@ -3233,50 +3497,134 @@ def build_skins_for_operator(op: dict) -> list:
             "skin_name": series,
             "series": "",
             "image": (op.get("portrait")),
-            "tier_label": SKIN_TIER_LABEL[price],
+            "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
             "cost": price,
+            "limited": price >= SKIN_LIMITED_TIER,
         })
     return skins
 
 
-def build_skin_shop(owned_op_ids: set, limit: int = 18) -> list:
-    """时装商店的「货架」：每周轮换一批真实皮肤（R19：与卡池/礼包统一为周更）。
-
-    原版的时装商店本来就会摆出你还没有的干员的皮肤——买得到、穿不上。
-    这里同样处理：未持有干员的时装 unlocked=False，前端只给预览不给下单，
-    并且标上「获得该干员后可购买」，商店才不会是空货架。
-    """
-    ids = sorted(SKIN_ASSETS.keys())
-    if not ids:
-        return []
-    shop = []
-    for sid in _rotate(ids, _daily_key("skinshop"), len(ids)):
-        s = SKIN_ASSETS.get(sid) or {}
+def _build_skin_buckets() -> dict:
+    """按星级把皮肤分桶 —— 货架要按星级配额取货，1~6 星每档都得有东西。"""
+    buckets: dict = {}
+    for sid, s in SKIN_ASSETS.items():
         cid = s.get("charId") or ""
-        meta = CHARACTER_BY_ID.get(cid)
+        meta = CHARACTER_BY_ID_ALL.get(cid)
         if not meta or not s.get("file"):
             continue
-        op = OPERATOR_POOL_BY_CHAR.get(cid)
-        rarity = meta["rarity"]
-        tiers = SKIN_TIERS_BY_RARITY.get(rarity, [15, 18])
-        price = tiers[_stable_index(f"{sid}:price", len(tiers))]
-        shop.append({
-            "skin_id": sid,
-            "operator_id": (op or {}).get("id") or f"mat_p_{cid}",
-            "operator_name": meta["name"],
-            "rarity": rarity,
-            "skin_name": s.get("name") or "时装",
-            "series": s.get("group") or "",
-            "image": s.get("file"),
-            "tier_label": SKIN_TIER_LABEL[price],
-            "cost": price,
-            "owned": False,
-            "unlocked": bool(op and op["id"] in owned_op_ids),
-        })
-        if len(shop) >= limit:
+        buckets.setdefault(meta["rarity"], []).append(sid)
+    for r in buckets:
+        buckets[r].sort()
+    return buckets
+
+
+SKIN_BUCKETS = _build_skin_buckets()
+
+# 二星干员（夜刀 / 黑角 / 巡林者 / 杜林 / 12F）在原版一件源石时装都没有，
+# 星级桶是空的。这里用他们自己的立绘补一档「默认服装」，
+# 保证货架 1~6 星六个档位齐全，而不是永远只有 3/4/5/6 星。
+STAR2_SKINS: list = []
+for _cid, _meta in CHARACTER_BY_ID.items():
+    if _meta["rarity"] != 2:
+        continue
+    _asset = CHAR_ASSETS.get(_cid) or {}
+    STAR2_SKINS.append({
+        "skin_id": f"{_cid}@default#1",
+        "operator_id": (OPERATOR_POOL_BY_CHAR.get(_cid) or {}).get("id") or f"mat_p_{_cid}",
+        "operator_name": _meta["name"],
+        "rarity": 2,
+        "skin_name": "默认服装",
+        "series": "",
+        "image": _asset.get("portrait"),
+        "tier_label": SKIN_TIER_LABEL[9],
+        "cost": 9,
+    })
+
+# 各星级每周上架件数（合计 21 件，货架比原来的 18 件更满）
+SKIN_SHOP_QUOTA = {6: 5, 5: 5, 4: 4, 3: 3, 2: 2, 1: 2}
+
+
+def _skin_shop_entry(sid: str, owned_op_ids: set) -> dict:
+    """把一条皮肤记录包装成货架条目（含价格档位 / 是否限定 / 是否可下单）。"""
+    s = SKIN_ASSETS.get(sid) or {}
+    cid = s.get("charId") or ""
+    # CHARACTER_BY_ID_ALL 含 1★ 干员（Lancet-2 / Castle-3 / THRM-EX …），
+    # 少了它们货架上就没有一星档位
+    meta = CHARACTER_BY_ID_ALL.get(cid) or {}
+    op = OPERATOR_POOL_BY_CHAR.get(cid)
+    rarity = meta.get("rarity") or 0
+    tiers = SKIN_TIERS_BY_RARITY.get(rarity, [15, 18])
+    price = tiers[_stable_index(f"{sid}:price", len(tiers))]
+    return {
+        "skin_id": sid,
+        "operator_id": (op or {}).get("id") or f"mat_p_{cid}",
+        "operator_name": meta.get("name") or "",
+        "rarity": rarity,
+        "skin_name": s.get("name") or "时装",
+        "series": s.get("group") or "",
+        "image": s.get("file"),
+        "tier_label": SKIN_TIER_LABEL.get(price, "静态立绘"),
+        "cost": price,
+        "limited": price >= SKIN_LIMITED_TIER,
+        "owned": False,
+        "unlocked": bool(op and op["id"] in owned_op_ids),
+    }
+
+
+def build_skin_shop(owned_op_ids: set, limit: int = 24) -> list:
+    """时装商店的「货架」：每周轮换一批真实皮肤（R19：与卡池/礼包统一为周更）。
+
+    R21 改动（用户反馈「时装兑换里只有 456 星」）：
+      · 改为**按星级配额取货** —— 1★ 到 6★ 每档都有固定件数，
+        不再是从全表里按稀有度倒序切一刀（那样永远只剩 5★/6★）。
+      · 原版不能源石兑换的限定时装（27 源石档）不进货架，改走礼包随机奖励。
+      · 二星档用干员自身立绘补「默认服装」，六个星级档位不再空缺。
+
+    原版的时装商店本来就会摆出你还没有的干员的皮肤——买得到、穿不上。
+    这里同样处理：未持有干员的时装 unlocked=False，前端只给预览不给下单。
+    """
+    if not SKIN_BUCKETS:
+        return []
+    week = _daily_key("skinshop")
+    shop = []
+    for rarity in sorted(SKIN_BUCKETS.keys(), reverse=True):
+        bucket = SKIN_BUCKETS[rarity]
+        quota = SKIN_SHOP_QUOTA.get(rarity, 2)
+        for sid in _rotate(bucket, f"{week}:{rarity}", len(bucket)):
+            entry = _skin_shop_entry(sid, owned_op_ids)
+            if entry["limited"]:
+                continue                      # 限定皮：只在礼包随机奖励里出
+            shop.append(entry)
+            quota -= 1
+            if quota <= 0:
+                break
+    # 二星补位：原版没有二星时装，用干员自身立绘撑起这一档
+    for base in STAR2_SKINS:
+        op_id = base["operator_id"]
+        shop.append(dict(base, owned=False, unlocked=op_id in owned_op_ids, limited=False))
+    shop.sort(key=lambda x: (-x["rarity"], -x["cost"], x["operator_name"]))
+    return shop[:limit]
+
+
+def limited_skin_pool(n: int = 8) -> list:
+    """限定时装池（每周轮换）——原版不能用源石兑换的那批皮肤。
+
+    只从礼包的随机奖励里产出，时装商店里买不到。
+    """
+    week = _daily_key("skinlimited")
+    ids = [sid for sid in sorted(SKIN_ASSETS.keys())
+           if (SKIN_ASSETS.get(sid) or {}).get("file")
+           and CHARACTER_BY_ID_ALL.get((SKIN_ASSETS.get(sid) or {}).get("charId") or "")]
+    picks = []
+    for sid in _rotate(ids, week, len(ids)):
+        entry = _skin_shop_entry(sid, set())
+        if not entry["limited"]:
+            continue
+        entry["owned"] = False
+        picks.append(entry)
+        if len(picks) >= n:
             break
-    shop.sort(key=lambda x: (-x["rarity"], -x["cost"]))
-    return shop
+    return picks
 
 
 @app.get("/api/skins")
@@ -3298,11 +3646,14 @@ async def list_skins():
             s["owned"] = s["skin_id"] in owned_skins
             s["unlocked"] = True
             skins.append(s)
+    # 限定时装不进直购清单：原版买不到，只能从礼包随机奖励里出
+    skins = [s for s in skins if not s.get("limited")]
     owned_skin_ids = {s["skin_id"] for s in skins}
     skins.sort(key=lambda s: (-s["rarity"], -s["cost"], s["operator_name"]))
     # 货架里剔掉已经在「可购买」区出现过的，避免同一件皮肤出现两次
     shop = [s for s in build_skin_shop(owned_ids) if s["skin_id"] not in owned_skin_ids]
     return {"data": {"skins": skins, "shop": shop, "source_stone": stone,
+                     "limited_pool": limited_skin_pool(8),
                      "owned_count": len(owned_skins), "operator_count": len(owned_ops)}}
 
 
@@ -3363,6 +3714,9 @@ async def purchase_skin(req: SkinPurchaseRequest):
              target["skin_name"], target["cost"]),
         )
         balance = get_resource(cur, "source_stone")
+        # 时装收藏类蚀刻章
+        cur.execute("SELECT COUNT(*) FROM skins_owned")
+        check_achievement(cur, 'skins_owned', cur.fetchone()[0], None)
     return {"data": {"purchased": target, "source_stone": balance}}
 
 

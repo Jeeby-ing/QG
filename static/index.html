@@ -276,7 +276,7 @@
 
             <!-- 图谱视图 -->
             <section class="view" id="view-graph">
-                <div class="view-header"><h2 class="view-title">任务图谱</h2><div class="graph-controls"><button class="icon-btn" id="graphZoomIn"><i class="fa-solid fa-plus"></i></button><button class="icon-btn" id="graphZoomOut"><i class="fa-solid fa-minus"></i></button><button class="icon-btn" id="graphReset"><i class="fa-solid fa-rotate"></i></button></div></div>
+                <div class="view-header"><h2 class="view-title">任务图谱</h2><div class="graph-controls"><button class="icon-btn" id="graphZoomIn" title="放大"><i class="fa-solid fa-plus"></i></button><button class="icon-btn" id="graphZoomOut" title="缩小"><i class="fa-solid fa-minus"></i></button><button class="icon-btn" id="graphReset" title="回到全览：缩放与平移复位，重新适配全部任务"><i class="fa-solid fa-expand"></i></button></div></div>
                 <div class="graph-container" id="graphContainer"><svg id="graphSvg"></svg><div class="graph-empty" id="graphEmpty"><div class="empty-icon"><i class="fa-solid fa-diagram-project"></i></div><p>暂无任务关系</p></div></div>
             </section>
 
@@ -338,34 +338,39 @@
                         <span class="view-title-en">PROCUREMENT</span>
                     </div>
                 </div>
+                <!-- R21：顺序改成 时装 → 礼包 → 蚀刻章 → 现实奖励，
+                     礼物图标从「现实奖励」让给「礼包兑换」（现实奖励换手持爱心）。
+                     默认落在「时装兑换」（用户要求第一个显示时装）。 -->
                 <div class="pc-tabbar" id="shopTabBar">
-                    <button class="pc-tab active" data-tab="medal"><i class="fa-solid fa-award"></i><span>蚀刻章</span></button>
-                    <button class="pc-tab" data-tab="reality"><i class="fa-solid fa-gift"></i><span>现实奖励</span></button>
-                    <button class="pc-tab" data-tab="pack"><i class="fa-solid fa-box"></i><span>礼包兑换</span></button>
-                    <button class="pc-tab" data-tab="skin"><i class="fa-solid fa-shirt"></i><span>时装兑换</span></button>
+                    <button class="pc-tab active" data-tab="skin"><i class="fa-solid fa-shirt"></i><span>时装兑换</span></button>
+                    <button class="pc-tab" data-tab="pack"><i class="fa-solid fa-gift"></i><span>礼包兑换</span></button>
+                    <button class="pc-tab" data-tab="medal"><i class="fa-solid fa-award"></i><span>蚀刻章</span></button>
+                    <button class="pc-tab" data-tab="reality"><i class="fa-solid fa-hand-holding-heart"></i><span>现实奖励</span></button>
                 </div>
 
-                <!-- 蚀刻章 -->
-                <div class="pc-panel active" data-panel="medal">
+                <!-- 时装兑换（R21 起为采购中心默认子页） -->
+                <div class="pc-panel active" data-panel="skin">
                     <div class="pc-panel-bar">
-                        <span class="pc-panel-note" id="shopMedalNote"></span>
+                        <span class="pc-panel-note">源石购买 · 只有已持有的干员才能下单</span>
                         <div class="pc-panel-actions">
-                            <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
-                            <button class="btn btn-primary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
+                            <button type="button" class="icon-btn gh-info-btn" id="skinShopInfoBtn" title="定价 / 购买说明"><i class="fa-solid fa-circle-info"></i></button>
+                            <span class="pc-balance" id="skinShopBalance"></span>
                         </div>
                     </div>
-                    <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
-                </div>
-
-                <!-- 现实奖励兑换 -->
-                <div class="pc-panel" data-panel="reality">
-                    <div class="pc-panel-bar">
-                        <span class="pc-panel-note">用等级 / 经验 / 完成数兑换现实中的自我奖励</span>
-                        <div class="pc-panel-actions">
-                            <button class="btn btn-primary btn-medium" id="newRealityRewardBtn"><i class="fa-solid fa-plus"></i><span>新建奖励</span></button>
-                        </div>
+                    <div class="skin-info-panel" id="skinShopInfoPanel">
+                        <p id="skinShopHint">原版定价：15 静态立绘 / 18 特效 / 21 动态 / 24 动态+新语音 / 27 双形态。只有已持有的干员才能购买其时装；活动 / 联动等原作非源石直购的时装不在此上架，改由礼包兑换产出。</p>
                     </div>
-                    <div class="reality-rewards-list" id="realityRewardsList"></div>
+                    <div class="skin-filter-row" id="skinFilterRow">
+                        <button class="skin-filter-btn active" data-rarity="all">全部</button>
+                        <button class="skin-filter-btn" data-rarity="6">6★</button>
+                        <button class="skin-filter-btn" data-rarity="5">5★</button>
+                        <button class="skin-filter-btn" data-rarity="4">4★</button>
+                        <button class="skin-filter-btn" data-rarity="3">3★</button>
+                        <button class="skin-filter-btn" data-rarity="2">2★</button>
+                        <button class="skin-filter-btn" data-rarity="1">1★</button>
+                        <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
+                    </div>
+                    <div id="skinShopList" class="skin-shop-list"></div>
                 </div>
 
                 <!-- 礼包兑换 -->
@@ -379,26 +384,27 @@
                     <div class="gift-packs-grid pc-pack-grid" id="giftPacksGrid"></div>
                 </div>
 
-                <!-- 时装兑换 -->
-                <div class="pc-panel" data-panel="skin">
+                <!-- 蚀刻章 -->
+                <div class="pc-panel" data-panel="medal">
                     <div class="pc-panel-bar">
-                        <span class="pc-panel-note">源石购买 · 只有已持有的干员才能下单</span>
+                        <span class="pc-panel-note" id="shopMedalNote"></span>
                         <div class="pc-panel-actions">
-                            <button type="button" class="icon-btn gh-info-btn" id="skinShopInfoBtn" title="定价 / 购买说明"><i class="fa-solid fa-circle-info"></i></button>
-                            <span class="pc-balance" id="skinShopBalance"></span>
+                            <button class="btn btn-secondary btn-medium" id="customBadgeBtn"><i class="fa-solid fa-pen"></i><span>自定义蚀刻章</span></button>
+                            <button class="btn btn-secondary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
                         </div>
                     </div>
-                    <div class="skin-info-panel" id="skinShopInfoPanel">
-                        <p id="skinShopHint">原版定价：15 静态立绘 / 18 特效 / 21 动态 / 24 动态+新语音 / 27 双形态。只有已持有的干员才能购买其时装。</p>
+                    <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
+                </div>
+
+                <!-- 现实奖励兑换 -->
+                <div class="pc-panel" data-panel="reality">
+                    <div class="pc-panel-bar">
+                        <span class="pc-panel-note">用等级 / 经验 / 完成数兑换现实中的自我奖励</span>
+                        <div class="pc-panel-actions">
+                            <button class="btn btn-secondary btn-medium" id="newRealityRewardBtn"><i class="fa-solid fa-plus"></i><span>新建奖励</span></button>
+                        </div>
                     </div>
-                    <div class="skin-filter-row" id="skinFilterRow">
-                        <button class="skin-filter-btn active" data-rarity="all">全部</button>
-                        <button class="skin-filter-btn" data-rarity="6">6★</button>
-                        <button class="skin-filter-btn" data-rarity="5">5★</button>
-                        <button class="skin-filter-btn" data-rarity="4">4★</button>
-                        <button class="skin-filter-btn" data-rarity="owned">已拥有</button>
-                    </div>
-                    <div id="skinShopList" class="skin-shop-list"></div>
+                    <div class="reality-rewards-list" id="realityRewardsList"></div>
                 </div>
             </section>
 

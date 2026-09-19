@@ -2107,7 +2107,9 @@ body.focus-mode .tracking-expanded {
 .graph-edge-stream {
     animation-duration: 2.2s;
 }
-.graph-edge.highlight { stroke:var(--highlight-gold-1) !important; stroke-width:3 !important; filter:url(#graphGlow); }
+/* R21：#graphGlow 那个高斯模糊滤镜已随「黑卡片」一起删掉 ——
+   这里再引用一个不存在的滤镜，某些浏览器会直接不渲染该元素（连线悬停即消失）。 */
+.graph-edge.highlight { stroke:var(--highlight-gold-1) !important; stroke-width:3 !important; }
 
 /* =============================================
    日历
@@ -4743,42 +4745,70 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 }
 .op-featured-date { flex:0 0 auto; white-space:nowrap; font-family:var(--font-mono); font-size:13px; color:var(--text-muted-2); letter-spacing:0.5px; }
 
-/* 6★ 主视觉横幅：立绘靠右，左侧压暗叠文字 */
-.op-hero {
-    position:relative; height:158px; border-radius:14px; overflow:hidden;
-    border:1px solid rgba(255,207,77,0.42);
-    background:linear-gradient(120deg, rgba(58,42,10,0.92), rgba(20,19,16,0.92));
-    box-shadow:0 10px 26px rgba(0,0,0,0.45), inset 0 0 40px rgba(255,180,40,0.08);
-    margin-bottom:14px;
+/* 6★ 双 UP 主视觉（R21）
+   旧版是「左文字 / 右立绘」的分栏，名字和头像各占一半、中间一刀切开，
+   信息被割裂且观感廉价。改成：整卡即立绘，星级 + 名字压在底部同一块底板上，
+   卡面是一个整体。装饰只用方舟标志性的「四角细金线 + 直角切边」，
+   不再靠大面积外发光撑质感。 */
+.op-hero-duo {
+    display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:10px; margin-bottom:14px;
 }
-.op-hero-art {
+.op-duo-card {
+    position:relative; height:196px; border-radius:12px; overflow:hidden;
+    border:1px solid rgba(255,207,77,0.34);
+    background:linear-gradient(180deg, rgba(48,44,36,0.92), rgba(18,18,20,0.96));
+    box-shadow:0 8px 22px rgba(0,0,0,0.42);
+}
+.op-duo-art {
     position:absolute; inset:0;
-    background-size:auto 168%; background-position:right 10% top 6%; background-repeat:no-repeat;
-    filter:drop-shadow(0 6px 20px rgba(0,0,0,0.55));
+    background-size:auto 138%; background-position:center 4%; background-repeat:no-repeat;
 }
-.op-hero-veil {
+.op-duo-scrim {
     position:absolute; inset:0;
-    background:linear-gradient(90deg,
-        rgba(10,10,12,0.97) 0%, rgba(10,10,12,0.88) 32%,
-        rgba(10,10,12,0.34) 60%, rgba(10,10,12,0.04) 100%);
+    background:linear-gradient(180deg,
+        rgba(8,8,10,0.02) 0%, rgba(8,8,10,0.18) 40%,
+        rgba(8,8,10,0.62) 76%, rgba(8,8,10,0.93) 100%);
 }
-.op-hero-info {
-    position:absolute; left:20px; top:0; height:100%; max-width:62%;
-    display:flex; flex-direction:column; justify-content:center; gap:7px;
-    align-items:flex-start; text-align:left; z-index:2;
+/* 四角细金线：方舟 UI 的标志性装饰，比外发光更像"材质" */
+.op-duo-card::before,
+.op-duo-card::after {
+    content:''; position:absolute; width:16px; height:16px;
+    pointer-events:none; z-index:3;
+    border:1px solid rgba(255,207,77,0.72);
 }
-.op-hero-rarity {
-    font-size:15px; letter-spacing:2px; color:#FFCF4D;
-    text-shadow:0 0 12px rgba(255,207,77,0.75);
+.op-duo-card::before { left:7px;  top:7px;    border-right:0; border-bottom:0; }
+.op-duo-card::after  { right:7px; bottom:7px; border-left:0;  border-top:0; }
+.op-duo-up {
+    position:absolute; right:9px; top:9px; z-index:4;
+    font-family:var(--font-display); font-size:11px; font-weight:800; letter-spacing:2px;
+    padding:3px 9px; border-radius:2px;
+    color:#1a1508; background:linear-gradient(180deg, #ffe08a, #e8b818);
+    box-shadow:0 1px 0 rgba(255,255,255,0.5) inset;
 }
-.op-hero-name {
-    font-size:27px; font-weight:900; color:#fff; letter-spacing:1px;
-    text-shadow:0 2px 12px rgba(0,0,0,0.75);
+.op-duo-plate {
+    position:absolute; left:0; right:0; bottom:0; z-index:4;
+    padding:11px 14px 13px;
+    display:flex; flex-direction:column; align-items:flex-start; gap:3px;
+    border-top:1px solid rgba(255,207,77,0.22);
 }
-.op-hero-sub { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary-2); }
-.op-hero-token {
-    width:24px; height:24px; border-radius:6px;
-    border:1px solid rgba(255,207,77,0.5); background:rgba(0,0,0,0.4);
+.op-duo-stars { font-size:13px; letter-spacing:2px; color:#FFCF4D; line-height:1; }
+.op-duo-name {
+    font-size:22px; font-weight:900; color:#fff; letter-spacing:1px; line-height:1.15;
+    text-shadow:0 2px 10px rgba(0,0,0,0.85);
+}
+.op-duo-sub {
+    display:flex; align-items:center; gap:6px;
+    font-size:12px; color:rgba(235,230,215,0.74);
+}
+.op-duo-dot { opacity:0.5; }
+.op-duo-token {
+    width:20px; height:20px; border-radius:5px;
+    border:1px solid rgba(255,207,77,0.45); background:rgba(0,0,0,0.35);
+}
+@media (max-width: 560px){
+    .op-hero-duo { grid-template-columns:1fr; }
+    .op-duo-card { height:168px; }
 }
 
 /* 5★ / 4★ 干员小卡横排 */
@@ -6083,4 +6113,214 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     .calendar-task-indicator { font-size: 9px; padding: 2px 3px; }
     .pc-tab { padding: 8px 13px; font-size: 12.5px; }
     .gh-actionbar-view { position: static; background: none; padding-top: 8px; }
+}
+
+
+/* ============================================================
+   11) R21 —— 蚀刻章徽记 / 按钮强调色去 AI 味 / 图谱 / 采购中心顺序
+   ============================================================ */
+
+/* ---- 11.1 蚀刻章徽记：每枚一个图标 + 一个主题色 + 一个档位材质 ----
+   旧版全站统一 fa-award + 一块灰玻璃，66 枚章长得一模一样（用户：
+   「我其实不喜欢这个统一的勋章图标」）。现在这枚徽记由三层组成：
+     .badge-ring  外圈材质环（tier：bronze/silver/gold/diamond）
+     .badge-plate 内盘（该章主题色的暗色渐染）
+     .badge-icon  中心图标（每枚不同，锁定时灰、解锁时亮起并发光） */
+.achievements-container .achievements-grid {
+    grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+    gap: 14px;
+}
+.badge-medal {
+    position: relative;
+    width: 84px; height: 84px;
+    margin: 0 auto 10px;
+    display: flex; align-items: center; justify-content: center;
+}
+/* 外圈：用 conic 渐变做金属环，明暗随档位变化 */
+.badge-ring {
+    position: absolute; inset: 0; border-radius: 50%;
+    background:
+        conic-gradient(from 210deg,
+            var(--ach-metal, #c08a54) 0deg,
+            rgba(255,255,255,0.55) 42deg,
+            var(--ach-metal, #c08a54) 96deg,
+            rgba(0,0,0,0.65) 170deg,
+            var(--ach-metal, #c08a54) 236deg,
+            rgba(255,255,255,0.40) 300deg,
+            var(--ach-metal, #c08a54) 360deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 35px, #000 35.5px 39px, transparent 39.5px);
+    mask: radial-gradient(circle, transparent 0 35px, #000 35.5px 39px, transparent 39.5px);
+    opacity: 0.55;
+}
+.achievement-card.unlocked .badge-ring { opacity: 1; }
+/* 环上的四颗铆钉，让"章"更像章 */
+.badge-ring::before,
+.badge-ring::after {
+    content: ''; position: absolute; left: 50%; width: 4px; height: 4px;
+    margin-left: -2px; border-radius: 50%;
+    background: var(--ach-metal, #c08a54);
+    box-shadow: 0 0 5px var(--ach-metal, #c08a54);
+}
+.badge-ring::before { top: 1px; }
+.badge-ring::after  { bottom: 1px; }
+/* 内盘：主题色暗染 + 内阴影，做出"凹进去"的金属底 */
+.badge-plate {
+    position: absolute; inset: 6px; border-radius: 50%;
+    background:
+        radial-gradient(circle at 38% 30%, color-mix(in srgb, var(--ach-color, #c8b78a) 26%, transparent), transparent 62%),
+        linear-gradient(160deg, rgba(255,255,255,0.07), rgba(0,0,0,0.42));
+    border: 1px solid color-mix(in srgb, var(--ach-color, #c8b78a) 38%, transparent);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.55);
+}
+.badge-icon {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px;
+    font-size: 24px; line-height: 1;
+    color: var(--ach-color, #c8b78a);
+    transition: none !important;
+}
+.badge-custom-img { width: 44px; height: 44px; object-fit: contain; border-radius: 4px; }
+.badge-custom-text { font-size: 15px; font-weight: 700; letter-spacing: 0.05em; }
+/* 徽记底纹（自定义章可指定） */
+.badge-icon.pattern-line::after,
+.badge-icon.pattern-dots::after,
+.badge-icon.pattern-hex::after,
+.badge-icon.pattern-crystal::after {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%; opacity: 0.35;
+    z-index: -1;
+}
+.badge-icon.pattern-line::after    { background: repeating-linear-gradient(90deg, currentColor 0 1px, transparent 1px 5px); }
+.badge-icon.pattern-dots::after    { background: radial-gradient(currentColor 1px, transparent 1.2px) 0 0/6px 6px; }
+.badge-icon.pattern-hex::after     { background: repeating-conic-gradient(currentColor 0 60deg, transparent 60deg 120deg); }
+.badge-icon.pattern-crystal::after { background: conic-gradient(from 0deg, currentColor 0 25deg, transparent 25deg 90deg, currentColor 90deg 115deg, transparent 115deg 180deg, currentColor 180deg 205deg, transparent 205deg 270deg, currentColor 270deg 295deg, transparent 295deg 360deg); }
+
+/* 锁定 / 解锁两态：锁定时整块压暗去色，解锁时主题色亮起 */
+.achievement-card.locked  { opacity: 0.62; filter: grayscale(0.75) brightness(0.72); }
+.achievement-card.unlocked { opacity: 1 !important; filter: none !important; }
+.achievement-card.unlocked .badge-icon {
+    color: var(--ach-color, #c8b78a);
+    filter: drop-shadow(0 0 9px color-mix(in srgb, var(--ach-color, #c8b78a) 60%, transparent));
+}
+.achievement-card.unlocked { border-color: color-mix(in srgb, var(--ach-color, #c8b78a) 44%, transparent) !important; }
+.achievement-card.unlocked:hover {
+    border-color: color-mix(in srgb, var(--ach-color, #c8b78a) 70%, transparent) !important;
+}
+/* 档位：卡片左下角一枚小标，外圈材质色由 JS 通过 --ach-metal 传入 */
+.achievement-tier {
+    font-size: 9px; letter-spacing: 0.26em; font-weight: 700;
+    color: color-mix(in srgb, var(--ach-metal, #c08a54) 88%, white 12%);
+    padding: 2px 0 6px;
+}
+.achievement-state {
+    margin-top: 8px; padding-top: 7px;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    font-size: 10.5px; letter-spacing: 0.08em;
+    color: var(--text-muted-2);
+}
+.achievement-card.unlocked .achievement-state { color: color-mix(in srgb, var(--ach-color, #c8b78a) 80%, white 20%); }
+/* 主页已解锁小章：同一套配色，尺寸缩小 */
+.profile-badge {
+    width: 34px; height: 34px; font-size: 16px;
+    border-radius: 50%;
+    background: linear-gradient(160deg, rgba(255,255,255,0.07), rgba(0,0,0,0.42));
+    border: 1px solid color-mix(in srgb, var(--ach-color, #c8b78a) 42%, transparent);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--ach-color, #c8b78a);
+}
+
+/* ---- 11.2 按钮强调色：去掉方舟青 #22BBFF 描边 ----
+   用户：「这些按钮不要这种蓝色边框的感觉，AI 味道很重，我以前用豆包和 DEEPSEEK
+   就是这个风格我不喜欢」。方舟原版的 hover 强调不是"换一条彩色描边"，而是
+   把整块底提亮 + 边框走到暖白/暗金。这里统一改掉：
+     hover  = 底色提亮 + 描边转暖白 rgba(240,238,230,0.55) + 极淡外发光
+     active = 下沉 + 内阴影
+   金色主态保持不动。 */
+.skin-filter-btn:hover,
+.gh-act:hover:not(:disabled),
+.ex-step:hover,
+.btn-secondary:hover,
+.game-btn:hover:not(:disabled),
+.pc-tab:hover,
+.dt-del:hover,
+.profile-entry-card:hover,
+.icon-btn:hover,
+.calendar-day:hover {
+    border-color: rgba(240,238,230,0.55) !important;
+    box-shadow: 0 0 0 1px rgba(240,238,230,0.10), 0 0 12px rgba(255,255,255,0.10) !important;
+}
+.skin-filter-btn:hover, .gh-act:hover:not(:disabled), .ex-step:hover,
+.btn-secondary:hover, .game-btn:hover:not(:disabled), .pc-tab:hover,
+.profile-entry-card:hover {
+    background: rgba(46,48,52,0.90) !important;
+    color: var(--text-primary);
+}
+/* 日历格子 hover 走金色（和"今天"同一支色），不要蓝 */
+.calendar-container .calendar-day:hover {
+    box-shadow: 0 0 0 1px rgba(232,184,24,0.20), 0 6px 16px rgba(0,0,0,0.45) !important;
+}
+.calendar-container .calendar-day:hover { border-color: rgba(232,184,24,0.50) !important; }
+.calendar-day:hover .calendar-day-add { border-color: rgba(232,184,24,0.55); background: rgba(232,184,24,0.12); color: var(--highlight-gold-1); }
+/* 「一键领取」那类亮蓝描边按钮：改成暗金玻璃，键盘/悬停都走暖色 */
+.btn-claim-all,
+.claim-all-btn,
+#claimAllBtn {
+    background: rgba(232,184,24,0.14) !important;
+    border: 1px solid rgba(255,214,110,0.40) !important;
+    color: var(--highlight-gold-1) !important;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.btn-claim-all:hover,
+.claim-all-btn:hover,
+#claimAllBtn:hover {
+    background: rgba(232,184,24,0.26) !important;
+    border-color: rgba(255,214,110,0.72) !important;
+    box-shadow: 0 0 0 1px rgba(255,214,110,0.20), 0 0 14px rgba(232,184,24,0.22) !important;
+}
+/* 浏览器默认的聚焦环是亮蓝色（#0078D4 系），在暗色方舟界面上非常突兀、
+   也是"AI 味/网页味"的来源之一 —— 全站换成暖白细环。 */
+.btn:focus-visible,
+button:focus-visible,
+.pc-tab:focus-visible,
+.skin-filter-btn:focus-visible,
+.gh-act:focus-visible,
+.nav-tab:focus-visible,
+.profile-entry-card:focus-visible,
+[role="button"]:focus-visible {
+    outline: 1px solid rgba(240,238,230,0.55) !important;
+    outline-offset: 2px;
+}
+
+/* ============================================================
+   #11.3 R21 限定时装 / 礼包扩充
+   原版里有一部分时装不能用源石直接兑换（活动、联动、赛季限定），
+   这批单独成池，只从带「限定时装」标记的礼包里随机产出。
+   视觉上用紫色系和"源石直购"的金色系区分开。
+   ============================================================ */
+.skin-limited-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:12.5px; font-weight:700;
+    color:#d9b3ff;
+    padding:4px 9px; border-radius:999px;
+    background:rgba(150,90,200,0.16);
+    border:1px solid rgba(190,130,240,0.42);
+    white-space:nowrap;
+}
+.skin-card .skin-limited-tag { justify-self:end; }
+/* 礼包卡片上的「限定时装」chip：紫色，和金色资源 chip 一眼分得开 */
+.gp-chip.is-skin {
+    width:64px; min-width:64px; padding:0;
+}
+.gp-chip.is-skin i.fa-solid {
+    font-size:26px; line-height:42px; width:42px; height:42px; text-align:center;
+    color:#d9b3ff;
+    filter:drop-shadow(0 0 6px rgba(190,130,240,0.45));
+}
+.gp-chip.is-skin b { color:#e9d4ff !important; }
+.gp-chip.is-skin i:not(.fa-solid) { color:#c79bef; }
+/* 限定时装区块的标题条：紫色，和普通货架的金色区分 */
+.skin-section-head:has(+ .skin-section-grid .skin-limited-tag) .skin-section-kicker,
+.skin-section-head .skin-section-kicker.is-limited {
+    color:#d9b3ff;
+    border-color:rgba(190,130,240,0.45);
 }
