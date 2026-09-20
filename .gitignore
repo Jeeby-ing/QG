@@ -56,3 +56,19 @@ data/wallpaper_mobile/
 .tmp_*/
 __tmp_*
 _ud/
+static/__probe.html
+_pj.js
+_extract.py
+_probe*.pdf
+_probe*_out.txt
+
+# ===== 素材构建脚本的日志 / 中间产物 =====
+_build_assets.log
+_build_dyn.log
+_dyn_align.txt
+_skinspine.txt
+
+# ===== Ark-Unpacker（解包 AB 包用的外部工具）运行时产物 =====
+ArkUnpackerConfig.json
+ArkUnpackerLogs.log
+ArkUnpackerLogs.log.bak
