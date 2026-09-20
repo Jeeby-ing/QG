@@ -7346,3 +7346,90 @@ body.theme-light .modal .modal-close:hover {
     border-color: rgba(0,117,168,0.55);
     box-shadow: 0 4px 12px rgba(80,70,50,0.12), 0 0 14px rgba(0,117,168,0.28);
 }
+
+/* =========================================================
+   13.3 采购中心 / 个人主页 / 干员寻访 / 图谱 / 日历 · 方舟化（R29 第四刀）
+   与 13.0 / 13.1 / 13.2 同一套语言：ak-ui 方舟蓝(#4aabea) + 极淡蓝辉光。
+   要点：
+   - 把散落在 10.x 里的 #22BBFF(方舟青) 统一收敛到 #4aabea(方舟蓝)，避免两套蓝混用；
+   - 为各容器补 ak 蓝描边 + 一圈极淡蓝辉光（沿用 --ak-color-primary 回退 #4aabea）；
+   - 干员寻访全屏演出本身已是蓝调氛围，只给操作条补一道 ak 蓝顶边，不动演出；
+   - DOM / id / 事件 / 逻辑一律零改动。想回滚：整段删除即可。
+   ========================================================= */
+
+/* ① 采购中心标签条：底部线由中性白 → ak 蓝，并压一道向下蓝辉光 */
+.pc-tabbar {
+    border-bottom-color: rgba(74,171,234,0.14);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.2), 0 10px 18px -14px rgba(74,171,234,0.35);
+}
+/* 标签按钮：基础态补极淡 ak 蓝边；hover 由 #22BBFF 收敛到 #4aabea */
+.pc-tab {
+    border-color: rgba(74,171,234,0.24);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45), 0 0 0 1px rgba(74,171,234,0.07);
+}
+.pc-tab:hover {
+    border-color: var(--ak-color-primary, #4aabea);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px rgba(74,171,234,0.30), 0 0 14px rgba(74,171,234,0.30);
+}
+.pc-tab:active { transform: translateY(1px); }
+
+/* ② 主页入口卡片：同 ① 的收敛逻辑 */
+.profile-entry-card {
+    border-color: rgba(74,171,234,0.24);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.45), 0 0 0 1px rgba(74,171,234,0.07);
+}
+.profile-entry-card:hover {
+    border-color: var(--ak-color-primary, #4aabea);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 1px rgba(74,171,234,0.30), 0 0 14px rgba(74,171,234,0.30);
+}
+
+/* ③ 容器级大卡片：图谱 / 日历 补 ak 蓝描边 + 辉光 */
+.graph-container {
+    border-color: rgba(74,171,234,0.16);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(74,171,234,0.07), 0 0 30px rgba(74,171,234,0.06);
+}
+.calendar-container {
+    border-color: rgba(74,171,234,0.16);
+    box-shadow: var(--shadow-medium-1), var(--shadow-medium-2), 0 0 0 1px rgba(74,171,234,0.07), 0 0 30px rgba(74,171,234,0.06);
+}
+.calendar-day.today {
+    border-color: var(--ak-color-primary, #4aabea) !important;
+    box-shadow: 0 0 12px rgba(74,171,234,0.30) !important;
+}
+.calendar-day.has-tasks {
+    background: rgba(74,171,234,0.10);
+}
+
+/* ④ 干员寻访操作条：顶部补 ak 蓝分隔 + 向上蓝辉光（演出氛围本身已方舟蓝，不动） */
+.gh-actionbar-view {
+    border-top: 1px solid rgba(74,171,234,0.18);
+    box-shadow: 0 -1px 0 rgba(0,0,0,0.3), 0 -8px 20px -12px rgba(74,171,234,0.30);
+}
+
+/* ---- 浅色主题：蓝压深为 --ak-color-dark-blue(#0075a8) ---- */
+body.theme-light .pc-tabbar { border-bottom-color: rgba(0,117,168,0.20); }
+body.theme-light .pc-tab {
+    border-color: rgba(0,117,168,0.30);
+    box-shadow: 0 1px 3px rgba(80,70,50,0.10), 0 0 0 1px rgba(0,117,168,0.10);
+}
+body.theme-light .pc-tab:hover {
+    border-color: var(--ak-color-dark-blue, #0075a8);
+    box-shadow: 0 0 0 1px rgba(0,117,168,0.35), 0 0 14px rgba(0,117,168,0.22);
+}
+body.theme-light .profile-entry-card {
+    border-color: rgba(0,117,168,0.30);
+    box-shadow: 0 1px 3px rgba(80,70,50,0.10), 0 0 0 1px rgba(0,117,168,0.10);
+}
+body.theme-light .profile-entry-card:hover {
+    border-color: var(--ak-color-dark-blue, #0075a8);
+    box-shadow: 0 0 0 1px rgba(0,117,168,0.35), 0 0 14px rgba(0,117,168,0.22);
+}
+body.theme-light .graph-container { border-color: rgba(0,117,168,0.20); }
+body.theme-light .calendar-container { border-color: rgba(0,117,168,0.20); }
+body.theme-light .calendar-day.today {
+    border-color: var(--ak-color-dark-blue, #0075a8) !important;
+    box-shadow: 0 0 12px rgba(0,117,168,0.25) !important;
+}
+body.theme-light .gh-actionbar-view { border-top-color: rgba(0,117,168,0.22); }
