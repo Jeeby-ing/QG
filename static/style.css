@@ -5366,6 +5366,125 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 /* 演出进入翻牌阶段，中央的环与核淡出 */
 .gh-stage.reveal .gh-ring, .gh-stage.reveal .gh-core { opacity:0; transition:opacity .35s ease; }
 
+/* ── L3b：封缄信封 + 拉链 ───────────────────────────────────────────────
+   演出分三段：boot（PRTS 建链）→ env（玩家亲手拉链开信）→ reveal（翻牌）。
+   信封是"档案"而不是"贺卡"：深色金属函件、中缝拉链、拉开的缝里漏金光。
+   进度只靠一个自定义属性 --p（0~1）驱动，左右半页位移 / 缝隙宽度 / 辉光强度
+   全部由它算出来，JS 只负责改这一个数 —— 调参只改 CSS，不动逻辑。 */
+.gh-env {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+    opacity:0; pointer-events:none; transition:opacity .4s ease;
+}
+.gh-stage.env .gh-env { opacity:1; pointer-events:auto; }
+.gh-env.leaving { opacity:0; transition:opacity .5s ease; }
+/* 进到开信阶段，建链界面与中央环核让位 */
+.gh-stage.env .gh-boot,
+.gh-stage.env .gh-ring,
+.gh-stage.env .gh-core { opacity:0; transition:opacity .3s ease; }
+
+.gh-env-body {
+    --p:0;                             /* 拉链进度，JS 唯一要写的东西 */
+    position:relative;
+    width:min(312px, 52vw);
+    aspect-ratio:1 / 1.24;
+    cursor:grab; touch-action:none;    /* 拖动要吃掉触摸滚动 */
+    filter:drop-shadow(0 24px 38px rgba(0,0,0,0.62));
+}
+/* 落地动画挂在 .dropping 上，每次开信由 JS 重新触发 ——
+   直接挂在基类的话它只在页面加载时跑一次，之后打开信封就没有"落到桌面上"这一拍了 */
+.gh-env-body.dropping { animation:ghEnvDrop .6s cubic-bezier(.16,.9,.3,1) both; }
+.gh-env-body.grabbing { cursor:grabbing; }
+@keyframes ghEnvDrop {
+    from { opacity:0; transform:translateY(-26px) scale(.94); }
+    to   { opacity:1; transform:none; }
+}
+
+/* 缝里漏出来的光：宽度和亮度都跟着 --p 走 */
+.gh-env-glow {
+    position:absolute; left:50%; top:5%; bottom:5%;
+    width:calc(2px + var(--p) * 44px);
+    transform:translateX(-50%);
+    background:linear-gradient(180deg,
+        rgba(255,226,160,0), rgba(255,208,118,0.85), rgba(255,226,160,0));
+    filter:blur(calc(3px + var(--p) * 9px));
+    opacity:calc(0.3 + var(--p) * 0.7);
+    pointer-events:none;
+}
+
+/* 左右半页。拉开时向外平移 + 轻微外倾，像真的被撕开一道口子 */
+.gh-env-half {
+    position:absolute; top:0; bottom:0; width:calc(50% - 1px);
+    background:linear-gradient(158deg, #2c343f 0%, #1a2028 58%, #0f1319 100%);
+    border:1px solid rgba(196,210,224,0.20);
+    display:flex; align-items:flex-end; justify-content:center;
+    padding-bottom:14px; overflow:hidden;
+}
+.gh-env-half::after {           /* 档案格线纹理，很淡，只做质感 */
+    content:''; position:absolute; inset:0;
+    background-image:
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0 1px, transparent 1px 11px),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.028) 0 1px, transparent 1px 11px);
+    pointer-events:none;
+}
+.gh-env-half.left {
+    left:0; transform-origin:left center;
+    border-right-color:rgba(214,178,96,0.40);   /* 中缝两侧走一道金线，读作拉链轨道 */
+    transform:translateX(calc(var(--p) * -20px)) rotate(calc(var(--p) * -1.4deg));
+}
+.gh-env-half.right {
+    right:0; transform-origin:right center;
+    border-left-color:rgba(214,178,96,0.40);
+    transform:translateX(calc(var(--p) * 20px)) rotate(calc(var(--p) * 1.4deg));
+}
+.gh-env-code {
+    font-family:var(--font-mono); font-size:11px; letter-spacing:0.46em;
+    color:rgba(160,178,196,0.5); text-indent:0.46em; position:relative; z-index:1;
+}
+/* 封蜡：拉到底才点亮的金印 */
+.gh-env-seal {
+    position:absolute; left:50%; top:42%; transform:translate(-50%,-50%);
+    width:52px; height:52px; display:grid; place-items:center;
+    border:1px solid rgba(214,178,96,0.55); border-radius:50%;
+    background:radial-gradient(circle at 38% 32%, rgba(214,178,96,0.34), rgba(24,20,12,0.9));
+    color:rgba(240,214,146,0.9); font-size:17px; z-index:2;
+    transition:opacity .3s ease, transform .3s ease;
+}
+.gh-env.lit .gh-env-seal { opacity:0; transform:translate(-50%,-50%) scale(.72) rotate(24deg); }
+
+/* 拉链头 */
+.gh-env-zip {
+    position:absolute; left:50%; z-index:3;
+    bottom:calc(10px + var(--p) * (100% - 62px));
+    transform:translateX(-50%);
+    width:36px; height:44px;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    background:linear-gradient(180deg, #46525f, #212a33);
+    border:1px solid rgba(206,220,232,0.34);
+    box-shadow:0 5px 12px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.16);
+    color:var(--text-primary);
+}
+.gh-env.lit .gh-env-zip {
+    border-color:rgba(240,206,132,0.7);
+    box-shadow:0 5px 16px rgba(0,0,0,0.6), 0 0 18px rgba(240,206,132,0.35),
+               inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.gh-env-zip i { font-size:12px; opacity:0.85; }
+.gh-env-zip span {
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.1em; opacity:0.6;
+}
+.gh-env-hint {
+    font-size:12px; letter-spacing:0.18em; color:var(--text-secondary-3);
+    transition:opacity .3s ease;
+}
+.gh-env.lit .gh-env-hint { opacity:0.75; }
+.gh-env.ready .gh-env-hint { opacity:0; }
+
+@media (max-width:520px) {
+    .gh-env-body { width:min(252px, 62vw); }
+    .gh-env-zip { width:32px; height:40px; }
+}
+
 .gh-flare { position:absolute; inset:0; pointer-events:none; opacity:0; }
 /* R20：补齐 4★ 的紫色光效 —— 原版十连的光效是「4★及以下紫 / 5★黄 / 6★彩虹」三档，
    之前只做了黄和彩虹，四星翻牌是全黑的，落差很明显。 */

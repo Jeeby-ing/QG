@@ -5034,6 +5034,7 @@ function opResultCardHTML(r){
    ============================================================ */
 let ghTimers = [];
 let ghSkipped = false;
+let ghEnvFinish = null;      // 开信阶段还在等用户拉链时，跳过要能把它收尾
 function ghAfter(ms, fn){ ghTimers.push(setTimeout(fn, ms)); }
 function ghClearTimers(){ ghTimers.forEach(clearTimeout); ghTimers = []; }
 function ghEl(id){ return document.getElementById(id); }
@@ -5121,6 +5122,89 @@ function ghStartStage(){
 // 跳过时把剩下的等待压成 0，演出立刻收尾
 function ghPace(ms){ return ghSkipped ? 0 : ms; }
 
+/* ── 阶段一点五：封缄信封 + 拉链（L3b） ────────────────────────────────
+   插在「PRTS 建链」与「逐张翻牌」之间。用户亲手把拉链从底拖到顶，
+   缝里漏出的金光随进度增强，拉满 → 闪一下 → 进翻牌。
+   拖动进度只写一个 CSS 变量 --p（0~1），位移/辉光/缝隙全在 CSS 里算。
+   松手若已过 78% 直接判定拉开，否则弹回底部 —— 既不让手抖的人白拉，
+   也保证「拉到底」这个动作是有意义的。 */
+function ghRunEnvelope(){
+    const env = ghEl('ghEnv'), body = ghEl('ghEnvBody'), hint = ghEl('ghEnvHint');
+    if (!env || !body) return Promise.resolve();
+    body.style.setProperty('--p', '0');
+    env.classList.remove('lit', 'ready', 'leaving');
+    /* 重放一次落地动画（读一次 offsetWidth 强制回流，否则连加同类名浏览器不会重跑） */
+    body.classList.remove('dropping');
+    void body.offsetWidth;
+    body.classList.add('dropping');
+    return new Promise(resolve => {
+        const TICKS = 9;
+        let p = 0, dragging = false, startY = 0, startP = 0, lastTick = -1, done = false;
+
+        function paint(){
+            body.style.setProperty('--p', p.toFixed(4));
+            env.classList.toggle('lit', p > 0.05);
+            env.classList.toggle('ready', p >= 1);
+        }
+        function setP(v, silent){
+            p = Math.max(0, Math.min(1, v));
+            paint();
+            if (silent) return;
+            const step = Math.floor(p * TICKS);
+            if (step !== lastTick && step > 0 && p < 1){
+                lastTick = step;
+                ghSfx('zipTick', 0.28 + p * 0.5);   // 越往上越响，对齐原版拉链的爬音
+            }
+        }
+        function unbind(){
+            body.removeEventListener('pointerdown', onDown);
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+            window.removeEventListener('pointercancel', onUp);
+        }
+        function finish(){
+            if (done) return;
+            done = true; dragging = false; ghEnvFinish = null;
+            body.classList.remove('grabbing');
+            unbind();
+            setP(1, true);
+            if (!ghSkipped) ghSfx('whoosh');
+            ghAfter(ghSkipped ? 0 : 460, () => { env.classList.add('leaving'); resolve(); });
+        }
+        function onDown(e){
+            if (done || ghSkipped || e.button > 0) return;
+            dragging = true;
+            startY = e.clientY; startP = p;
+            body.classList.add('grabbing');
+            if (body.setPointerCapture) { try { body.setPointerCapture(e.pointerId); } catch (err) {} }
+            ghSfx('click');
+            e.preventDefault();
+        }
+        function onMove(e){
+            if (!dragging) return;
+            const h = body.clientHeight || 1;
+            setP(startP - (e.clientY - startY) / (h * 0.78));
+            if (p >= 1) finish();
+        }
+        function onUp(){
+            if (!dragging) return;
+            dragging = false;
+            body.classList.remove('grabbing');
+            if (p >= 0.78) finish();
+            else { setP(0, true); if (!ghSkipped) ghSfx('close'); }
+        }
+
+        ghEnvFinish = finish;
+        paint();
+        if (hint) hint.textContent = '按住拉链向上拖动';
+        body.addEventListener('pointerdown', onDown);
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        window.addEventListener('pointercancel', onUp);
+        if (ghSkipped) finish();
+    });
+}
+
 async function playGachaShow(results, bootPromise){
     const stage = ghEl('ghStage');
     if (!stage){ return; }
@@ -5128,8 +5212,14 @@ async function playGachaShow(results, bootPromise){
     await (bootPromise || sleep(0));
     if (ghSkipped) return;
     stage.classList.remove('boot');
-    stage.classList.add('reveal');
-    ghSfx('whoosh');
+    stage.classList.add('env');
+    /* 阶段一点五：亲手拉链开信。跳过会在 ghSkipShow 里把它直接收尾。 */
+    await ghRunEnvelope();
+    if (!ghSkipped){
+        stage.classList.remove('env');
+        stage.classList.add('reveal');
+        ghSfx('whoosh');
+    }
 
     const cards = [];
     let sixCued = false;
@@ -5191,10 +5281,11 @@ async function playGachaShow(results, bootPromise){
 function ghSkipShow(){
     if (ghSkipped) return;
     ghSkipped = true;
-    ghClearTimers();
+    ghClearTimers();                 // 必须先清，再收尾 —— 否则收尾里新排的定时器会被这次清掉
+    if (ghEnvFinish) ghEnvFinish();  // 还卡在拉链阶段就替用户拉到底，别把流程挂住
     const stage = ghEl('ghStage');
     if (!stage) return;
-    stage.classList.remove('boot', 'flare-five', 'flare-six');
+    stage.classList.remove('boot', 'env', 'flare-four', 'flare-five', 'flare-six');
     stage.classList.add('reveal');
     stage.querySelectorAll('.gh-card').forEach(c => { c.classList.add('shown', 'flipped'); });
     setTimeout(ghCloseShow, 620);

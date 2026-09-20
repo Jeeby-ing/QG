@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260920-253">
+    <link rel="stylesheet" href="static/style.css?v=20260920-254">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -724,6 +724,18 @@
             <div class="gh-boot-text" id="ghBootText">正在建立连接…</div>
             <div class="gh-boot-bar"><span id="ghBootBar"></span></div>
         </div>
+        <div class="gh-env" id="ghEnv">
+            <div class="gh-env-body" id="ghEnvBody">
+                <div class="gh-env-glow" id="ghEnvGlow"></div>
+                <div class="gh-env-half left"><span class="gh-env-code">PRTS</span></div>
+                <div class="gh-env-half right"><span class="gh-env-code">FILE</span></div>
+                <div class="gh-env-seal" id="ghEnvSeal"><i class="fa-solid fa-certificate"></i></div>
+                <div class="gh-env-zip" id="ghEnvZip">
+                    <i class="fa-solid fa-angles-up"></i><span>ZIP</span>
+                </div>
+            </div>
+            <div class="gh-env-hint" id="ghEnvHint">按住拉链向上拖动</div>
+        </div>
         <div class="gh-flare" id="ghFlare"></div>
         <div class="gh-reveal" id="ghReveal"></div>
         <div class="gh-hint">点击任意处跳过</div>
@@ -825,6 +837,6 @@
     <script src="static/sfx.js?v=20260920-001"></script>
     <!-- 动态立绘：按需加载 Spine 3.8 runtime，本身只有索引与调度逻辑 -->
     <script src="static/dyn-portrait.js?v=20260920-003"></script>
-    <script src="static/app.js?v=20260920-253"></script>
+    <script src="static/app.js?v=20260920-254"></script>
 </body>
 </html>
