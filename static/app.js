@@ -5030,6 +5030,12 @@ let ghSkipped = false;
 function ghAfter(ms, fn){ ghTimers.push(setTimeout(fn, ms)); }
 function ghClearTimers(){ ghTimers.forEach(clearTimeout); ghTimers = []; }
 function ghEl(id){ return document.getElementById(id); }
+/* 音效包装：QLSfx 没加载或浏览器不支持发声时静默跳过，绝不能因为音效拖垮演出 */
+function ghSfx(name, arg){
+    try {
+        if (typeof QLSfx !== 'undefined' && QLSfx && typeof QLSfx[name] === 'function') QLSfx[name](arg);
+    } catch (e) { /* 音效失败不影响演出 */ }
+}
 
 function ghBuildCard(r){
     const card = document.createElement('div');
@@ -5116,8 +5122,10 @@ async function playGachaShow(results, bootPromise){
     if (ghSkipped) return;
     stage.classList.remove('boot');
     stage.classList.add('reveal');
+    ghSfx('whoosh');
 
     const cards = [];
+    let sixCued = false;
     results.forEach(r => {
         const c = ghBuildCard(r);
         reveal.appendChild(c);
@@ -5145,7 +5153,24 @@ async function playGachaShow(results, bootPromise){
                 stage.classList.add('flare-six');
                 ghAfter(760, () => stage.classList.remove('flare-six'));
             }
-            if (rar >= 6) { c.classList.add('hit-six'); ghSparkBurst(); }
+            /* 音效：6★ 给足排面 —— 翻牌前先爬三级音阶（对齐原版拉链越拉越高），
+               翻牌瞬间打收尾重音；十连里只对第一个 6★ 爬音阶，后面的直接重音，避免听腻。 */
+            if (rar >= 6){
+                if (!sixCued){
+                    sixCued = true;
+                    ghSfx('six', 3);
+                    ghAfter(190, () => ghSfx('six', 2));
+                    ghAfter(380, () => ghSfx('six', 1));
+                }
+                ghSfx('out', 6);
+                c.classList.add('hit-six'); ghSparkBurst();
+            } else if (rar === 5){
+                ghSfx('out', 5);
+            } else if (rar === 4){
+                ghSfx('out', 4);
+            } else {
+                ghSfx('zipTick', 0.4);
+            }
         });
     });
     const total = 320 + (cards.length - 1) * flipGap + 720;
@@ -5170,6 +5195,7 @@ function ghSkipShow(){
 
 function ghCloseShow(){
     ghClearTimers();
+    ghSfx('close');
     const stage = ghEl('ghStage');
     if (!stage) return;
     stage.classList.add('closing');
