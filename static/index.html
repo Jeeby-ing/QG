@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260920-257">
+    <link rel="stylesheet" href="static/style.css?v=20260920-258">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -711,6 +711,7 @@
     <div class="gh-stage hidden" id="ghStage" aria-hidden="true">
         <div class="gh-bg"></div>
         <div class="gh-grid"></div>
+        <div class="gh-array" id="ghArray"></div>
         <div class="gh-band"></div>
         <div class="gh-corner tl"></div>
         <div class="gh-corner tr"></div>
@@ -719,22 +720,40 @@
         <div class="gh-ring"></div>
         <div class="gh-ring gh-ring-b"></div>
         <div class="gh-core"></div>
+        <div class="gh-auth" id="ghAuth">
+            <div class="gh-auth-ring"></div>
+            <div class="gh-auth-ring r2"></div>
+            <div class="gh-auth-scan"></div>
+            <div class="gh-auth-reticle"></div>
+            <div class="gh-auth-text" id="ghAuthText">PRTS 授权中</div>
+            <div class="gh-auth-stamp" id="ghAuthStamp">授权通过</div>
+        </div>
         <div class="gh-boot">
             <div class="gh-boot-mark">PRTS</div>
             <div class="gh-boot-text" id="ghBootText">正在建立连接…</div>
             <div class="gh-boot-bar"><span id="ghBootBar"></span></div>
         </div>
+        <!-- 阶段一点五：补给袋（原版「寻访之后手动拉开行李包裹的拉链」） -->
         <div class="gh-env" id="ghEnv">
             <div class="gh-env-body" id="ghEnvBody">
-                <div class="gh-env-glow" id="ghEnvGlow"></div>
-                <div class="gh-env-half left"><span class="gh-env-code">PRTS</span></div>
-                <div class="gh-env-half right"><span class="gh-env-code">FILE</span></div>
-                <div class="gh-env-seal" id="ghEnvSeal"><i class="fa-solid fa-certificate"></i></div>
-                <div class="gh-env-zip" id="ghEnvZip">
-                    <i class="fa-solid fa-angles-up"></i><span>ZIP</span>
+                <div class="gh-bag" id="ghBag">
+                    <i class="gh-bag-shadow"></i>
+                    <div class="gh-bag-sack">
+                        <span class="gh-bag-brand">RHODES ISLAND</span>
+                        <span class="gh-bag-mark">PRTS</span>
+                        <span class="gh-bag-code" id="ghBagCode">SUPPLY</span>
+                    </div>
+                    <div class="gh-bag-collar"></div>
+                    <i class="gh-bag-leak"></i>
+                    <div class="gh-bag-track">
+                        <i class="gh-bag-teeth"></i>
+                        <i class="gh-bag-open"></i>
+                        <div class="gh-bag-pull" id="ghBagPull"><span></span></div>
+                    </div>
                 </div>
             </div>
-            <div class="gh-env-hint" id="ghEnvHint">按住拉链向上拖动</div>
+            <div class="gh-env-hint" id="ghEnvHint">按住拉链向右拖动</div>
+            <i class="gh-bag-flash" id="ghBagFlash"></i>
         </div>
         <div class="gh-boot-fx">
             <i class="gf-noise"></i>
@@ -840,9 +859,9 @@
     })();
     </script>
     <!-- 音效系统：全部 Web Audio 现场合成，零素材依赖 -->
-    <script src="static/sfx.js?v=20260920-001"></script>
+    <script src="static/sfx.js?v=20260920-002"></script>
     <!-- 动态立绘：按需加载 Spine 3.8 runtime，本身只有索引与调度逻辑 -->
     <script src="static/dyn-portrait.js?v=20260920-003"></script>
-    <script src="static/app.js?v=20260920-254"></script>
+    <script src="static/app.js?v=20260920-257"></script>
 </body>
 </html>

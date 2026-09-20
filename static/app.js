@@ -2098,6 +2098,19 @@ function createTaskCard(task) {
 /* ===== 整卡领取奖励 =====
    点完成卡片的任意位置 → 直接发奖 → 把「一共领到了什么」铺成方舟风格圆形资源卡。
    父任务会连同所有已完成子任务一起结算（后端 claim-reward 默认级联，可在设置里关掉）。 */
+/* R24：任务奖励的合成玉 / 源石带周期上限（对齐原版渠道上限），
+   被截断时必须明说，否则用户会以为是发奖坏了。
+   后端在 claim 响应里带 capped=[{resource, period, limit, wanted, given}, ...]。 */
+function notifyEconomyCap(capped){
+    if (!Array.isArray(capped) || !capped.length) return;
+    const resName = { orundum: '合成玉', source_stone: '源石' };
+    const periodName = { daily: '今日', weekly: '本周' };
+    const merged = {};
+    capped.forEach(c => { merged[c.resource] = periodName[c.period] || '本期'; });
+    const parts = Object.keys(merged).map(k => `${merged[k]}${resName[k] || k}产出已达上限`);
+    showToast(`${parts.join('，')}，超出部分未发放`, 4200);
+}
+
 async function claimTaskFromCard(taskId, cardEl){
     if (state.rewardModalAnimating) return;
     const task = state.flatTasks.find(t => t.id === taskId);
@@ -2130,6 +2143,7 @@ async function claimTaskFromCard(taskId, cardEl){
     } else {
         showToast('奖励已领取');
     }
+    notifyEconomyCap(result.capped);
 }
 
 function hasActualReward(task) {
@@ -4065,6 +4079,7 @@ async function claimReward(){
                 const parts = mats.map(m => `${matNameOf(m.type)}×${Math.floor(Number(m.amount) || 0)}`);
                 showToast(`仓库入库：${parts.join('、')}`);
             }
+            notifyEconomyCap(result.capped);
             const sorted=filterTasks(state.flatTasks); const currentIndex=sorted.findIndex(t=>t.id==taskId);
             if(currentIndex!==-1&&currentIndex+1<sorted.length){ const nextTaskId=sorted[currentIndex+1].id;
                 const nextCard=document.querySelector(`.task-card[data-task-id="${nextTaskId}"]`);
@@ -4142,6 +4157,7 @@ async function handleClaimAll(){
         if(result.claimed_count > 0 || result.total_reward_value > 0 || (result.claimed && result.claimed.length > 0)){
             setTimeout(() => playRewardFlyEffect(DOM.claimAllBtn, result), 300);
         }
+        notifyEconomyCap(result.capped);
     }
 }
 
@@ -5034,7 +5050,7 @@ function opResultCardHTML(r){
    ============================================================ */
 let ghTimers = [];
 let ghSkipped = false;
-let ghEnvFinish = null;      // 开信阶段还在等用户拉链时，跳过要能把它收尾
+let ghBagFinish = null;      // 开袋阶段还在等用户拉链时，跳过要能把它收尾
 function ghAfter(ms, fn){ ghTimers.push(setTimeout(fn, ms)); }
 function ghClearTimers(){ ghTimers.forEach(clearTimeout); ghTimers = []; }
 function ghEl(id){ return document.getElementById(id); }
@@ -5101,45 +5117,67 @@ function ghStartStage(){
     const reveal = ghEl('ghReveal');
     const bootText = ghEl('ghBootText');
     const bootBar = ghEl('ghBootBar');
+    const auth = ghEl('ghAuth');
+    const authText = ghEl('ghAuthText');
     ghClearTimers();
     ghSkipped = false;
     if (reveal) reveal.innerHTML = '';
+    if (auth) auth.classList.remove('granted');
     if (!stage) return sleep(1200);
     stage.className = 'gh-stage showing boot';
     stage.classList.remove('hidden');
     if (bootBar) bootBar.style.width = '0%';
+    if (authText) authText.textContent = 'PRTS 授权中';
     return (async () => {
         ghAfter(60, () => { if (bootBar) bootBar.style.width = '100%'; });
-        const lines = ['正在建立连接…', 'PRTS 数据链路同步中…', '寻访数据解析中…'];
+        const lines = ['PRTS 授权校验中…', '数据链路加密同步中…', '寻访协议解析中…'];
         for (const t of lines){
             if (ghSkipped) return;
             if (bootText) bootText.textContent = t;
             await sleep(ghPace(430));
         }
-        await sleep(ghSkipped ? 0 : 210);
+        if (ghSkipped) return;
+        if (authText) authText.textContent = '授权通过';
+        if (auth) auth.classList.add('granted');   // 触发「授权通过」印章动画
+        await sleep(ghSkipped ? 0 : 720);
     })();
 }
 // 跳过时把剩下的等待压成 0，演出立刻收尾
 function ghPace(ms){ return ghSkipped ? 0 : ms; }
 
-/* ── 阶段一点五：封缄信封 + 拉链（L3b） ────────────────────────────────
-   插在「PRTS 建链」与「逐张翻牌」之间。用户亲手把拉链从底拖到顶，
-   缝里漏出的金光随进度增强，拉满 → 闪一下 → 进翻牌。
-   拖动进度只写一个 CSS 变量 --p（0~1），位移/辉光/缝隙全在 CSS 里算。
-   松手若已过 78% 直接判定拉开，否则弹回底部 —— 既不让手抖的人白拉，
+/* ── 阶段一点五：补给袋 + 拉链（R24：还原原版「拉袋子」）──────────────
+   插在「PRTS 建链」与「逐张翻牌」之间，对齐原版寻访演出的四拍：
+     ① 补给袋从上方砸下来（落地闷响，带一次触地挤压与回弹）
+     ② 落地后先响一段「星级 BGM」—— 原版只听这段就能预判出货星级
+     ③ 玩家按住拉链头向右拖，缝里漏出的光随进度变强，颜色 = 本次最高稀有度
+        （原版配色：火光 6★ / 金光 5★ / 紫光 4★ / 白光 3★）
+     ④ 拉到底 → 袋口翻开 + 按稀有度染色的全屏光爆 → 干员资料本（卡牌）冒出
+   拖动进度只写一个 CSS 变量 --p（0~1），位移/辉光/袋口张开全在 CSS 里算。
+   松手若已过 78% 直接判定拉开，否则弹回起点 —— 既不让手抖的人白拉，
    也保证「拉到底」这个动作是有意义的。 */
-function ghRunEnvelope(){
+const GH_LEAK_COLOR = { 3: '#e8f2ff', 4: '#a45cff', 5: '#ffc94a', 6: '#ff5a1f' };
+
+function ghRunBag(bestRarity, count){
     const env = ghEl('ghEnv'), body = ghEl('ghEnvBody'), hint = ghEl('ghEnvHint');
+    const code = ghEl('ghBagCode');
     if (!env || !body) return Promise.resolve();
+    const rar = bestRarity || 3;
     body.style.setProperty('--p', '0');
-    env.classList.remove('lit', 'ready', 'leaving');
+    body.style.setProperty('--leak', GH_LEAK_COLOR[rar] || GH_LEAK_COLOR[3]);
+    env.classList.remove('lit', 'ready', 'leaving', 'burst');
     /* 重放一次落地动画（读一次 offsetWidth 强制回流，否则连加同类名浏览器不会重跑） */
     body.classList.remove('dropping');
     void body.offsetWidth;
     body.classList.add('dropping');
+    if (code) code.textContent = (count && count > 1) ? `SUPPLY ×${count}` : 'SUPPLY';
+    if (hint) hint.textContent = '按住拉链向右拖动';
+    /* ① 落地闷响（对齐原版包裹坠地那一拍） */
+    ghAfter(ghSkipped ? 0 : 380, () => { if (!ghSkipped) ghSfx('bagDrop'); });
+    /* ② 星级 BGM：落地稳了再响，原版就是这一小段在提示出货星级 */
+    ghAfter(ghSkipped ? 0 : 740, () => { if (!ghSkipped) ghSfx('starTune', rar); });
     return new Promise(resolve => {
-        const TICKS = 9;
-        let p = 0, dragging = false, startY = 0, startP = 0, lastTick = -1, done = false;
+        const TICKS = 11;
+        let p = 0, dragging = false, startX = 0, startP = 0, lastTick = -1, done = false;
 
         function paint(){
             body.style.setProperty('--p', p.toFixed(4));
@@ -5153,7 +5191,7 @@ function ghRunEnvelope(){
             const step = Math.floor(p * TICKS);
             if (step !== lastTick && step > 0 && p < 1){
                 lastTick = step;
-                ghSfx('zipTick', 0.28 + p * 0.5);   // 越往上越响，对齐原版拉链的爬音
+                ghSfx('zipTick', 0.28 + p * 0.5);   // 越往右越响，对齐原版拉链的爬音
             }
         }
         function unbind(){
@@ -5164,17 +5202,21 @@ function ghRunEnvelope(){
         }
         function finish(){
             if (done) return;
-            done = true; dragging = false; ghEnvFinish = null;
+            done = true; dragging = false; ghBagFinish = null;
             body.classList.remove('grabbing');
             unbind();
             setP(1, true);
-            if (!ghSkipped) ghSfx('whoosh');
-            ghAfter(ghSkipped ? 0 : 460, () => { env.classList.add('leaving'); resolve(); });
+            if (ghSkipped) { env.classList.add('leaving'); resolve(); return; }
+            /* ④ 袋口彻底拉开：呲啦一声 + 稀有度染色的光爆 + 收尾重音 */
+            env.classList.add('burst');
+            ghSfx('bagOpen', rar);
+            ghAfter(150, () => ghSfx('out', rar));
+            ghAfter(620, () => { env.classList.add('leaving'); resolve(); });
         }
         function onDown(e){
             if (done || ghSkipped || e.button > 0) return;
             dragging = true;
-            startY = e.clientY; startP = p;
+            startX = e.clientX; startP = p;
             body.classList.add('grabbing');
             if (body.setPointerCapture) { try { body.setPointerCapture(e.pointerId); } catch (err) {} }
             ghSfx('click');
@@ -5182,8 +5224,9 @@ function ghRunEnvelope(){
         }
         function onMove(e){
             if (!dragging) return;
-            const h = body.clientHeight || 1;
-            setP(startP - (e.clientY - startY) / (h * 0.78));
+            /* 轨道占袋宽的 82%（CSS 里 left/right 各 9%），拖过这一段 = 拉到底 */
+            const w = body.clientWidth || 1;
+            setP(startP + (e.clientX - startX) / (w * 0.82));
             if (p >= 1) finish();
         }
         function onUp(){
@@ -5194,9 +5237,8 @@ function ghRunEnvelope(){
             else { setP(0, true); if (!ghSkipped) ghSfx('close'); }
         }
 
-        ghEnvFinish = finish;
+        ghBagFinish = finish;
         paint();
-        if (hint) hint.textContent = '按住拉链向上拖动';
         body.addEventListener('pointerdown', onDown);
         window.addEventListener('pointermove', onMove);
         window.addEventListener('pointerup', onUp);
@@ -5213,8 +5255,10 @@ async function playGachaShow(results, bootPromise){
     if (ghSkipped) return;
     stage.classList.remove('boot');
     stage.classList.add('env');
-    /* 阶段一点五：亲手拉链开信。跳过会在 ghSkipShow 里把它直接收尾。 */
-    await ghRunEnvelope();
+    /* 阶段一点五：亲手拉开补给袋的拉链。跳过会在 ghSkipShow 里把它直接收尾。
+       缝里透出的光色按「本次最高稀有度」染 —— 这就是原版那个看光预判出货的演出。 */
+    const bestRarity = results.reduce((m, r) => Math.max(m, r.rarity || 3), 3);
+    await ghRunBag(bestRarity, results.length);
     if (!ghSkipped){
         stage.classList.remove('env');
         stage.classList.add('reveal');
@@ -5282,7 +5326,7 @@ function ghSkipShow(){
     if (ghSkipped) return;
     ghSkipped = true;
     ghClearTimers();                 // 必须先清，再收尾 —— 否则收尾里新排的定时器会被这次清掉
-    if (ghEnvFinish) ghEnvFinish();  // 还卡在拉链阶段就替用户拉到底，别把流程挂住
+    if (ghBagFinish) ghBagFinish();  // 还卡在拉链阶段就替用户拉到底，别把流程挂住
     const stage = ghEl('ghStage');
     if (!stage) return;
     stage.classList.remove('boot', 'env', 'flare-four', 'flare-five', 'flare-six');

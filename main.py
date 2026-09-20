@@ -816,13 +816,13 @@ ARK_GIFT_PACKS = [
      "resources": {"lungmen": 50000, "exp": 3000}, "materials": (6, 2, 4)},
     {"name": "新人养成组合包", "description": "一次性大额养成资源，含源石返还",
      "pack_type": "fixed", "rarity": "epic", "cost_source_stone": 26,
-     "resources": {"lungmen": 60000, "exp": 4000, "source_stone": 8}, "materials": (5, 2, 4)},
+     "resources": {"lungmen": 60000, "exp": 4000, "source_stone": 3}, "materials": (5, 2, 4)},
     {"name": "新人寻访组合包", "description": "含两次十连寻访所需的合成玉（6000）",
      "pack_type": "fixed", "rarity": "epic", "cost_source_stone": 35,
      "resources": {"orundum": 6000, "lungmen": 30000}, "materials": (3, 1, 3)},
     {"name": "每月寻访组合包", "description": "大月卡：合成玉 + 源石返还 + 顶级素材",
      "pack_type": "mixed", "rarity": "legendary", "cost_source_stone": 70,
-     "resources": {"orundum": 6000, "source_stone": 20, "lungmen": 60000, "exp": 4000},
+     "resources": {"orundum": 6000, "source_stone": 6, "lungmen": 60000, "exp": 4000},
      "materials": (6, 3, 5)},
     # ---- R21 新增：货架从 4 个扩到 8 个，并加入「限定时装」随机奖励 ----
     {"name": "理智应急包", "description": "小额补给：理智 + 龙门币，随取随用",
@@ -847,7 +847,7 @@ ARK_GIFT_PACKS = [
      "skin_drop": 1},
     {"name": "周年庆典包", "description": "庆典限定：顶级资源 + 1 件限定时装",
      "pack_type": "mixed", "rarity": "legendary", "cost_source_stone": 88,
-     "resources": {"orundum": 6000, "source_stone": 24, "lungmen": 90000, "exp": 8000},
+     "resources": {"orundum": 6000, "source_stone": 8, "lungmen": 90000, "exp": 8000},
      "materials": (8, 3, 5), "skin_drop": 1},
 ]
 
@@ -1502,9 +1502,11 @@ def _build_level_pack_content(level: int) -> dict:
     level 为 5 的倍数；tier = level//5（5→1, 10→2, 15→3...）。
     """
     tier = max(1, level // 5)
+    # R24：升级礼包不再发源石 —— 原版等级奖励给的是素材 / 龙门币 / 合成玉，
+    # 源石只来自关卡首通与充值。以前这里 120 级一次就送 50 颗源石。
     resources = {
-        "source_stone": 2 + tier * 2,
-        "orundum": 200 + tier * 150,
+        "source_stone": 0,
+        "orundum": 100 + tier * 30,
         "lungmen": 5000 + tier * 4000,
         "exp": 200 + tier * 150,
     }
@@ -1521,11 +1523,13 @@ def _build_level_pack_content(level: int) -> dict:
 WAREHOUSE_TOKENS = [it['key'] for it in WAREHOUSE_CATALOG if it.get('cat') == '信物']
 
 # 基础货币掉落（龙门币/合成玉/源石），按档位配置数量与权重
+# R24：原版关卡掉落根本不掉源石（源石只来自首通 / 大版本补偿 / 充值），
+# 所以把 source_stone 从常规掉落池里整个拿掉，只保留后面「极小概率惊喜掉落」那一条。
 BASE_CURRENCY_DROPS = {
     'low':     [('lungmen', 300, 1200, 10), ('orundum', 5, 20, 4)],
-    'mid':     [('lungmen', 800, 2500, 10), ('orundum', 15, 45, 5), ('source_stone', 1, 1, 1)],
-    'high':    [('lungmen', 1500, 4000, 9), ('orundum', 35, 90, 6), ('source_stone', 1, 2, 2)],
-    'extreme': [('lungmen', 3000, 7000, 8), ('orundum', 80, 180, 6), ('source_stone', 1, 3, 3)],
+    'mid':     [('lungmen', 800, 2500, 10), ('orundum', 15, 45, 5)],
+    'high':    [('lungmen', 1500, 4000, 9), ('orundum', 35, 90, 6)],
+    'extreme': [('lungmen', 3000, 7000, 8), ('orundum', 80, 180, 6)],
 }
 
 
@@ -1594,9 +1598,12 @@ def calculate_random_drops(task_id: int, completed_at: str, cur=None) -> List[st
         # 按权重无重复抽取
         out = _weighted_distinct_pick(pool, drop_count, rng)
 
-        # 极小概率额外掉落源石（所有星级都有机会，随难度提高）
-        if rng.random() < 0.02 + difficulty * 0.005:  # 2%~9.5%
-            out.append(f"source_stone:{rng.randint(1, max(1, int(difficulty / 3)))}")
+        # 极小概率额外掉落源石（所有星级都有机会，随难度提高）。
+        # R24：原版关卡不掉源石，这里只留「惊喜掉落」，概率从 2%~9.5% 降到 0.6%~1.2%，
+        # 且数量固定 1 颗 —— 以前高难度一次能掉 3 颗，是源石通胀的第二个来源。
+        lo_c, hi_c = ECONOMY["drop_stone_chance"]
+        if rng.random() < lo_c + difficulty * (hi_c - lo_c) / 10.0:
+            out.append(f"source_stone:{ECONOMY['drop_stone_amount']}")
 
         # 注意：干员信物不再由此掉落 —— 按设定，信物只能通过「干员寻访」抽卡获得。
         return out
@@ -2978,19 +2985,74 @@ async def complete_task(task_id: int):
     return {"data": {"id": task_id, "status": "done"}}
 
 
-# ---------- 任务奖励：源石 / 合成玉的自动计算 ----------
-# R19：用户反馈「现在的任务拿不到源石，源石不够用」。
-# 根因：只有 exp / 龙门币在代码里做了自动计算，源石和合成玉直接读 DB 的
-# reward_source_stone / reward_orundum，而这两个字段默认 0 —— 除非 AI 生成任务时
-# 正好写进 drop_config，否则完成任务永远发不出源石。
-# 这里补上和 exp/龙门币同款的自动兜底，数值写死成下面两张表，方便后续单独调。
+# =========================================================================
+# 任务奖励经济总配置（R24：对齐明日方舟原版产出节奏）
+# -------------------------------------------------------------------------
+# 用户反馈「任务奖励给得过多、源石获取太容易」。对照原版各渠道产出重新校准，
+# 所有数值集中在下面这一个 ECONOMY 字典里，后续要调只改这里。
 #
-#   源石：按优先级分档。源石是硬通货，低星任务也给 1 颗保底，
-#         主线额外 +1（对应原版"主线关卡首通给源石"）。
-#   合成玉：随优先级线性增长（30/星），是凑抽卡零头的主要来源。
-#   兑换口径：1 源石 = 180 合成玉，单抽 600 合成玉。
-STONE_BY_PRIORITY = {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 5}
-ORUNDUM_PER_PRIORITY = 30
+# 【原版各渠道产出基准】（推导下面数值的依据）
+#   日常任务       100 合成玉 / 日   （15 个任务点 ≈ 6.7 玉/点）
+#   周常任务       500 合成玉 / 周   （17 个周常目标 ≈ 29 玉/个）
+#   剿灭作战      1800 合成玉 / 周   （未通「龙门市区 400 斩」时 1400 → 1600 → 1800）
+#   月度签到     ~1000 合成玉 / 月
+#   版本维护       300 合成玉 / 次   （大版本停服维护 5 颗源石）
+#   主线首通         1 颗源石 + 10~30 合成玉（普通）/ 30 合成玉（突袭）
+#   信用商店       280 合成玉 / 周   （20 信用点 = 10 玉，每日 2 次）
+#   单抽 600 合成玉 / 十连 6000；1 源石 = 180 合成玉（仅允许源石→合成玉）
+#
+# 结论：原版 F2P 每月稳定约 1.5 万合成玉 ≈ 25 抽（≈ 5.8 抽/周）。
+#       原版是靠「渠道周期上限」卡住产出的 —— 日常每日就 100，剿灭每周就 1800，
+#       再多打也不给。所以这里除了调低单价，还必须加周期上限，
+#       否则「多刷任务 = 无限抽」的漏洞依然存在。
+# =========================================================================
+ECONOMY = {
+    # ── 抽卡成本与汇率（原版固定值，别随手改）──
+    "draw_cost_orundum": 600,              # 单次寻访
+    "draw_cost_ten": 6000,                 # 十连
+    "achievement_draw_cost": 300,          # 蚀刻章抽取（非干员寻访，半价小抽）
+    "stone_to_orundum": 180,               # 1 源石 = 180 合成玉
+
+    # ── 原版渠道基准（只读参考，改动不影响逻辑，仅用于解释下面数值来源）──
+    "origin_daily_orundum": 100,
+    "origin_weekly_orundum": 500,
+    "origin_annihilation_orundum": 1800,
+    "origin_signin_orundum_monthly": 1000,
+    "origin_maintain_orundum": 300,
+    "origin_maintain_stone": 5,
+
+    # ── 任务奖励 · 合成玉：按优先级分档 ──
+    # 原版没有「一个任务」这种粒度，这里用「单抽 600 玉」反推：
+    # 中度活跃用户每周约完成 10~12 个任务，希望落在 4~5 抽（2400~3000 玉）/周，
+    # 即每任务含掉落约 200~280 玉 —— 任务本体给 8~110，剩下由关卡掉落补。
+    "orundum_by_priority": {1: 8, 2: 15, 3: 30, 4: 50, 5: 75, 6: 110},
+    "orundum_main_bonus": 15,             # 主线额外 15，对齐原版关卡首通 10~30 玉
+
+    # ── 任务奖励 · 源石 ──
+    # 原版源石是不可再生资源：只来自关卡首通 / 大版本补偿 / 充值，
+    # 日常与周常一股都不给。所以只有 main 线才发，数量对齐「每关首通 1 颗」，
+    # 6★ 视为章节终关 / 突袭首通给 2 颗。
+    "stone_by_priority_main": {1: 0, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2},
+
+    # ── 周期上限（防刷：超出部分直接不发，而不是照发）──
+    # 日上限 ≈ 日常 100 + 剿灭/周常的日均摊；
+    # 周上限 ≈ 100×7 + 500 + 1800 ≈ 3200 玉 ≈ 5.3 抽/周（缺口由签到/活动/成就补）；
+    # 源石周上限 ≈ 一周正常推图的首通量。
+    # 日上限按原版日均（日常 100 + 剿灭 1800/7 + 周常 500/7 ≈ 428）放宽到 600，
+    # 只用来挡「一天狂刷」；真正的天花板是周上限。
+    "daily_orundum_cap": 600,
+    "weekly_orundum_cap": 3000,
+    "weekly_stone_cap": 8,
+
+    # ── 掉落 · 源石 ──
+    # 原版关卡掉落根本不掉源石（源石只来自首通），这里只保留极小概率的惊喜掉落。
+    "drop_stone_chance": (0.006, 0.012),   # 按难度从 0.6% 线性到 1.2%
+    "drop_stone_amount": 1,
+}
+
+STONE_BY_PRIORITY_MAIN = ECONOMY["stone_by_priority_main"]
+ORUNDUM_BY_PRIORITY = ECONOMY["orundum_by_priority"]
+ORUNDUM_MAIN_BONUS = ECONOMY["orundum_main_bonus"]
 
 
 def _norm_priority(p) -> int:
@@ -3002,25 +3064,96 @@ def _norm_priority(p) -> int:
 
 
 def auto_reward_source_stone(priority, task_line: str = '') -> int:
-    """任务源石奖励：优先级分档 + 主线加成。"""
-    p = _norm_priority(priority)
-    stone = STONE_BY_PRIORITY[p]
-    if task_line == 'main':
-        stone += 1
-    return stone
+    """任务源石奖励：只有主线首通给（原版每关 1 颗，章节/突袭 2 颗），支线一律 0。
+
+    R24 前是「1~6 星给 1/1/2/2/3/5 颗，主线再 +1」，6★ 主线一次就是 6 颗 ——
+    原版一整章（约 10 关）首通才给这么多，这是「源石太容易」的主要来源。
+    """
+    if task_line != 'main':
+        return 0
+    return STONE_BY_PRIORITY_MAIN.get(_norm_priority(priority), 0)
 
 
 def auto_reward_orundum(priority, task_line: str = '') -> int:
-    """任务合成玉奖励：每星 30，主线再加 30。"""
+    """任务合成玉奖励：按优先级分档，主线再加 10（对齐原版关卡首通 10~30 玉）。"""
     p = _norm_priority(priority)
-    return p * ORUNDUM_PER_PRIORITY + (ORUNDUM_PER_PRIORITY if task_line == 'main' else 0)
+    return ORUNDUM_BY_PRIORITY[p] + (ORUNDUM_MAIN_BONUS if task_line == 'main' else 0)
 
 
-def _grant_task_rewards(cur, task):
-    """给单个任务结算奖励：基础资源 + 掉落素材入仓，并标记为已领取。
+# ---------- 周期产出上限（防「多刷任务 = 无限抽」）----------
+def _period_cutoff_utc(period: str) -> str:
+    """周期起点的 UTC 时间串，与 resource_transactions.created_at 的存储格式对齐。
 
-    返回 (rewards, materials, old_exp, new_exp)，抽出复用是为了让「父任务一并领取
-    所有子任务奖励」走完全相同的发奖路径，不会漏也不会重复。
+    resource_transactions 里既有 now_iso()（UTC，带 +00:00）也有建表默认值
+    （strftime 的 UTC，带 Z），两者按字典序比较都能和这里的 '%Y-%m-%dT%H:%M:%S'
+    正确排序，不必区分。
+    """
+    return period_start(period).astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S')
+
+
+def _period_task_earned(cur, resource_type: str, period: str) -> float:
+    """本周期内「任务奖励」已发放的该资源总量（不含礼包 / 兑换 / 抽卡等其它来源）。"""
+    cur.execute(
+        "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions "
+        "WHERE resource_type = ? AND reason LIKE 'task_reward_%' AND created_at >= ?",
+        (resource_type, _period_cutoff_utc(period)))
+    row = cur.fetchone()
+    return float(row[0] if row else 0)
+
+
+def cap_task_currency(cur, rewards: dict) -> list:
+    """按 ECONOMY 的周期上限截断任务产出的源石 / 合成玉（原地改 rewards）。
+
+    返回被截断的明细 list，供接口回给前端提示（没有截断就是空 list）。
+    口径：日上限与周上限取更紧的那个；源石只卡周上限。
+    """
+    capped = []
+    checks = (
+        ('orundum', 'daily', 'daily_orundum_cap'),
+        ('orundum', 'weekly', 'weekly_orundum_cap'),
+        ('source_stone', 'weekly', 'weekly_stone_cap'),
+    )
+    for rtype, period, key in checks:
+        want = rewards.get(rtype, 0) or 0
+        if want <= 0:
+            continue
+        limit = float(ECONOMY[key])
+        room = limit - _period_task_earned(cur, rtype, period)
+        if room <= 0:
+            rewards[rtype] = 0
+            capped.append({"resource": rtype, "period": period, "limit": limit,
+                           "wanted": want, "given": 0})
+        elif want > room:
+            rewards[rtype] = room
+            capped.append({"resource": rtype, "period": period, "limit": limit,
+                           "wanted": want, "given": room})
+    return capped
+
+
+def economy_snapshot(cur) -> dict:
+    """当前周期产出进度快照：给接口 / 前端展示「本周还能拿多少」，也让上限可见。"""
+    return {
+        "caps": {
+            "daily_orundum": ECONOMY["daily_orundum_cap"],
+            "weekly_orundum": ECONOMY["weekly_orundum_cap"],
+            "weekly_stone": ECONOMY["weekly_stone_cap"],
+        },
+        "earned": {
+            "daily_orundum": _period_task_earned(cur, 'orundum', 'daily'),
+            "weekly_orundum": _period_task_earned(cur, 'orundum', 'weekly'),
+            "weekly_stone": _period_task_earned(cur, 'source_stone', 'weekly'),
+        },
+        "draw_cost_orundum": ECONOMY["draw_cost_orundum"],
+        "stone_to_orundum": ECONOMY["stone_to_orundum"],
+    }
+
+
+def compute_task_rewards(cur, task) -> dict:
+    """任务奖励的唯一计算口径（基础 + 自动兜底 + 掉落），不含发奖动作。
+
+    R24：把 _grant_task_rewards 与 claim_all_rewards 里重复实现的两份计算合并到
+    这里，两边都调它，避免改了一处忘了另一处（历史上漏同步过）。
+    DB 里为 0 = 没指定，走自动兜底，不是「不给」。
     """
     task_id = task["id"]
     if task["reward_exp"] != 0:
@@ -3036,7 +3169,6 @@ def _grant_task_rewards(cur, task):
         reward_lungmen = task["reward_lungmen"]
     else:
         reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
-    # R19：源石 / 合成玉同样兜底自动计算（DB 里为 0 说明「没指定」，不是「不给」）
     if task["reward_source_stone"] != 0:
         reward_stone = task["reward_source_stone"]
     else:
@@ -3045,6 +3177,7 @@ def _grant_task_rewards(cur, task):
         reward_orundum = task["reward_orundum"]
     else:
         reward_orundum = auto_reward_orundum(task["priority"], task["task_line"])
+
     rewards = {
         'exp': reward_exp,
         'lungmen': reward_lungmen,
@@ -3055,6 +3188,20 @@ def _grant_task_rewards(cur, task):
     rewards['source_stone'] += drop_rewards['source_stone']
     rewards['orundum'] += drop_rewards['orundum']
     rewards['lungmen'] += drop_rewards['lungmen']
+    return rewards
+
+
+def _grant_task_rewards(cur, task):
+    """给单个任务结算奖励：基础资源 + 掉落素材入仓，并标记为已领取。
+
+    返回 (rewards, materials, capped)，抽出复用是为了让「父任务一并领取
+    所有子任务奖励」走完全相同的发奖路径，不会漏也不会重复。
+    capped 是被周期上限截断的明细（没有截断就是空 list）。
+    """
+    task_id = task["id"]
+    # R24：计算口径统一走 compute_task_rewards，再按周期上限截断源石 / 合成玉
+    rewards = compute_task_rewards(cur, task)
+    capped = cap_task_currency(cur, rewards)
     # 掉落素材进入仓库，并把实际入库明细返回给前端用于提示
     materials = add_drops_to_inventory(cur, task["drop_config"])
     for res_type, amount in rewards.items():
@@ -3064,7 +3211,7 @@ def _grant_task_rewards(cur, task):
     old_exp = get_resource(cur, 'exp') - rewards['exp']
     new_exp = get_resource(cur, 'exp')
     check_and_apply_level_up(cur, old_exp, new_exp)
-    return rewards, materials
+    return rewards, materials, capped
 
 
 def collect_descendant_ids(cur, task_id: int) -> list:
@@ -3123,12 +3270,15 @@ async def claim_reward(task_id: int, with_children: Optional[bool] = None):
         total = {'exp': 0, 'lungmen': 0, 'source_stone': 0, 'orundum': 0}
         materials = []
         detail = []
+        capped = []
         for t in targets:
-            r, m = _grant_task_rewards(cur, t)
+            r, m, c = _grant_task_rewards(cur, t)
             for k in total:
                 total[k] += r.get(k, 0) or 0
             materials.extend(m or [])
+            capped.extend(c or [])
             detail.append({"id": t["id"], "title": t["title"], "rewards": r})
+        snapshot = economy_snapshot(cur)
 
     return {"data": {
         "id": task_id,
@@ -3137,6 +3287,8 @@ async def claim_reward(task_id: int, with_children: Optional[bool] = None):
         "materials": materials,
         "claimed_count": len(targets),
         "detail": detail,
+        "capped": capped,
+        "economy": snapshot,
     }}
 
 
@@ -3150,53 +3302,19 @@ async def claim_all_rewards():
         """)
         tasks = cur.fetchall()
         total_rewards = {'exp': 0, 'lungmen': 0, 'source_stone': 0, 'orundum': 0}
+        capped = []
         claimed_count = 0
+        # R24：直接复用 _grant_task_rewards，和单条领取走完全同一条发奖路径
+        # （含周期上限）。以前这里是复制粘贴的第二份计算，改单价时必然漏同步。
         for task in tasks:
-            if task["reward_exp"] != 0:
-                reward_exp = task["reward_exp"]
-            else:
-                reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
-                cur.execute(
-                    "SELECT COUNT(*) FROM tasks WHERE parent_id = ? AND deleted = 0 AND archived = 0 AND status != 'cancelled'",
-                    (task["id"],))
-                child_count = cur.fetchone()[0]
-                reward_exp += child_count * 10
-            if task["reward_lungmen"] != 0:
-                reward_lungmen = task["reward_lungmen"]
-            else:
-                reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
-            # R19：与 _grant_task_rewards 同一口径，源石 / 合成玉兜底自动计算
-            if task["reward_source_stone"] != 0:
-                reward_stone = task["reward_source_stone"]
-            else:
-                reward_stone = auto_reward_source_stone(task["priority"], task["task_line"])
-            if task["reward_orundum"] != 0:
-                reward_orundum = task["reward_orundum"]
-            else:
-                reward_orundum = auto_reward_orundum(task["priority"], task["task_line"])
-            rewards = {
-                'exp': reward_exp,
-                'lungmen': reward_lungmen,
-                'source_stone': reward_stone,
-                'orundum': reward_orundum,
-            }
-            drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
-            rewards['source_stone'] += drop_rewards['source_stone']
-            rewards['orundum'] += drop_rewards['orundum']
-            rewards['lungmen'] += drop_rewards['lungmen']
-            # 掉落素材进入仓库
-            add_drops_to_inventory(cur, task["drop_config"])
-            for res_type, amount in rewards.items():
-                if amount > 0:
-                    add_resource(cur, res_type, amount, f'task_reward_{task["id"]}', task["id"])
-                    total_rewards[res_type] += amount
-            cur.execute("UPDATE tasks SET reward_claimed = 1, updated_at = ? WHERE id = ?", (now_iso(), task["id"]))
+            rewards, _materials, c = _grant_task_rewards(cur, task)
+            for k in total_rewards:
+                total_rewards[k] += rewards.get(k, 0) or 0
+            capped.extend(c or [])
             claimed_count += 1
-        if claimed_count > 0:
-            old_exp = get_resource(cur, 'exp') - total_rewards['exp']
-            new_exp = get_resource(cur, 'exp')
-            check_and_apply_level_up(cur, old_exp, new_exp)
-    return {"data": {"claimed": claimed_count, "rewards": total_rewards}}
+        snapshot = economy_snapshot(cur)
+    return {"data": {"claimed": claimed_count, "rewards": total_rewards,
+                     "capped": capped, "economy": snapshot}}
 
 
 @app.get("/api/resources")
@@ -3266,7 +3384,7 @@ async def exchange_resource(request: ExchangeRequest):
     # 允许的兑换方向白名单：源石 → 合成玉（1 源石 = 180 合成玉，明日方舟原版比例）。
     # 龙门币 / 源石均不可被兑换出去；龙门币只能由任务或礼包获得。
     EXCHANGE_ALLOWED = {
-        ('source_stone', 'orundum'): 180,  # 1 源石 -> 180 合成玉
+        ('source_stone', 'orundum'): ECONOMY["stone_to_orundum"],  # 1 源石 -> 180 合成玉
     }
     rate = EXCHANGE_ALLOWED.get((request.from_type, request.to_type))
     if rate is None:
@@ -3566,7 +3684,7 @@ async def create_custom_achievement(
 #    标准出率 6★2% / 5★8% / 4★50% / 3★40%；50 抽后 6★ 概率逐步提升，99 抽必出 6★；
 #    十连第 10 抽保底 ≥4★。抽到重复干员时产出该干员「信物」+1。
 # ============================================================
-OPERATOR_GACHA_COST = 600          # 单次寻访消耗合成玉（原版标准）
+OPERATOR_GACHA_COST = ECONOMY["draw_cost_orundum"]   # 单次寻访消耗合成玉（原版 600）
 OPERATOR_GACHA_RATES = {6: 0.02, 5: 0.08, 4: 0.50, 3: 0.40}  # 绝对出率
 OPERATOR_PITY_THRESHOLD = 50       # 50 抽后开始软保底
 OPERATOR_PITY_HARD = 98            # 距上次 6★ 达到 98 抽时，下一抽必出 6★
@@ -4237,7 +4355,7 @@ async def purchase_skin(req: SkinPurchaseRequest):
 
 @app.post("/api/achievements/draw")
 async def draw_achievement():
-    DRAW_COST_ORUNDUM = 300
+    DRAW_COST_ORUNDUM = ECONOMY["achievement_draw_cost"]
     with db_cursor() as cur:
         orundum = get_resource(cur, 'orundum')
         if orundum < DRAW_COST_ORUNDUM:

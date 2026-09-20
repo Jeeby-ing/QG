@@ -182,6 +182,49 @@ const QLSfx = (() => {
             }
         },
 
+        /* 补给袋落地：比 pack() 更"实"一点 —— 布袋坠地 + 一次小幅回弹。
+           原版抽卡第一拍就是这个，落地后还有一段按星级不同的 BGM。 */
+        bagDrop() {
+            noiseBurst({ dur: 0.30, vol: 0.26, filterFreq: 260 });
+            tone({ freq: 66, end: 38, dur: 0.40, vol: 0.15, type: 'sine' });
+            noiseBurst({ dur: 0.16, vol: 0.10, filterFreq: 420, delay: 0.24 });
+            tone({ freq: 52, end: 44, dur: 0.20, vol: 0.09, type: 'sine', delay: 0.24 });
+        },
+
+        /* 落地后的"星级 BGM 片段"：原版不用拉开拉链、只听落地这段旋律
+           就能判断出货星级（火光 6★ / 金光 5★ / 紫光 4★ / 白光 3★）。
+           这里用同一套音高语言把四个星级做成四个可分辨的短句。 */
+        starTune(rarity) {
+            if (rarity >= 6) {                       // 火光：明亮上行 + 一层亮噪，最长最燃
+                [659.25, 830.61, 987.77, 1318.5].forEach((f, i) => {
+                    tone({ freq: f, dur: 0.42 - i * 0.04, vol: 0.10, type: 'triangle', delay: i * 0.10 });
+                });
+                noiseBurst({ dur: 0.7, vol: 0.07, filterFreq: 3600, sweepTo: 1200, delay: 0.05 });
+            } else if (rarity === 5) {               // 金光：三音上行，比 6★ 短一截
+                [587.33, 739.99, 880].forEach((f, i) => {
+                    tone({ freq: f, dur: 0.34, vol: 0.095, type: 'sine', delay: i * 0.10 });
+                });
+            } else if (rarity === 4) {               // 紫光：两音下行，"紫气东来"的泄气感
+                [659.25, 523.25].forEach((f, i) => {
+                    tone({ freq: f, dur: 0.30, vol: 0.085, type: 'sine', delay: i * 0.12 });
+                });
+            } else {                                  // 白光：一个平淡的单音，听感最"素"
+                tone({ freq: 523.25, dur: 0.26, vol: 0.075, type: 'sine' });
+            }
+        },
+
+        /* 袋口彻底拉开的那一下：一层短促的"呲啦" + 按星级染色的光爆声 */
+        bagOpen(rarity) {
+            noiseBurst({ dur: 0.34, vol: 0.16, filterFreq: 900, sweepTo: 5200 });
+            if (rarity >= 6) {
+                tone({ freq: 180, end: 900, dur: 0.5, vol: 0.10, type: 'sawtooth' });
+            } else if (rarity === 5) {
+                tone({ freq: 160, end: 640, dur: 0.42, vol: 0.09, type: 'triangle' });
+            } else {
+                tone({ freq: 140, end: 420, dur: 0.34, vol: 0.08, type: 'triangle' });
+            }
+        },
+
         // 收幕："唰"——轻轻一团小风声
         close() {
             noiseBurst({ dur: 0.16, vol: 0.09, filterFreq: 1500 });
