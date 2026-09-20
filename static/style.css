@@ -520,7 +520,7 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
     text-shadow: 0 1px 3px rgba(0,0,0,0.5);
     padding: 0 10px 0 0; white-space: nowrap;
     opacity: 1; flex-shrink: 0;
-    margin-left: 96px;  /* 在 nav-center 内再往右移一点 */
+    margin-left: 16px;  /* R24：原为 96px 硬偏移，是撑宽容器、导致时间被遮挡的主因之一 */
     transform: translateY(14px);  /* 继续下移,与标签底部对齐 */
 }
 .resource-timestamp:hover { opacity: 0.85; }
@@ -3493,12 +3493,18 @@ body.focus-mode .tracking-timer {
 .top-nav {
     position: relative;
 }
+/* R24 修复：这里原先把导航条改成 absolute + translateX(-50%)，
+   等于让它居中于「整个视口」——但左右两个侧栏宽度并不相等
+   （实测左 324px / 右 458px，差 134px），于是居中后右侧必然越界，
+   把 .resource-timestamp 时间戳压在资源条下面（实测被遮 88px，
+   窗口再窄只会更严重）。改回 flex 占位居中，让它居中于
+   nav-left 与 nav-right 之间的剩余空间，任何宽度都不会溢出。 */
 .nav-center {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    position: static;
+    left: auto;
+    transform: none;
     width: auto;
-    flex: none;
+    flex: 1;
 }
 
 /* 视图切换动画增强 */
