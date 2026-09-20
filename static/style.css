@@ -7164,3 +7164,111 @@ body.theme-light .nav-tab.active::after {
 }
 body.theme-light .resource-item { border-color: rgba(0,117,168,0.22); }
 body.theme-light .resource-item::before { opacity: 0.05; }
+
+/* =========================================================
+   13.1 筛选栏与任务卡 · 方舟化（R29 第二刀）
+   与 13.0 同一套语言：ak-ui 方舟蓝 + static/img/ui/ 原版贴图。
+   仍然只动外观：class 名、id、以及 app.js 里 .custom-dropdown 的
+   open / selected 切换逻辑一行没碰。想回滚：删掉这一节即可。
+
+   本刀把 card_noise.webp 也用到任务卡上 —— 它本来就是原版的
+   「卡片封面噪点」（img_card_cover_noise）。此前任务卡用的是内联
+   SVG feTurbulence 现算的噪点，现在换成原版那一张。
+   ⚠️ 没动 .task-card:hover：卡片 hover 是按任务状态着色的
+   （见 style.css 前段「卡片悬浮：按状态着色内发光」），
+   统一改成蓝会把状态色全盖掉。
+   ========================================================= */
+
+/* ① 筛选栏：与导航条同一套装饰（噪点 + 顶部柔光带） */
+/* ⚠️ 这两层刻意不写 mix-blend-mode。
+   照抄导航条的 overlay/screen 时发现：筛选栏这块底是"半透明玻璃 + 极暗页面背景"，
+   overlay 的增量 ≈ 2ab 在 b 很小时几乎为 0（实测噪点 delta=-0.02，等于没画），
+   screen 也被玻璃底吃掉大半（光带只有 +2.49）。改成直接低透明度叠加才看得出。 */
+.filter-bar::before {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    border-radius: inherit;
+    background: url("img/ui/card_noise.webp") 0 0 / 128px 128px repeat;
+    opacity: 0.07;
+}
+.filter-bar::after {
+    content: ''; position: absolute; left: 0; right: 0; top: 0; height: 18px;
+    z-index: 0; pointer-events: none; border-radius: inherit;
+    background:
+        url("img/ui/light_sheet.webp") center top / 100% 100% no-repeat,
+        linear-gradient(180deg, rgba(74,171,234,0.22), rgba(74,171,234,0));
+    opacity: 0.8;      /* 与导航条那道光带保持同一档（实测增量 ~+25） */
+}
+/* 真实控件抬到装饰层之上。
+   ⚠️ 只补没有 z-index 的那几个 —— .filter-group 是 z-index:10，
+   下拉菜单「看得见却点不到」的坑就是靠它撑住的，绝不能覆盖成 1。 */
+.filter-bar > .search-group,
+.filter-bar > .archive-toggle { position: relative; z-index: 1; }
+
+/* ② 下拉 pill：金 → 方舟蓝（底色仍走原来的暖白渐变，不动） */
+.custom-dropdown-trigger:hover {
+    border-color: rgba(74,171,234,0.45);
+    box-shadow:
+        0 6px 14px rgba(0,0,0,0.35),
+        0 0 12px rgba(74,171,234,0.14),
+        inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.custom-dropdown.open .custom-dropdown-trigger {
+    border-color: rgba(74,171,234,0.55);
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.25),
+        0 0 12px rgba(74,171,234,0.16),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.custom-dropdown-arrow { color: rgba(122,197,246,0.9); }
+
+/* ③ 菜单项：金 → 方舟蓝 */
+.custom-dropdown-menu li:hover,
+.custom-dropdown-menu li:focus-visible { background: rgba(74,171,234,0.16); color: #fff; }
+.custom-dropdown-menu li.selected { background: rgba(74,171,234,0.24); color: #fff; }
+
+/* ④ 搜索框：金 → 方舟蓝（hover / 聚焦两套都要改，别只改 hover） */
+.search-group:hover .filter-search {
+    border-color: rgba(74,171,234,0.45);
+    box-shadow:
+        0 6px 14px rgba(0,0,0,0.35),
+        0 0 12px rgba(74,171,234,0.14),
+        inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.search-group:focus-within .filter-search {
+    border-color: var(--ak-color-primary, #4aabea);
+    box-shadow:
+        0 0 16px rgba(74,171,234,0.22),
+        0 0 0 3px rgba(74,171,234,0.10),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.search-group:hover .search-icon,
+.search-group:focus-within .search-icon { color: #7ac5f6; }
+
+/* ⑤ 任务卡：内联 SVG 噪点 → 原版 img_card_cover_noise */
+.task-card::before {
+    background-image: url("img/ui/card_noise.webp");
+    background-size: 128px 128px;
+    opacity: 0.07;                 /* 原来内联 SVG 噪点是 0.04，原版贴图对比度更低，略提一档 */
+}
+
+/* ---- 窄屏 ---- */
+@media (max-width: 768px) {
+    .filter-bar::after { height: 12px; opacity: 0.4; }
+}
+
+/* ---- 浅色主题：蓝要压深 ---- */
+body.theme-light .filter-bar::before { opacity: 0.05; }
+body.theme-light .filter-bar::after  { opacity: 0.25; }
+body.theme-light .custom-dropdown-trigger:hover,
+body.theme-light .custom-dropdown.open .custom-dropdown-trigger {
+    border-color: rgba(0,117,168,0.5);
+}
+body.theme-light .custom-dropdown-menu li:hover,
+body.theme-light .custom-dropdown-menu li:focus-visible { background: rgba(0,117,168,0.14); }
+body.theme-light .custom-dropdown-menu li.selected { background: rgba(0,117,168,0.20); }
+body.theme-light .search-group:hover .filter-search,
+body.theme-light .search-group:focus-within .filter-search {
+    border-color: rgba(0,117,168,0.55);
+}
+body.theme-light .search-group:hover .search-icon,
+body.theme-light .search-group:focus-within .search-icon { color: #0075a8; }
