@@ -7272,3 +7272,77 @@ body.theme-light .search-group:focus-within .filter-search {
 }
 body.theme-light .search-group:hover .search-icon,
 body.theme-light .search-group:focus-within .search-icon { color: #0075a8; }
+
+/* =========================================================
+   13.2 弹窗与任务详情 · 方舟化（R29 第三刀）
+   与 13.0 / 13.1 同一套语言：ak-ui 方舟蓝 + static/img/ui/ 原版贴图。
+   仍然只动外观：
+   - 不动任何 modal 的 DOM 结构、id、开关/提交逻辑（app.js 照旧）
+   - 关闭按钮用原版 btn_close.webp 贴图替换 FA 的 xmark（<i> 仅视觉隐藏，DOM 保留），
+     点击区域、id、关闭事件一律不变
+   - 浅色主题下蓝压深为 --ak-color-dark-blue
+   想回滚：把这一节整段删掉即可。
+   ========================================================= */
+
+/* ① 弹窗框体：方舟蓝描边 + 一圈极淡蓝辉光（沿用 --ak-color-primary）。
+      只追加，不改原 box-shadow 的黑色投影层。 */
+.modal {
+    border-color: rgba(74,171,234,0.18);
+    box-shadow:
+        var(--shadow-large-1), var(--shadow-large-2),
+        0 0 60px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(74,171,234,0.10),
+        0 0 38px rgba(74,171,234,0.10);
+}
+
+/* ② 标题栏：底部那条线由旧蓝 → 方舟蓝，并加同色微辉光
+       （与顶部导航那条线同一支笔触）。gold-accent（任务表单）保留金色，不抢。 */
+.modal-header {
+    position: relative;                 /* 给 ::before 噪点层当定位容器 */
+    border-bottom: 2px solid var(--ak-color-primary, #4aabea);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 18px rgba(74,171,234,0.12);
+}
+/* 标题与关闭按钮抬到噪点层之上，避免被噪点盖住 */
+.modal-header > .modal-title,
+.modal-header > .modal-close { position: relative; z-index: 1; }
+/* 标题栏原版噪点（与导航/筛选栏同源的 card_noise） */
+.modal-header::before {
+    content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+    background: url("img/ui/card_noise.webp") 0 0 / 128px 128px repeat;
+    opacity: 0.05;
+}
+
+/* ③ 关闭按钮：原版 btn_close.webp 贴图替换 FA 叉号。
+       背景图 contain 完整显示（不裁切），<i> 隐藏；保留圆角/尺寸/id/点击。 */
+.modal .modal-close {
+    background-image: url("img/ui/btn_close.webp");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    border-color: rgba(74,171,234,0.28);
+}
+.modal .modal-close i { display: none; }
+.modal .modal-close:hover {
+    border-color: rgba(74,171,234,0.6);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 14px rgba(74,171,234,0.35);
+}
+.modal .modal-close:active { transform: translateY(0) scale(0.92); }
+
+/* ---- 浅色主题：蓝压深为 --ak-color-dark-blue ---- */
+body.theme-light .modal {
+    border-color: rgba(0,117,168,0.16);
+    box-shadow:
+        0 12px 28px rgba(80,70,50,0.12), 0 4px 10px rgba(80,70,50,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.8),
+        0 0 0 1px rgba(0,117,168,0.10),
+        0 0 30px rgba(0,117,168,0.08);
+}
+body.theme-light .modal-header {
+    border-bottom-color: var(--ak-color-dark-blue, #0075a8);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06), 0 0 14px rgba(0,117,168,0.10);
+}
+body.theme-light .modal .modal-close { border-color: rgba(0,117,168,0.3); }
+body.theme-light .modal .modal-close:hover {
+    border-color: rgba(0,117,168,0.55);
+    box-shadow: 0 4px 12px rgba(80,70,50,0.12), 0 0 14px rgba(0,117,168,0.28);
+}
