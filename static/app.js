@@ -1837,12 +1837,12 @@ function createTaskCard(task) {
        不再单独摆一个「领取奖励」按钮（它左侧还带着一颗没人看得懂的小菱形）。 */
     const claimable = task.status === 'done' && !task.reward_claimed && hasActualReward(task);
 
+    /* 角标不再在这里 append：它原来是 absolute 钉在右上角（z-index:3），
+       正好压住右侧操作区 .task-actions（z-index:2）的编辑/删除/归档按钮。
+       现在改成参与卡片 flex 流、插在 .task-actions 之前，物理上不可能重叠。
+       插入动作在下面 actions 建好之后做（见 insertBefore(claimBadge, actions)）。 */
     if (claimable) {
         card.classList.add('claimable');
-        const claimBadge = document.createElement('div');
-        claimBadge.className = 'task-claim-badge';
-        claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
-        card.appendChild(claimBadge);
     }
     /* 已完成且奖励已领：不放任何角标。
        R19 用户明确要求去掉右上角那个绿色对勾 —— 原来的 completed 版本
@@ -2085,6 +2085,14 @@ function createTaskCard(task) {
         actions.appendChild(archiveBtn);
     }
     card.appendChild(actions);
+    if (claimable) {
+        /* ⚠️ 必须在 appendChild(actions) 之后再 insertBefore ——
+           actions 还不是 card 的子节点时 insertBefore 会抛 NotFoundError。 */
+        const claimBadge = document.createElement('div');
+        claimBadge.className = 'task-claim-badge';
+        claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
+        card.insertBefore(claimBadge, actions);
+    }
     card.addEventListener('click', () => {
         if (window._suppressClick) return;
         if (state.selectionMode) { toggleSelectTask(task); return; }
@@ -3657,7 +3665,10 @@ function refreshTaskCard(taskId) {
         const claimBadge = document.createElement('div');
         claimBadge.className = 'task-claim-badge';
         claimBadge.innerHTML = '<i class="fa-solid fa-gift"></i><span>可领取</span>';
-        card.appendChild(claimBadge);
+        // 与 createTaskCard 保持一致：插在操作区之前，不能 absolute 压住按钮
+        const actionsEl = card.querySelector('.task-actions');
+        if (actionsEl) card.insertBefore(claimBadge, actionsEl);
+        else card.appendChild(claimBadge);
     } else if (!claimable) {
         card.querySelector('.task-claim-badge')?.remove();
     }

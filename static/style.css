@@ -4011,6 +4011,8 @@ body.wallpaper-video .bg-layer {
     .progress-text { font-size:11px; }
     .task-actions { opacity:1; flex-basis:100%; justify-content:flex-end; padding:4px 6px 2px; gap:6px; }
     .action-btn { width:34px; height:34px; font-size:14px; }
+    /* 窄屏卡片换行：角标靠右居中，跟着 progress 走，不与整行的操作区重叠 */
+    .task-claim-badge { align-self:center; margin:0 8px 0 auto; }
     .task-card .claim-btn { padding:8px 12px; font-size:13px; min-height:40px; }
     .count-btn { width:20px; height:20px; font-size:10px; }
     .count-input { width:36px; font-size:11px; padding:1px 3px; }
@@ -6169,21 +6171,8 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .task-card.claimable.status-done { opacity:1; background:linear-gradient(180deg, rgba(255,208,40,0.10), rgba(255,255,255,0.02)), var(--glass-2); }
 .task-card.claimable .task-title { text-decoration:none; color:var(--text-primary); }
 .task-card.claimable.claiming { transform:scale(0.985); opacity:0.75; }
-.task-claim-badge {
-    position:absolute; top:9px; right:11px; z-index:3;
-    display:inline-flex; align-items:center; gap:5px;
-    padding:3px 10px; border-radius:11px;
-    font-size:11px; font-weight:800; letter-spacing:0.06em;
-    color:#2a1c00;
-    background:linear-gradient(180deg, #ffdf7d, #e5a81c);
-    box-shadow:0 0 14px rgba(255,196,60,0.5);
-    pointer-events:none;
-    animation:claimBadgePulse 2.4s ease-in-out infinite;
-}
-@keyframes claimBadgePulse {
-    0%,100% { box-shadow:0 0 12px rgba(255,196,60,0.35); }
-    50%     { box-shadow:0 0 22px rgba(255,214,80,0.75); }
-}
+/* R25：.task-claim-badge 的旧版（absolute 钉右上角 + 金色脉动）已删除，
+   它是遮挡右侧操作按钮的元凶。现行规则在文件末尾「12.5 可领取的任务卡」段。 */
 
 @media (max-width: 768px) {
     /* 窄屏下星级独占一行，所以缩进补偿归零 */
@@ -7037,16 +7026,25 @@ button:focus-visible,
     box-shadow: 0 14px 28px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,214,110,0.14);
     transform: translateY(-1px);
 }
+/* R25：角标从「absolute 钉右上角」改为卡片 flex 流里的一个普通子项，
+   插在 .task-actions 之前（DOM 顺序由 app.js 的 insertBefore 保证）。
+   原来 top:9px/right:11px/z-index:3 那套会实打实压住右侧操作区的
+   编辑 / 删除 / 归档按钮（hover 才显形，被压住时看起来像"按钮没了"）。
+   现在它是流内元素，物理上不可能和按钮重叠；margin-left:auto 让它靠右，
+   仍然紧挨操作区，视觉上还是"卡片右侧的领取提示"。 */
 .task-claim-badge {
-    position: absolute; top: 9px; right: 10px; z-index: 3;
+    position: relative; z-index: 2;
+    flex: 0 0 auto; align-self: center;
+    margin-left: auto; margin-right: 6px;
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 9px; border-radius: 8px;
     font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+    white-space: nowrap;
     color: var(--highlight-gold-1);
     background: rgba(28,24,14,0.62);
     border: 1px solid rgba(255,207,77,0.42);
     backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
     box-shadow: none;
     animation: none;              /* 去掉一直脉动的光晕 */
-    pointer-events: none;
+    pointer-events: none;         /* 点击穿透：整卡任意处都算领奖 */
 }
