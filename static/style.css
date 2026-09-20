@@ -7048,3 +7048,119 @@ button:focus-visible,
     animation: none;              /* 去掉一直脉动的光晕 */
     pointer-events: none;         /* 点击穿透：整卡任意处都算领奖 */
 }
+
+/* =========================================================
+   13.0 顶部导航 · 方舟化（R29）
+   参考源：ak-ui 设计 token（方舟蓝回归，R24 用户拍板按原版配色走）
+   + static/img/ui/ 里的游戏原生 UI 贴图（Ark-Unpacker 从 AB 解出后转 webp）。
+
+   只做外观增强：
+   - 不动 DOM 结构（.nav-left / .nav-center / .nav-right 原样保留）
+   - 不动任何 id（#resLungmen / #resOrundum / #resStone / #navTabs …）
+   - 不动 .nav-tab 的 data-view 与 .active 切换逻辑（app.js switchView 照旧）
+   想回滚：把这一节整段删掉即可，其余规则一行没改。
+
+   用到的三张原版贴图（都在 static/img/ui/）：
+     card_noise.webp  128×128  arts/ui/img_card_cover_noise      灰阶噪点，可无缝平铺
+     light_sheet.webp 256×64   arts/ui/img_fx_light_sheet_soft   横向柔光带
+     glow_basic.webp  256×256  arts/ui/img_uifx_basicglow_01     径向基础辉光
+   ========================================================= */
+
+/* ① 导航条底纹：噪点 + 底部柔光带。
+      单独挂一个空 div 承载，绝对定位、不吃点击、不参与 flex 布局。 */
+.nav-deco {
+    position: absolute; inset: 0; z-index: 0;
+    pointer-events: none; overflow: hidden;
+}
+.nav-deco::before {
+    content: ''; position: absolute; inset: 0;
+    background: url("img/ui/card_noise.webp") 0 0 / 128px 128px repeat;
+    mix-blend-mode: overlay; opacity: 0.09;
+}
+.nav-deco::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 26px;
+    /* 贴图本身很淡（中心 alpha 只有 51），单靠它在深色底上几乎看不出来，
+       所以再叠一层同色线性渐变兜底 —— 贴图负责质感，渐变负责"看得见"。 */
+    background:
+        url("img/ui/light_sheet.webp") center bottom / 100% 100% no-repeat,
+        linear-gradient(180deg, rgba(74,171,234,0), rgba(74,171,234,0.13));
+    mix-blend-mode: screen; opacity: 0.75;
+}
+/* 导航条里的真实内容抬到装饰层之上（否则会被噪点层压住） */
+.top-nav > .nav-left,
+.top-nav > .nav-center,
+.top-nav > .nav-right { position: relative; z-index: 1; }
+
+/* ② 底部那条线：金 → 方舟蓝 */
+.top-nav::after {
+    background: linear-gradient(90deg,
+        transparent,
+        var(--ak-color-primary, #4aabea) 32%,
+        var(--ak-color-primary, #4aabea) 68%,
+        transparent);
+    box-shadow: 0 0 14px rgba(74,171,234,0.5);
+}
+
+/* ③ 导航标签激活态：方舟蓝底 + 原版柔光背光。
+      ::before 原本空着（::after 才是那条下划线），不冲突。 */
+.nav-tab.active {
+    color: #d7ecfd;
+    background: linear-gradient(180deg, rgba(74,171,234,0.24), rgba(74,171,234,0.05));
+    box-shadow: inset 0 0 0 1px rgba(74,171,234,0.34), 0 6px 16px rgba(0,0,0,0.35);
+}
+.nav-tab.active::before {
+    content: ''; position: absolute; left: 50%; bottom: -8px;
+    width: 132%; height: 128%; transform: translateX(-50%);
+    background: url("img/ui/glow_basic.webp") center / 100% 100% no-repeat;
+    mix-blend-mode: screen; opacity: 0.22; pointer-events: none;
+}
+.nav-tab.active::after {
+    background: linear-gradient(90deg,
+        transparent, #4aabea 18%, #8fd6ff 50%, #4aabea 82%, transparent);
+    box-shadow: 0 0 12px rgba(74,171,234,0.85);
+}
+
+/* ④ 资源条：一层原版噪点 + 方舟蓝描边。
+      数值 / 图标 / id 全部照旧，只是给底板加了材质。 */
+.resource-item {
+    position: relative;                      /* ::before 要绝对定位，必须补 */
+    border-color: rgba(74,171,234,0.20);
+}
+.resource-item::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: url("img/ui/card_noise.webp") 0 0 / 128px 128px repeat;
+    mix-blend-mode: overlay; opacity: 0.08; pointer-events: none;
+}
+
+/* ---- 窄屏：nav-center 变成全屏下拉菜单，tab 是 68px 大按钮 ---- */
+@media (max-width: 768px) {
+    .nav-deco::after { height: 16px; opacity: 0.3; }
+    /* 大按钮上那团背光会被拉得很大 → 窄屏直接关掉 */
+    .nav-tab.active::before { display: none; }
+}
+
+/* ---- 浅色主题：蓝要压深（--ak-color-dark-blue #0075a8），
+        否则 #4aabea 在白底上几乎看不见 ---- */
+body.theme-light .nav-deco::before { opacity: 0.05; }
+body.theme-light .nav-deco::after  { opacity: 0.18; }
+body.theme-light .top-nav::after {
+    background: linear-gradient(90deg,
+        transparent,
+        var(--ak-color-dark-blue, #0075a8) 32%,
+        var(--ak-color-dark-blue, #0075a8) 68%,
+        transparent);
+    box-shadow: 0 0 12px rgba(0,117,168,0.35);
+}
+body.theme-light .nav-tab.active {
+    color: #1d5f9e;
+    background: rgba(74,144,208,0.14);
+    box-shadow: inset 0 0 0 1px rgba(0,117,168,0.28);
+}
+body.theme-light .nav-tab.active::before { display: none; }
+body.theme-light .nav-tab.active::after {
+    background: linear-gradient(90deg,
+        transparent, #0075a8 18%, #3ba7dd 50%, #0075a8 82%, transparent);
+    box-shadow: none;
+}
+body.theme-light .resource-item { border-color: rgba(0,117,168,0.22); }
+body.theme-light .resource-item::before { opacity: 0.05; }

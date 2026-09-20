@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260920-259">
+    <link rel="stylesheet" href="static/style.css?v=20260920-260">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -61,6 +61,10 @@
         <div class="bg-layer bg-particles" id="bgParticles"></div>
 
         <header class="top-nav" id="topNav">
+            <!-- R29 方舟化：纯装饰层（原版噪点 + 底部柔光带）。
+                 position:absolute，不参与 flex 布局、不吃点击，
+                 里面没有任何 id，JS 不会碰到它。 -->
+            <div class="nav-deco" aria-hidden="true"></div>
             <div class="nav-left">
                 <div class="logo-container">
                     <div class="logo-icon" title="Quest Log">
