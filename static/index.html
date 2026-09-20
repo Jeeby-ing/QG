@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="static/fonts/orbitron.css">
     <!-- Font Awesome 本地资源 -->
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
-    <link rel="stylesheet" href="static/style.css?v=20260919-246">
+    <link rel="stylesheet" href="static/style.css?v=20260920-247">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -404,6 +404,13 @@
                             <button class="btn btn-secondary btn-medium" id="gachaBtn"><i class="fa-solid fa-wand-sparkles"></i><span>合成玉抽取</span></button>
                         </div>
                     </div>
+                    <!-- R23：蚀刻章从 70 扩到约 350 枚，加了筛选条。
+                         样式复用时装那套 .skin-filter-row / .skin-filter-btn，不引入新视觉语言。 -->
+                    <div class="skin-filter-row" id="medalFilterRow">
+                        <button class="skin-filter-btn active" data-medal="all">全部</button>
+                        <button class="skin-filter-btn" data-medal="unlocked">已解锁</button>
+                        <button class="skin-filter-btn" data-medal="locked">未解锁</button>
+                    </div>
                     <div class="achievements-container"><div class="achievements-grid" id="achievementsGrid"></div></div>
                 </div>
 
@@ -472,7 +479,7 @@
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon stone-icon" data-res-icon-profile="source_stone"></span><span class="res-badge" id="profileStone">0</span></div><span class="res-label">源石</span></div>
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon lungmen-icon" data-res-icon-profile="lungmen"></span><span class="res-badge" id="profileLungmen">0</span></div><span class="res-label">龙门币</span></div>
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon orundum-icon" data-res-icon-profile="orundum"></span><span class="res-badge" id="profileOrundum">0</span></div><span class="res-label">合成玉</span></div>
-                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon sanity-icon" data-res-icon-profile="sanity"></span><span class="res-badge" id="profileSanity">120/120</span></div><span class="res-label">理智</span></div>
+                            <div class="profile-res-item" id="profileSanityItem"><div class="res-icon-wrapper"><span class="res-icon sanity-icon" data-res-icon-profile="sanity"></span><span class="res-badge" id="profileSanity">120/120</span></div><span class="res-label">理智</span></div>
                         </div>
                         <!-- R21：主页这排按钮只保留「仓库」——
                              资源兑换搬进采购中心；干员寻访 / 时装商店顶部导航已有一模一样的入口，
@@ -766,6 +773,51 @@
 
     <div id="toastContainer" style="position:fixed; bottom:30px; left:50%; transform:translateX(-50%); z-index:5000; display:flex; flex-direction:column; align-items:center; gap:8px;"></div>
 
-    <script src="static/app.js?v=20260919-246"></script>
+    <!-- ⚠️ 启动兜底，必须内联在这里，不能放进 app.js：
+         app.js 一旦有语法错误，整个文件一行都不会执行 —— 启动页就永远停在
+         INITIALIZING，除了开控制台没有任何提示（这个坑踩过一次，排查了很久）。
+         这里监听全局错误 + 加一个看门狗，把问题直接写到启动页上。 -->
+    <script>
+    (function () {
+        var reported = false, banner = null;
+        function show(title, detail) {
+            if (reported) return;
+            reported = true;
+            var bar = document.getElementById('arkLoaderFill');
+            if (bar) bar.style.background = '#d43028';
+            var pct = document.getElementById('arkLoaderPct');
+            if (pct) pct.textContent = 'BOOT FAILED';
+            banner = document.createElement('div');
+            banner.style.cssText = 'position:fixed;left:0;right:0;bottom:54px;padding:10px 16px;'
+                + 'font:12px/1.65 Consolas,monospace;color:#ff9a92;background:rgba(58,10,8,0.9);'
+                + 'border-top:1px solid rgba(212,48,40,0.55);white-space:pre-wrap;z-index:99999';
+            banner.textContent = '启动失败：' + title + '\n' + detail
+                + '\n（F12 控制台有完整堆栈；若刚改过前端，先 Ctrl+F5 硬刷新）';
+            document.body.appendChild(banner);
+            // 万一它只是慢，真的起来了就把这条提示收掉
+            var t = setInterval(function () {
+                var el = document.getElementById('arkLoader');
+                if (el && el.style.display === 'none') {
+                    clearInterval(t);
+                    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+                }
+            }, 1000);
+        }
+        window.addEventListener('error', function (e) {
+            if (e.target && e.target.tagName === 'SCRIPT') {
+                show('脚本加载失败', String(e.target.src || '')); return;
+            }
+            if (!e.message) return;          // 图片/字体等资源 404 不管
+            show(e.message, (e.filename || '') + ':' + (e.lineno || 0));
+        }, true);
+        // 看门狗：正常启动完 ArkLoader 会自己淡出隐藏
+        setTimeout(function () {
+            var el = document.getElementById('arkLoader');
+            if (!el || el.style.display === 'none') return;
+            show('初始化超时', '25 秒内没走完启动流程 —— 多半是后端没起来，或某个请求一直没返回。');
+        }, 25000);
+    })();
+    </script>
+    <script src="static/app.js?v=20260920-247"></script>
 </body>
 </html>

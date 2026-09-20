@@ -5799,7 +5799,9 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
 .btn-secondary:active,
 .game-btn:active:not(:disabled) {
     transform: translateY(1px);
-    border-color: rgba(34,187,255,0.55);
+    /* R22：这里原本是 rgba(34,187,255,0.55) 方舟青 —— :hover 那条被 11.2 的 !important
+       顶掉了，:active 没有，于是「按下去的瞬间」还会闪一下蓝。统一走暖白。 */
+    border-color: rgba(240,238,230,0.42);
     box-shadow: inset 0 2px 6px rgba(0,0,0,0.55);
 }
 
@@ -6480,21 +6482,28 @@ button:focus-visible,
     backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
     cursor: pointer; text-align: left;
     transition: border-color .14s ease, background .14s ease;
+    /* ⚠️ 必须显式写 color：<button> 不吃继承，浏览器 UA 样式给的是 buttontext（黑），
+       深色主题下就是「黑字压在半透明暗底上」——用户截图反馈"字体太黑看不清"。 */
+    color: var(--text-primary);
 }
 .section-toggle:hover { border-color: rgba(240,238,230,0.42); }
-.section-toggle .section-subtitle { margin: 0; }
+.section-toggle .section-subtitle {
+    margin: 0;
+    color: var(--text-primary);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.55);   /* 压在壁纸上也不糊 */
+}
 .section-toggle-caret {
-    font-size: 11px; color: var(--text-muted-2);
+    font-size: 11px; color: var(--text-muted-3);
     transition: transform .18s ease;
 }
 .profile-badges.collapsed .section-toggle-caret { transform: rotate(-90deg); }
 .profile-badges.collapsed .profile-badges-grid { display: none; }
 .section-toggle-count {
     margin-left: auto; font-family: var(--font-mono, inherit);
-    font-size: 12px; color: var(--text-muted-2);
+    font-size: 12px; color: var(--text-primary);
     padding: 2px 9px; border-radius: 999px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.10);
 }
 
 .profile-badges-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: 10px; }

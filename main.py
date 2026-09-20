@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 import json
 import random
+import re
 import sqlite3
 import os
 import subprocess
@@ -143,7 +144,7 @@ PRESET_ACHIEVEMENTS = [
     ("pack_25",    "罗德岛金主","购买 25 个礼包", "gift_pack_purchased", 25, 700, 0,  "fa-coins",      "#c9a227", "diamond"),
     ("skin_1",     "换身衣服", "拥有第一件时装",  "skins_owned", 1,  30,  0,  "fa-shirt",      "#e07ab0", "bronze"),
     ("skin_5",     "衣柜初成", "拥有 5 件时装",   "skins_owned", 5,  150, 0,  "fa-hat-wizard", "#e07ab0", "silver"),
-    ("skin_15",    "时装收藏家","拥有 15 件时装", "skins_owned", 15, 400, 0,  "fa-gem",        "#e07ab0", "gold"),
+    ("skin_15",    "时装收藏家","拥有 15 件时装", "skins_owned", 15, 400, 0,  "fa-paintbrush", "#e07ab0", "gold"),
     ("skin_30",    "整装待发", "拥有 30 件时装",  "skins_owned", 30, 900, 0,  "fa-star-half-stroke","#e07ab0","diamond"),
 
     # ── 成长奖章 · 番茄钟 ───────────────────────────────
@@ -159,6 +160,360 @@ PRESET_ACHIEVEMENTS = [
     ("op_20",     "小队成形",   "拥有 20 位干员", "operators_owned", 20, 300, 0,"fa-people-group", "#7fa8d8", "silver"),
     ("op_60",     "满编罗德岛", "拥有 60 位干员", "operators_owned", 60, 900, 0,"fa-users-rectangle","#7fa8d8","gold"),
 ]
+
+
+# ------------------------------------------------------------
+#  R23：蚀刻章扩充 —— 用户要求「再多一些，最好上百个，有能力的话几百个」。
+#
+#  上面的 PRESET_ACHIEVEMENTS 是 R21 手写的老表（70 枚）。它的 ID 已经被
+#  老库的 achievement_unlocks 引用，所以**一个字都不动**，这里再叠一层
+#  按「家族」生成的章，两者在 init_db 里合并写库，最终约 350 枚。
+#
+#  一个家族 = 一种达成条件，家族里给一串递增阈值 + 一一对应的名字和图标：
+#    · 阈值：与老表 (condition_type, condition_value) 撞车的会被自动跳过，
+#            同一条条件的同一个数值不会出现两枚章
+#    · 名字：手写，家族内不重复
+#    · 图标：**逐枚不同**。R21 用户："不喜欢这个统一的勋章图标"，
+#            所以除了手写清单，构建时还有一层「已占用就换备用池」的兜底，
+#            保证全站不会出现两枚同图标的章
+#    · tier：按家族内位置分档（前段 bronze → 末段 diamond），奖励随档位走
+# ------------------------------------------------------------
+ACHIEVEMENT_FAMILIES = [
+    # ── 基建奖章 · 创建任务 ──────────────────────────
+    {"type": "task_count_created", "color": "#7fbf7f",
+     "thresholds": (2, 3, 7, 15, 20, 35, 75, 150, 200, 300, 400, 500, 750, 1000, 1500, 2000),
+     "names": "起笔 草创 提纲挈领 有条不紊 架构初成 擘画蓝图 案牍劳形 积案盈箱 卷帙浩繁 运筹帷幄 经纬万端 万象更新 汗牛充栋 浩如烟海 包罗万象 开天辟地",
+     "icons": "fa-pen-nib fa-pencil fa-feather-pointed fa-ruler-combined fa-sitemap fa-list-ul fa-box-archive fa-book fa-book-open-reader fa-chess fa-chess-king fa-chess-queen fa-network-wired fa-warehouse fa-city fa-globe"},
+
+    # ── 成长奖章 · 完成任务 ──────────────────────────
+    {"type": "task_count_completed", "color": "#4a90e0",
+     "thresholds": (2, 3, 7, 15, 20, 35, 75, 150, 300, 400, 750, 1000, 1500, 2000, 3000),
+     "names": "破土 初露端倪 卓有成效 日进有功 渐至佳境 深耕细作 水滴石穿 铁杵成针 跬步千里 功成过半 独当一面 独步天下 万里挑一 登峰造极 无出其右",
+     "icons": "fa-check fa-check-double fa-clipboard-check fa-square-check fa-file-circle-check fa-table-cells-large fa-stamp fa-id-badge fa-shield-halved fa-shield-heart fa-certificate fa-ranking-star fa-chart-line fa-chart-simple fa-bars-progress"},
+
+    # ── 章节奖章 · 主线推进 ──────────────────────────
+    {"type": "task_count_completed_main", "color": "#e8b818",
+     "thresholds": (3, 5, 15, 20, 35, 75, 150, 200, 300, 500),
+     "names": "迈步 挺进 越岭 破阵 涉险 攻坚 拔寨 长驱直入 铁流 决胜千里",
+     "icons": "fa-person-walking fa-road fa-tree fa-fire-flame-curved fa-burst fa-chess-rook fa-tower-observation fa-jet-fighter fa-truck-fast fa-bullhorn"},
+
+    # ── 记录奖章 · 支线探索 ──────────────────────────
+    {"type": "task_count_completed_side", "color": "#a080c8",
+     "thresholds": (3, 5, 10, 15, 30, 75, 150, 200, 300, 500),
+     "names": "拾遗 岔路 曲径通幽 闲庭信步 顺藤摸瓜 旁征博引 遍地开花 星罗棋布 无远弗届 天涯比邻",
+     "icons": "fa-signs-post fa-route fa-tree-city fa-person-hiking fa-magnifying-glass-location fa-bezier-curve fa-satellite-dish fa-earth-asia fa-binoculars fa-location-arrow"},
+
+    # ── 成长奖章 · 专注时长 ──────────────────────────
+    {"type": "tracking_hours_total", "color": "#22b3c9",
+     "thresholds": (2, 3, 7, 15, 30, 75, 150, 300, 400, 750, 1000, 1500, 2000),
+     "names": "静心 沉潜 凝神 心无旁骛 屏息以待 澄怀观道 观照 入定 忘我之境 坐忘 神游太虚 物我两忘 刹那永恒",
+     "icons": "fa-brain fa-eye fa-lungs fa-heart-pulse fa-compass-drafting fa-spa fa-peace fa-eye-low-vision fa-microscope fa-hourglass fa-gauge-high fa-atom fa-snowflake"},
+
+    # ── 履历奖章 · 连续打卡 ──────────────────────────
+    {"type": "streak_days", "color": "#e0703a",
+     "thresholds": (5, 10, 21, 45, 90, 150, 180, 200, 250, 300, 500, 730, 1000),
+     "names": "五日之诺 十日之志 廿一日成习 半季不辍 一季之恒 百五之约 半载之诺 双百之铭 四季如一 三百之契 五百之守 两年之恒 千日之誓",
+     "icons": "fa-calendar-xmark fa-calendar-days fa-repeat fa-fire-flame-simple fa-calendar fa-hourglass-start fa-sun-plant-wilt fa-mountain-sun fa-tree fa-calendar-plus fa-clock-rotate-left fa-hands-holding-circle fa-circle-nodes"},
+
+    # ── 履历奖章 · 等级 ──────────────────────────────
+    {"type": "level_reached", "color": "#ffd76a",
+     "thresholds": (3, 4, 7, 12, 15, 25, 35, 40, 60, 70, 80, 90, 110, 120),
+     "names": "站稳脚跟 初窥门径 略有小成 熟能生巧 小有所成 行家里手 独树一帜 精进不休 出类拔萃 中流砥柱 登高望远 炉火纯青 大器晚成 无我之境",
+     "icons": "fa-arrow-trend-up fa-stairs fa-arrow-up-right-dots fa-chart-column fa-arrow-up-from-bracket fa-person-arrow-up-from-line fa-square-poll-vertical fa-bolt fa-wand-magic fa-tower-broadcast fa-rocket fa-satellite fa-star-of-life fa-meteor"},
+
+    # ── 活动奖章 · 干员寻访 ──────────────────────────
+    {"type": "gacha_draws", "color": "#d43028",
+     "thresholds": (3, 5, 20, 25, 75, 150, 200, 250, 400, 500, 800, 1000, 1500, 2000),
+     "names": "初次试探 手气不错 二十连击 廿五之数 七十五击 百五十抽 双百之抽 两百五十 四百之数 五百之约 八百之期 千抽之诺 千五之约 两千之约",
+     "icons": "fa-clover fa-horse-head fa-star fa-dice-d20 fa-dice-d6 fa-dice-five fa-dice-four fa-dice-three fa-dice-two fa-dice-one fa-ring fa-hat-cowboy fa-cow fa-kiwi-bird"},
+
+    # ── 活动奖章 · 补给礼包 ──────────────────────────
+    {"type": "gift_pack_purchased", "color": "#c9a227",
+     "thresholds": (2, 3, 15, 20, 30, 40, 50, 75, 100, 150, 200),
+     "names": "复购一箱 渐成常备 补给十五 二十箱 三十箱 四十箱 五十箱 七十五箱 百箱之储 百五十箱 两百之储",
+     "icons": "fa-boxes-stacked fa-box-tissue fa-parachute-box fa-cart-shopping fa-basket-shopping fa-bag-shopping fa-hand-holding-dollar fa-vault fa-dungeon fa-truck-ramp-box fa-cubes"},
+
+    # ── 活动奖章 · 时装收藏 ──────────────────────────
+    {"type": "skins_owned", "color": "#e07ab0",
+     "thresholds": (2, 3, 8, 10, 20, 25, 40, 50, 75, 100, 150, 200),
+     "names": "换洗衣物 三套行头 八件衣裳 十件衣装 二十衣橱 廿五衣橱 四十衣橱 五十衣橱 七十五衣橱 百件典藏 百五典藏 两百典藏",
+     "icons": "fa-vest fa-socks fa-mitten fa-glasses fa-user-tie fa-vest-patches fa-key fa-lock-open fa-palette fa-mask fa-swatchbook fa-shoe-prints"},
+
+    # ── 成长奖章 · 番茄钟 ────────────────────────────
+    {"type": "pomodoro_count", "color": "#6fbf9f",
+     "thresholds": (2, 3, 5, 20, 25, 30, 75, 150, 200, 250, 300, 400, 500, 750, 1000),
+     "names": "再度开灶 三颗红果 五颗红果 廿颗红果 廿五红果 三十红果 七十五果 百五十果 两百红果 廿五百果 三百红果 四百红果 五百红果 七百五果 千果满仓",
+     "icons": "fa-seedling fa-carrot fa-lemon fa-pepper-hot fa-drumstick-bite fa-bowl-food fa-plate-wheat fa-wheat-awn fa-mortar-pestle fa-blender fa-kitchen-set fa-fire-burner fa-utensil-spoon fa-fish fa-candy-cane"},
+
+    # ── 记录奖章 · 数据迁移 ──────────────────────────
+    {"type": "import_count", "color": "#8ab4d8",
+     "thresholds": (2, 3, 10, 15, 20, 30, 50, 75, 100),
+     "names": "再度迁移 三次导入 十次导入 十五次 二十次 三十次 五十次 七十五次 百次迁徙",
+     "icons": "fa-file-arrow-up fa-file-export fa-database fa-server fa-hard-drive fa-cloud-arrow-down fa-right-left fa-arrows-rotate fa-download"},
+
+    # ── 记录奖章 · 干员招募 ──────────────────────────
+    {"type": "operators_owned", "color": "#7fa8d8",
+     "thresholds": (2, 3, 5, 10, 30, 40, 50, 80, 100, 150, 200, 250, 300),
+     "names": "双人小队 三人成行 五人小队 十人建制 三十人 四十人 五十人 八十人 百人团 百五人 两百人 两百五人 三百人满编",
+     "icons": "fa-user-plus fa-user-group fa-people-arrows fa-users fa-users-line fa-users-gear fa-person-military-pointing fa-person-military-rifle fa-id-card fa-address-book fa-handshake fa-user-shield fa-user-ninja"},
+
+    # ── 硬仗奖章 · 六星难度任务 ──────────────────────
+    {"type": "task_count_completed_6star", "color": "#d43028",
+     "thresholds": (1, 3, 5, 10, 15, 20, 30, 50, 75, 100),
+     "names": "越级挑战 三次险胜 五次硬仗 十场恶战 十五场血战 二十场死斗 三十场鏖战 五十场决战 七十五场远征 百场史诗",
+     "icons": "fa-skull fa-skull-crossbones fa-dragon fa-hippo fa-horse fa-frog fa-spider fa-worm fa-shield-cat fa-shield-dog"},
+
+    # ── 硬仗奖章 · 高优先级任务 ──────────────────────
+    {"type": "task_count_completed_high", "color": "#e0703a",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100, 150, 200),
+     "names": "硬骨头 三块硬骨 五关 十道难关 二十关 三十关 五十关 七十五关 百关 百五关 两百关",
+     "icons": "fa-mountain fa-mound fa-volcano fa-hill-rockslide fa-landmark-flag fa-person-falling-burst fa-explosion fa-radiation fa-fire-flame-simple fa-tornado fa-hurricane"},
+
+    # ── 成长奖章 · 追踪次数 ──────────────────────────
+    {"type": "tracking_sessions_count", "color": "#22b3c9",
+     "thresholds": (1, 5, 10, 25, 50, 100, 150, 200, 300, 500),
+     "names": "首次守时 五次守时 十次守时 廿五次守时 五十次守时 百次守时 百五十守时 两百守时 三百守时 五百守时",
+     "icons": "fa-bell fa-bell-slash fa-stopwatch-20 fa-business-time fa-calendar-check fa-list-check fa-thumbtack fa-clock-rotate-left fa-calendar fa-folder-open"},
+
+    # ── 成长奖章 · 番茄钟累计分钟 ────────────────────
+    {"type": "pomodoro_minutes_total", "color": "#6fbf9f",
+     "thresholds": (60, 120, 300, 600, 1200, 2400, 3600, 6000, 10000, 20000),
+     "names": "一小时番茄 两小时番茄 五小时番茄 十小时番茄 廿小时番茄 四十小时番茄 六十小时番茄 百小时番茄 两百小时番茄 三百小时番茄",
+     "icons": "fa-hourglass fa-hourglass-start fa-business-time fa-gauge-high fa-atom fa-flask fa-jar fa-fire fa-fire-burner fa-mortar-pestle"},
+
+    # ── 记录奖章 · 仓库收藏 ──────────────────────────
+    {"type": "warehouse_kinds", "color": "#8ab4d8",
+     "thresholds": (1, 3, 5, 10, 15, 20, 25, 30, 40, 50),
+     "names": "第一件藏品 三件藏品 五件藏品 十件藏品 十五件 二十件 廿五件 三十件 四十件 五十件藏品",
+     "icons": "fa-cube fa-cubes fa-archive fa-cheese fa-egg fa-vial fa-flask fa-jar fa-bottle-water fa-prescription-bottle"},
+
+    # ── 基建奖章 · 子任务拆解 ────────────────────────
+    {"type": "subtask_count", "color": "#7fbf7f",
+     "thresholds": (1, 5, 10, 25, 50, 100, 150, 200, 300),
+     "names": "拆解第一刀 五步拆解 十步拆解 廿五步 五十步 百步拆解 百五十步 两百步 三百步",
+     "icons": "fa-code-fork fa-folder-tree fa-object-ungroup fa-bars-staggered fa-indent fa-outdent fa-diagram-successor fa-share-nodes fa-diagram-next"},
+
+    # ── 章节奖章 · 长线战役 ──────────────────────────
+    {"type": "campaign_count", "color": "#e8b818",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "第一役 三线并举 五线并举 十役 二十役 三十役 五十役 七十五役 百役之章",
+     "icons": "fa-chess-board fa-map-location fa-torii-gate fa-chess-pawn fa-chess-knight fa-chess-bishop fa-chess-king fa-chess-queen fa-chess"},
+
+    # ── 活动奖章 · 六星干员 ──────────────────────────
+    {"type": "six_star_owned", "color": "#d43028",
+     "thresholds": (1, 2, 3, 5, 8, 10, 15, 20, 30, 50),
+     "names": "首位六星 六星成双 三位六星 五位六星 八位六星 十位六星 十五位六星 二十位六星 三十位六星 五十位六星",
+     "icons": "fa-bolt-lightning fa-diamond fa-crown fa-gem fa-star fa-certificate fa-award fa-medal fa-trophy fa-solar-panel"},
+
+    # ── 活动奖章 · 五星干员 ──────────────────────────
+    {"type": "five_star_owned", "color": "#ffd76a",
+     "thresholds": (1, 2, 3, 5, 8, 10, 15, 20, 30, 50),
+     "names": "首位五星 五星成双 三位五星 五位五星 八位五星 十位五星 十五位五星 二十位五星 三十位五星 五十位五星",
+     "icons": "fa-star-half fa-star-half-stroke fa-sun fa-moon fa-cloud-sun fa-fan fa-leaf fa-fire-flame-simple fa-snowflake fa-wind"},
+
+    # ── 记录奖章 · 任务备注 ──────────────────────────
+    {"type": "notes_written", "color": "#a080c8",
+     "thresholds": (1, 5, 10, 25, 50, 100, 150, 200, 300),
+     "names": "第一笔注 五则手记 十则手记 廿五则 五十则 百则手记 百五十则 两百则 三百则",
+     "icons": "fa-note-sticky fa-pen fa-pen-clip fa-marker fa-highlighter fa-pen-fancy fa-file-lines fa-file-pen fa-bookmark"},
+
+    # ── 财富奖章 · 累计龙门币 ────────────────────────
+    {"type": "lungmen_earned", "color": "#c9a227",
+     "thresholds": (10000, 50000, 100000, 250000, 500000, 1000000, 2500000, 5000000),
+     "names": "万贯 五万贯 十万贯 廿五万贯 五十万贯 百万贯 两百五十万 五百万贯",
+     "icons": "fa-money-bill fa-money-bill-wave fa-money-bill-trend-up fa-money-bill-transfer fa-wallet fa-piggy-bank fa-scale-balanced fa-gem"},
+
+    # ── 财富奖章 · 累计合成玉 ────────────────────────
+    {"type": "orundum_earned", "color": "#d43028",
+     "thresholds": (1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000),
+     "names": "千玉 五千玉 万玉 两万五千玉 五万玉 十万玉 廿五万玉 五十万玉",
+     "icons": "fa-circle-dot fa-circle fa-ring fa-bahai fa-yin-yang fa-spinner fa-compact-disc fa-record-vinyl"},
+]
+
+# 图标兜底池：手写清单里撞车（或不够用）时，从这里按顺序取还没被占用的。
+# 全部取自项目自带 Font Awesome 6 Free Solid，构建后会有脚本逐枚校验。
+ACHIEVEMENT_ICON_SPARE = """
+fa-sun fa-cloud fa-star fa-heart fa-bolt fa-fire fa-droplet fa-leaf fa-tree fa-seedling
+fa-mountain fa-water fa-wind fa-snowflake fa-moon fa-rocket fa-anchor fa-compass fa-map fa-globe
+fa-cube fa-cubes fa-box fa-gift fa-tag fa-tags fa-flag fa-bookmark fa-bell fa-bullhorn
+fa-eye fa-hand fa-hands fa-fist-raised fa-thumbs-up fa-award fa-medal fa-trophy fa-crown fa-gem
+fa-shield fa-shield-halved fa-sword fa-khanda fa-crosshairs fa-bullseye fa-target fa-location-dot fa-pin fa-thumbtack
+fa-clock fa-hourglass fa-stopwatch fa-calendar fa-calendar-day fa-calendar-week fa-list fa-list-check fa-clipboard fa-clipboard-list
+fa-pen fa-pencil fa-marker fa-highlighter fa-eraser fa-ruler fa-compass-drafting fa-scissors fa-paperclip fa-link
+fa-chart-line fa-chart-bar fa-chart-pie fa-chart-area fa-diagram-project fa-sitemap fa-network-wired fa-share-nodes fa-code-branch fa-cubes-stacked
+fa-user fa-user-group fa-users fa-people-group fa-person fa-person-walking fa-person-running fa-person-hiking fa-person-swimming fa-person-skiing
+fa-heart-pulse fa-stethoscope fa-pills fa-syringe fa-briefcase-medical fa-hospital fa-lungs fa-brain fa-bone fa-tooth
+fa-flask fa-vial fa-microscope fa-atom fa-dna fa-dice fa-dice-d20 fa-puzzle-piece fa-chess fa-chess-knight
+fa-graduation-cap fa-school fa-book fa-book-open fa-bookmark fa-scroll fa-feather fa-feather-pointed fa-pen-nib fa-ink
+fa-camera fa-image fa-images fa-palette fa-brush fa-paintbrush fa-wand-magic fa-wand-sparkles fa-sparkles fa-star-of-life
+fa-music fa-headphones fa-microphone fa-volume-high fa-play fa-pause fa-forward fa-backward fa-shuffle fa-repeat
+fa-house fa-building fa-city fa-warehouse fa-industry fa-factory fa-store fa-shop fa-cart-shopping fa-basket-shopping
+fa-car fa-truck fa-truck-fast fa-train fa-plane fa-ship fa-bicycle fa-motorcycle fa-rocket fa-satellite
+fa-key fa-lock fa-lock-open fa-unlock fa-fingerprint fa-id-card fa-address-card fa-passport fa-stamp fa-certificate
+fa-coins fa-sack-dollar fa-wallet fa-piggy-bank fa-money-bill fa-receipt fa-scale-balanced fa-hand-holding-dollar fa-vault fa-calculator
+fa-sun-plant-wilt fa-cloud-sun fa-cloud-rain fa-cloud-bolt fa-umbrella fa-temperature-high fa-temperature-low fa-smog fa-tornado fa-hurricane
+fa-dragon fa-hippo fa-horse fa-frog fa-spider fa-worm fa-fish fa-dove fa-crow fa-feather
+fa-egg fa-carrot fa-lemon fa-pepper-hot fa-drumstick-bite fa-bowl-food fa-plate-wheat fa-wheat-awn fa-mortar-pestle fa-blender
+fa-mug-hot fa-apple-whole fa-candy-cane fa-cookie fa-cake-candles fa-ice-cream fa-pizza-slice fa-burger fa-utensils fa-kitchen-set
+fa-tent fa-campground fa-fire-flame-curved fa-fire-flame-simple fa-fire-burner fa-volcano fa-mound fa-hill-rockslide fa-landmark-flag fa-explosion
+fa-skull fa-skull-crossbones fa-ghost fa-robot fa-alien fa-meteor fa-satellite-dish fa-tower-broadcast fa-tower-observation fa-broadcast-tower
+fa-route fa-signs-post fa-tree-city fa-binoculars fa-magnifying-glass fa-magnifying-glass-location fa-earth-asia fa-earth-americas fa-location-arrow fa-crosshairs
+fa-bars-progress fa-bars-staggered fa-list-tree fa-folder-tree fa-object-ungroup fa-indent fa-outdent fa-diagram-lean-canvas fa-diagram-next fa-diagram-successor
+fa-carrot fa-clover fa-horse-head fa-ring fa-hat-cowboy fa-cow fa-kiwi-bird fa-fish-fins fa-shrimp fa-bug
+fa-note-sticky fa-file-lines fa-file-pen fa-file-circle-check fa-file-arrow-up fa-file-export fa-download fa-upload fa-server fa-database
+fa-square-check fa-check fa-check-double fa-clipboard-check fa-stamp fa-id-badge fa-shield-heart fa-ranking-star fa-chart-simple fa-table-cells-large
+"""
+
+
+# 生成章时用来拼描述文案：{条件类型: (中文说明, 单位)}
+ACH_TYPE_META = {
+    "task_count_created":         ("创建任务", "个"),
+    "task_count_completed":       ("完成任务", "个"),
+    "task_count_completed_main":  ("完成主线任务", "个"),
+    "task_count_completed_side":  ("完成支线任务", "个"),
+    "task_count_completed_6star": ("完成 6★ 难度任务", "个"),
+    "task_count_completed_high":  ("完成高优先级任务", "个"),
+    "tracking_hours_total":       ("累计追踪", "小时"),
+    "tracking_sessions_count":    ("追踪", "次"),
+    "streak_days":                ("连续打卡", "天"),
+    "level_reached":              ("达到等级", "级"),
+    "gacha_draws":                ("累计寻访", "次"),
+    "gift_pack_purchased":        ("购买礼包", "个"),
+    "skins_owned":                ("拥有时装", "件"),
+    "pomodoro_count":             ("完成番茄钟", "次"),
+    "pomodoro_minutes_total":     ("番茄钟累计", "分钟"),
+    "import_count":               ("导入数据", "次"),
+    "operators_owned":            ("拥有干员", "位"),
+    "six_star_owned":             ("拥有六星干员", "位"),
+    "five_star_owned":            ("拥有五星干员", "位"),
+    "warehouse_kinds":            ("仓库藏品", "种"),
+    "subtask_count":              ("创建子任务", "个"),
+    "campaign_count":             ("创建长线战役", "场"),
+    "notes_written":              ("填写任务备注", "则"),
+    "lungmen_earned":             ("累计获得龙门币", ""),
+    "orundum_earned":             ("累计获得合成玉", ""),
+}
+
+
+def _ach_tier_for(rank: int, total: int) -> str:
+    """家族内位置 → 档位。前段铜、中段银、后段金、末段钻。"""
+    if total <= 1:
+        return "bronze"
+    r = rank / (total - 1)
+    if r < 0.25:
+        return "bronze"
+    if r < 0.55:
+        return "silver"
+    if r < 0.82:
+        return "gold"
+    return "diamond"
+
+
+_ACH_REWARD_BY_TIER = {"bronze": 30, "silver": 95, "gold": 280, "diamond": 760}
+
+
+def _ach_reward_exp(tier: str, rank: int, total: int) -> int:
+    """奖励经验：同档位里越靠后的阈值给得越多，取整到 5。"""
+    base = _ACH_REWARD_BY_TIER.get(tier, 30)
+    ratio = rank / max(1, total - 1)
+    return max(10, int(round(base * (1.0 + 1.2 * ratio) / 5.0) * 5))
+
+
+def _load_fa_icon_names() -> set:
+    """读出项目自带 Font Awesome 里**真实存在**的图标名（.fa-xxx:before）。
+
+    蚀刻章的图标是按名字写死在预设表里的，写错一个，卡片上就是一个空白方块 ——
+    所以构建时对着 CSS 核一遍。读不到 CSS 时返回空集，表示「不校验」，
+    不能让一个样式文件读失败把整个服务带崩。
+    """
+    css_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            STATIC_DIR, "vendor", "fontawesome", "all.min.css")
+    try:
+        with open(css_path, encoding="utf-8", errors="replace") as fh:
+            css = fh.read()
+    except OSError:
+        return set()
+    return set(re.findall(r"\.fa-([a-z0-9\-]+):before", css))
+
+
+_FA_ICON_NAMES = _load_fa_icon_names()
+
+
+def _build_family_achievements():
+    """把 ACHIEVEMENT_FAMILIES 摊平成与 PRESET_ACHIEVEMENTS 同构的 tuple 表。
+
+    同时做三件事：
+      1. 跳过与老表 (condition_type, condition_value) 重复的阈值 —— 同一条条件
+         的同一个数值只该有一枚章（老表优先，因为它的 ID 被老库引用着）。
+      2. 图标全局唯一 —— 取自用过的就换备用池里的下一枚。
+      3. 图标必须真实存在 —— 拿 CSS 里的图标名核验，名字写错（或者这个 FA 版本
+         根本没有）就换备用池，避免渲染成空白方块。
+    """
+    used_icons = {row[7] for row in PRESET_ACHIEVEMENTS}
+    used_pairs = {(row[3], row[4]) for row in PRESET_ACHIEVEMENTS}
+    used_ids = {row[0] for row in PRESET_ACHIEVEMENTS}
+    spare = ACHIEVEMENT_ICON_SPARE.split()
+    spare_idx = 0
+
+    def _usable(cls: str) -> bool:
+        if not cls or not cls.startswith("fa-") or cls in used_icons:
+            return False
+        if _FA_ICON_NAMES and cls[3:] not in _FA_ICON_NAMES:
+            return False      # 这个 FA 版本里没有这枚图标
+        return True
+
+    def _take_icon(preferred: str) -> str:
+        nonlocal spare_idx
+        if _usable(preferred):
+            used_icons.add(preferred)
+            return preferred
+        while spare_idx < len(spare):
+            cand = spare[spare_idx]
+            spare_idx += 1
+            if _usable(cand):
+                used_icons.add(cand)
+                return cand
+        # 池子也见底了：加序号硬去重（正常不会走到这里）
+        n = 2
+        base = preferred or "fa-star"
+        while f"{base}-{n}" in used_icons:
+            n += 1
+        used_icons.add(f"{base}-{n}")
+        return f"{base}-{n}"
+
+    built = []
+    for fam in ACHIEVEMENT_FAMILIES:
+        ctype = fam["type"]
+        color = fam["color"]
+        names = fam["names"].split()
+        icons = fam["icons"].split()
+        entries = []
+        for i, val in enumerate(fam["thresholds"]):
+            if (ctype, val) in used_pairs:
+                continue          # 老表已经有同条件同数值的章，跳过
+            entries.append((val,
+                            names[i] if i < len(names) else f"{ctype} {val}",
+                            icons[i] if i < len(icons) else ""))
+        total = len(entries)
+        for rank, (val, nm, ic) in enumerate(entries):
+            tier = _ach_tier_for(rank, total)
+            slug = str(val).replace(".", "_")
+            aid = f"{ctype}__{slug}"
+            if aid in used_ids:
+                aid = f"{ctype}__{slug}__x"
+            used_ids.add(aid)
+            used_pairs.add((ctype, val))
+            label, unit = ACH_TYPE_META.get(ctype, (ctype, ""))
+            desc = f"{label} {val} {unit}".strip() if unit else f"{label} {val}"
+            built.append((aid, nm, desc, ctype, val,
+                          _ach_reward_exp(tier, rank, total), 0,
+                          _take_icon(ic), color, tier))
+    return built
+
+
+EXTENDED_ACHIEVEMENTS = _build_family_achievements()
+ALL_PRESET_ACHIEVEMENTS = PRESET_ACHIEVEMENTS + EXTENDED_ACHIEVEMENTS
+
 
 
 def init_db():
@@ -358,12 +713,14 @@ def init_db():
             cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_track ON tasks(track)")
 
         # 初始资源
+        # 理智上限不再写死 120 —— 它由博士等级决定（见 sanity_cap），
+        # 新库从 1 级起算 = 82；老库下面还有一次 sync 兜底。
         resources = [
             ('exp', 0, None),
             ('source_stone', 0, None),
             ('lungmen', 0, None),
             ('orundum', 0, None),
-            ('sanity', 120, 120)
+            ('sanity', sanity_cap(1), sanity_cap(1))
         ]
         for r in resources:
             cur.execute("INSERT OR IGNORE INTO resources (resource_type, current_value, max_value) VALUES (?, ?, ?)", r)
@@ -400,7 +757,8 @@ def init_db():
 
         # 预置蚀刻章：先 INSERT OR IGNORE 保住解锁记录，再无条件 UPDATE 把定义刷新成最新
         # （老库里这批章的 badge_config 是 NULL → 渲染成全站同一个 fa-award，必须刷）
-        for (aid, name, desc, ctype, cval, exp, lm, icon, color, tier) in PRESET_ACHIEVEMENTS:
+        # R23：这里换成 ALL_PRESET_ACHIEVEMENTS = R21 手写老表 + 家族生成的新章（约 350 枚）。
+        for (aid, name, desc, ctype, cval, exp, lm, icon, color, tier) in ALL_PRESET_ACHIEVEMENTS:
             conf = json.dumps({"icon": icon, "color": color, "tier": tier,
                                "metal": TIER_METAL.get(tier, TIER_METAL["bronze"])},
                               ensure_ascii=False)
@@ -418,6 +776,14 @@ def init_db():
             """, (name, desc, ctype, cval, exp, lm, conf, aid))
 
         generate_weekly_packs(cur)
+
+        # 理智上限迁移：老库把 max_value 写死成 120，这里按当前博士等级重算一次。
+        # 每次启动都跑一遍，成本是一次 SELECT + 最多一次 UPDATE。
+        try:
+            sync_sanity_cap(cur, calculate_level(get_resource(cur, 'exp')))
+        except Exception:
+            pass
+
         # 老数据补点亮：创建/完成/专注/连续这些是"历史累计值"，只有发生新的完成事件才会
         # 触发 check_achievement —— 于是老用户进来看到的是一片全灭（用户："我怎么不知道我做了九个"）。
         # 启动时统一扫一遍，把已达成的直接补上。
@@ -685,6 +1051,65 @@ def calculate_level(exp: float) -> int:
         level += 1
 
 
+# ---------- 理智上限：对齐明日方舟原版的「博士等级 → 理智上限」曲线 ----------
+# 原版等级上限 120 级，上限 82 起、135 封顶，分段线性：
+#     1 -   5 级：每级 +2        （1 级 82 → 5 级 90）
+#     5 -  35 级：每级 +1        （5 级 90 → 35 级 120）
+#    35 -  85 级：每 5 级 +1     （35 级 120 → 85 级 130）
+#    85 - 100 级：停滞           （维持 130）
+#   100 - 120 级：每 4 级 +1     （101 / 105 / 109 / 113 / 117 各 +1 → 满级 135）
+# 校验点（与原版公开数据表一致）：1级82 / 5级90 / 35级120 / 85级130 /
+# 116级134 / 117级135 / 120级135。
+_AK_SANITY_BASE = 82
+_AK_SANITY_MAX = 135
+_AK_SANITY_LEVEL_CAP = 120
+
+
+def sanity_cap(level: int) -> int:
+    """给定博士等级，返回其对应的理智上限（原版公式）。"""
+    try:
+        lv = int(level)
+    except (TypeError, ValueError):
+        lv = 1
+    lv = max(1, min(lv, _AK_SANITY_LEVEL_CAP))
+    cap = _AK_SANITY_BASE
+    cap += (min(lv, 5) - 1) * 2                  # 1-5：每级 +2
+    if lv > 5:
+        cap += min(lv, 35) - 5                   # 5-35：每级 +1
+    if lv > 35:
+        cap += (min(lv, 85) - 35) // 5           # 35-85：每 5 级 +1
+    if lv > 100:
+        cap += (lv - 101) // 4 + 1               # 100-120：101/105/109/113/117 各 +1
+    return min(cap, _AK_SANITY_MAX)
+
+
+def sanity_cap_gain(level: int) -> int:
+    """升到 level+1 时理智上限会增加多少（0 表示该级不涨）。"""
+    return max(0, sanity_cap(level + 1) - sanity_cap(level))
+
+
+def sync_sanity_cap(cur, level: int) -> int:
+    """把 resources.sanity.max_value 同步为当前等级的理智上限。
+
+    自然恢复受上限约束，所以上限变小（例如老库写死的 120 掉到 16 级的 101）时
+    要把当前值一起压下来，否则会出现「126/101」这种看着像 bug 的显示。
+    上限变大时只抬上限，不动当前值 —— 由升级流程决定是否回满。
+    """
+    cap = sanity_cap(level)
+    cur.execute("SELECT max_value, current_value FROM resources WHERE resource_type = 'sanity'")
+    row = cur.fetchone()
+    if row is None:
+        cur.execute("INSERT OR IGNORE INTO resources (resource_type, current_value, max_value) VALUES ('sanity', ?, ?)",
+                    (cap, cap))
+        return cap
+    cur.execute("UPDATE resources SET max_value = ?, updated_at = ? WHERE resource_type = 'sanity'",
+                (cap, now_iso()))
+    if row["current_value"] is not None and row["current_value"] > cap:
+        cur.execute("UPDATE resources SET current_value = ?, updated_at = ? WHERE resource_type = 'sanity'",
+                    (cap, now_iso()))
+    return cap
+
+
 def add_resource(cur, resource_type: str, amount: float, reason: str, ref_id: int = None):
     if amount == 0:
         return
@@ -805,11 +1230,12 @@ def check_and_apply_level_up(cur, old_exp: float, new_exp: float):
     old_level = calculate_level(old_exp)
     new_level = calculate_level(new_exp)
     if new_level > old_level:
-        cur.execute("SELECT max_value, current_value FROM resources WHERE resource_type = 'sanity'")
+        # 先按新等级刷新理智上限，再回满 —— 上限本身就是等级的函数。
+        new_cap = sync_sanity_cap(cur, new_level)
+        cur.execute("SELECT current_value FROM resources WHERE resource_type = 'sanity'")
         row = cur.fetchone()
-        max_sanity = row["max_value"] if row else 120
         current_sanity = row["current_value"] if row else 0
-        diff = max_sanity - current_sanity
+        diff = new_cap - current_sanity
         if diff > 0:
             add_resource(cur, 'sanity', diff, 'level_up')
         check_level_reached(cur, new_level)
@@ -854,6 +1280,70 @@ def check_achievement(cur, condition_type: str, current_value: float, task_id: i
             check_and_apply_level_up(cur, old_exp, new_exp)
 
 
+def _scalar_or_zero(cur, sql, params=()):
+    """跑一条只取一个值的 SQL；表不存在 / 字段不存在一律当 0，绝不抛。"""
+    try:
+        cur.execute(sql, params)
+        row = cur.fetchone()
+        if row is None:
+            return 0
+        v = row[0]
+        return v if v is not None else 0
+    except Exception:
+        return 0
+
+
+def cumulative_achievement_values(cur) -> dict:
+    """所有「累计型」蚀刻章条件的当前值。
+
+    R23：这里抽成公共函数 —— 启动补扫和事件触发必须用同一份口径，
+    否则会出现「重启才亮、当场不亮」这类不一致。
+    """
+    vals = {
+        'task_count_created':         _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 0"),
+        'task_count_completed':       _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND deleted = 0"),
+        'task_count_completed_main':  _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'main' AND deleted = 0"),
+        'task_count_completed_side':  _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'side' AND deleted = 0"),
+        'task_count_completed_6star': _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND priority = 6 AND deleted = 0"),
+        'task_count_completed_high':  _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND priority >= 5 AND deleted = 0"),
+        'tracking_hours_total':       _scalar_or_zero(cur, "SELECT COALESCE(SUM(duration_seconds), 0) FROM tracking_sessions WHERE ended_at IS NOT NULL") / 3600.0,
+        'tracking_sessions_count':    _scalar_or_zero(cur, "SELECT COUNT(*) FROM tracking_sessions WHERE ended_at IS NOT NULL"),
+        'gift_pack_purchased':        _scalar_or_zero(cur, "SELECT COUNT(*) FROM gift_packs WHERE purchased = 1"),
+        'gacha_draws':                _scalar_or_zero(cur, "SELECT COALESCE(CAST(value AS INTEGER), 0) FROM gacha_pity WHERE key = 'total_pulls'"),
+        'operators_owned':            _scalar_or_zero(cur, "SELECT COUNT(*) FROM operator_records"),
+        'six_star_owned':             _scalar_or_zero(cur, "SELECT COUNT(*) FROM operator_records WHERE rarity = 6"),
+        'five_star_owned':            _scalar_or_zero(cur, "SELECT COUNT(*) FROM operator_records WHERE rarity >= 5"),
+        'skins_owned':                _scalar_or_zero(cur, "SELECT COUNT(*) FROM skins_owned"),
+        'pomodoro_count':             _scalar_or_zero(cur, "SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed' AND kind = 'focus'"),
+        'pomodoro_minutes_total':     _scalar_or_zero(cur, "SELECT COALESCE(SUM(planned_seconds), 0) FROM pomodoro_sessions WHERE status = 'completed' AND kind = 'focus'") / 60.0,
+        'warehouse_kinds':            _scalar_or_zero(cur, "SELECT COUNT(*) FROM inventory WHERE qty > 0"),
+        'subtask_count':              _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE parent_id IS NOT NULL AND deleted = 0"),
+        'campaign_count':             _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE track = 'campaign' AND deleted = 0"),
+        'notes_written':              _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 0 AND notes IS NOT NULL AND TRIM(notes) != ''"),
+        'lungmen_earned':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'lungmen' AND amount > 0"),
+        'orundum_earned':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'orundum' AND amount > 0"),
+    }
+    try:
+        vals['streak_days'] = calculate_streak_days(cur)
+    except Exception:
+        vals['streak_days'] = 0
+    return vals
+
+
+def check_cumulative_achievements(cur, task_id: int = None):
+    """把「累计型」条件全算一遍并触发判定。
+
+    挂在任务完成 / 追踪结束 / 抽卡 / 导入这些事件点上，
+    和启动补扫 sweep_achievements 共用 cumulative_achievement_values 的口径。
+    任何一项失败都不影响其它项，也不该把主流程带崩。
+    """
+    for ctype, value in cumulative_achievement_values(cur).items():
+        try:
+            check_achievement(cur, ctype, value, task_id)
+        except Exception:
+            continue
+
+
 def sweep_achievements(cur):
     """按当前数据把「累计型」蚀刻章统一补点亮一次。
 
@@ -862,38 +1352,7 @@ def sweep_achievements(cur):
     界面看起来就是「明明有 9 条解锁记录，卡片却一张都不发光」。
     这里在启动时（以及导入数据后）把每种条件的当前值算一遍。
     单项失败不影响其它项，也不要让它挡住启动。"""
-    def _scalar(sql, params=()):
-        try:
-            cur.execute(sql, params)
-            row = cur.fetchone()
-            if row is None:
-                return 0
-            v = row[0]
-            return v if v is not None else 0
-        except Exception:
-            return 0
-
-    checks = {
-        'task_count_created':        _scalar("SELECT COUNT(*) FROM tasks WHERE deleted = 0"),
-        'task_count_completed':      _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND deleted = 0"),
-        'task_count_completed_main': _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'main' AND deleted = 0"),
-        'task_count_completed_side': _scalar("SELECT COUNT(*) FROM tasks WHERE status = 'done' AND task_line = 'side' AND deleted = 0"),
-        'tracking_hours_total':      _scalar("SELECT COALESCE(SUM(duration_seconds), 0) FROM tracking_sessions WHERE ended_at IS NOT NULL") / 3600.0,
-        'gift_pack_purchased':       _scalar("SELECT COUNT(*) FROM gift_packs WHERE purchased = 1"),
-        'gacha_draws':               _scalar("SELECT COALESCE(CAST(value AS INTEGER), 0) FROM gacha_pity WHERE key = 'total_pulls'"),
-        'operators_owned':           _scalar("SELECT COUNT(*) FROM operator_records"),
-        'skins_owned':               _scalar("SELECT COUNT(*) FROM skins_owned"),
-        'pomodoro_count':            _scalar("SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed'"),
-    }
-    for ctype, value in checks.items():
-        try:
-            check_achievement(cur, ctype, value, None)
-        except Exception:
-            continue
-    try:
-        check_achievement(cur, 'streak_days', calculate_streak_days(cur), None)
-    except Exception:
-        pass
+    check_cumulative_achievements(cur, None)
 
 
 def update_parent_progress(cur, parent_id: int):
@@ -1199,6 +1658,8 @@ def handle_task_completion(cur, task_id: int):
         check_achievement(cur, 'task_count_completed_side', side_completed, task_id)
     streak = calculate_streak_days(cur)
     check_achievement(cur, 'streak_days', streak, task_id)
+    # R23：其余累计型条件（6★/高优先任务数、子任务、战役、备注…）统一扫一遍
+    check_cumulative_achievements(cur, task_id)
     if task["repeat_type"]:
         # 只推进「下次重置时刻」，不生成副本；到点由 sweep_repeat_tasks 就地归位
         advance_repeat_schedule(cur, task_id)
@@ -2077,6 +2538,8 @@ async def create_task(task: TaskCreate):
         cur.execute("SELECT COUNT(*) FROM tasks WHERE deleted = 0")
         total_created = cur.fetchone()[0]
         check_achievement(cur, 'task_count_created', total_created, task_id)
+        # R23：子任务 / 战役 / 备注 这几类也随新建任务变化
+        check_cumulative_achievements(cur, task_id)
         if task.parent_id:
             update_parent_progress(cur, task.parent_id)
         if task.status == 'done':
@@ -2248,6 +2711,8 @@ async def delete_task(task_id: int):
             "SELECT COALESCE(SUM(duration_seconds), 0) as total_seconds FROM tracking_sessions WHERE ended_at IS NOT NULL")
         total_hours = cur.fetchone()[0] / 3600
         check_achievement(cur, 'tracking_hours_total', total_hours, task_id)
+        # R23：追踪次数也是累计型蚀刻章
+        check_cumulative_achievements(cur, task_id)
         cur.execute("SELECT parent_id FROM tasks WHERE id = ?", (task_id,))
         row = cur.fetchone()
         parent_id = row["parent_id"] if row else None
@@ -2394,6 +2859,8 @@ async def start_tracking(task_id: int, tracking_start: TrackingStart):
             "SELECT COALESCE(SUM(duration_seconds), 0) as total_seconds FROM tracking_sessions WHERE ended_at IS NOT NULL")
         total_hours = cur.fetchone()[0] / 3600
         check_achievement(cur, 'tracking_hours_total', total_hours, task_id)
+        # R23：追踪次数也是累计型蚀刻章
+        check_cumulative_achievements(cur, task_id)
         cur.execute("INSERT INTO tracking_sessions (task_id, started_at, focus_mode) VALUES (?, ?, ?)",
                     (task_id, now_iso(), 1 if tracking_start.focus_mode else 0))
         cur.execute("UPDATE tasks SET is_tracked = 1, updated_at = ? WHERE id = ?", (now_iso(), task_id))
@@ -2414,6 +2881,8 @@ async def stop_tracking(task_id: int):
             "SELECT COALESCE(SUM(duration_seconds), 0) as total_seconds FROM tracking_sessions WHERE ended_at IS NOT NULL")
         total_hours = cur.fetchone()[0] / 3600
         check_achievement(cur, 'tracking_hours_total', total_hours, task_id)
+        # R23：追踪次数也是累计型蚀刻章
+        check_cumulative_achievements(cur, task_id)
     return {"data": {"task_id": task_id, "tracking": False}}
 
 
@@ -2474,6 +2943,8 @@ async def stop_pomodoro():
         # 番茄钟类蚀刻章
         cur.execute("SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed'")
         check_achievement(cur, 'pomodoro_count', cur.fetchone()[0], None)
+        # R23：番茄钟累计分钟
+        check_cumulative_achievements(cur, None)
         return {"data": dict(session) if session else None}
 
 
@@ -2740,7 +3211,27 @@ async def get_resources():
                 "max_value": row["max_value"],
                 "updated_at": row["updated_at"]
             }
-    return {"data": resources}
+        # 理智上限随博士等级走：把曲线信息一并给前端，免得公式在前后端各写一份。
+        lvl = calculate_level(get_resource(cur, 'exp'))
+        nxt = None
+        for probe in range(lvl + 1, _AK_SANITY_LEVEL_CAP + 1):
+            if sanity_cap_gain(probe) > 0:
+                nxt = probe
+                break
+        meta = {
+            "level": lvl,
+            "sanity_cap": sanity_cap(lvl),
+            "sanity_cap_next": sanity_cap(lvl + 1),
+            "sanity_cap_gain": sanity_cap_gain(lvl),
+            # 下一级不涨时，告诉前端到底哪一级才涨（85-100 级整段停滞）
+            "sanity_next_gain_level": nxt,
+            "sanity_next_gain_amount": sanity_cap_gain(nxt) if nxt else 0,
+            "sanity_cap_max": _AK_SANITY_MAX,
+            "sanity_level_cap": _AK_SANITY_LEVEL_CAP,
+        }
+    # ⚠️ meta 必须塞进 data 里：unify_response_format 中间件只会透传 data 这一个键，
+    #    写成 {"data": ..., "meta": ...} 的话 meta 会被直接丢掉。
+    return {"data": {"resources": resources, "meta": meta}}
 
 
 @app.get("/api/inventory")
@@ -2976,6 +3467,8 @@ async def purchase_gift_pack(pack_id: int):
         check_achievement(cur, 'gift_pack_purchased', purchased_count, None)
         new_exp = get_resource(cur, 'exp')
         check_and_apply_level_up(cur, old_exp, new_exp)
+        # R23：礼包可能开出时装 → 时装件数 / 累计货币类章一起过一遍
+        check_cumulative_achievements(cur, None)
     return {"data": {"id": pack_id, "purchased": True, "rewards": granted}}
 
 
@@ -3365,6 +3858,8 @@ async def gacha_operator(req: GachaOperatorRequest):
         check_achievement(cur, 'gacha_draws', total, None)
         cur.execute("SELECT COUNT(*) FROM operator_records")
         check_achievement(cur, 'operators_owned', cur.fetchone()[0], None)
+        # R23：五星 / 六星干员持有数、累计合成玉
+        check_cumulative_achievements(cur, None)
     return {
         "data": {
             "results": results,
@@ -3736,6 +4231,7 @@ async def purchase_skin(req: SkinPurchaseRequest):
         # 时装收藏类蚀刻章
         cur.execute("SELECT COUNT(*) FROM skins_owned")
         check_achievement(cur, 'skins_owned', cur.fetchone()[0], None)
+        check_cumulative_achievements(cur, None)
     return {"data": {"purchased": target, "source_stone": balance}}
 
 
@@ -4016,6 +4512,8 @@ async def import_data(data: ImportData):
         streak = calculate_streak_days(cur)
         check_achievement(cur, 'streak_days', streak, None)
         check_achievement(cur, 'import_count', import_count, None)
+        # R23：导入后把所有累计型条件补齐（新库可能带进来大量历史数据）
+        check_cumulative_achievements(cur, None)
     return {"data": {"imported": True}}
 
 
@@ -4106,7 +4604,7 @@ async def clear_data(scope: str = Query("all", description="tasks | resources | 
                 ("source_stone", 0, None),
                 ("lungmen", 0, None),
                 ("orundum", 0, None),
-                ("sanity", 120, 120),
+                ("sanity", sanity_cap(1), sanity_cap(1)),
             ]
             for r in init_resources:
                 cur.execute(

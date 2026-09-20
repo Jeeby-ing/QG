@@ -9,6 +9,8 @@ const state = {
     tasks: [],
     flatTasks: [],
     resources: {},
+    resourceMeta: null,          // 理智上限曲线等由后端算好的元信息
+    medalFilter: 'all',          // 蚀刻章筛选：all | unlocked | locked
     achievements: [],
     unlockedAchievements: [],
     settings: {},
@@ -578,6 +580,16 @@ function bindEvents() {
         skinFilter = btn.dataset.rarity;
         renderSkins();
     });
+    /* R23：蚀刻章筛选（全部 / 已解锁 / 未解锁）—— 三百多枚章没有筛选没法找 */
+    const medalFilterRow = document.getElementById('medalFilterRow');
+    if (medalFilterRow) medalFilterRow.addEventListener('click', e => {
+        const btn = e.target.closest('.skin-filter-btn');
+        if (!btn) return;
+        medalFilterRow.querySelectorAll('.skin-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.medalFilter = btn.dataset.medal;
+        renderAchievements();
+    });
 
     DOM.pomodoroStopBtn.addEventListener('click', stopPomodoro);
 
@@ -1081,17 +1093,20 @@ function flattenTasks(taskTree, level) {
 }
 
 async function loadResources() {
-    const res = await apiGet('/resources');
-    if (res) {
-        if (Array.isArray(res)) {
-            state.resources = res.reduce((acc, r) => { acc[r.resource_type] = r; return acc; }, {});
-        } else {
-            state.resources = res;
-        }
-        updateResourceDisplay();
-        updateUserInfo();
-        checkLevelUp();
+    const payload = await apiGet('/resources');
+    if (!payload) return;
+    // 后端把理智上限曲线（meta）和资源放在同一个 data 里 ——
+    // 响应中间件只透传 data 这一个键，平级的 meta 会被丢掉。
+    const res = payload.resources ?? payload;
+    if (Array.isArray(res)) {
+        state.resources = res.reduce((acc, r) => { acc[r.resource_type] = r; return acc; }, {});
+    } else {
+        state.resources = res;
     }
+    if (payload.meta) state.resourceMeta = payload.meta;
+    updateResourceDisplay();
+    updateUserInfo();
+    checkLevelUp();
 }
 
 async function loadSettings() {
@@ -2897,8 +2912,11 @@ function renderAchievements(){
     const grid=DOM.achievementsGrid; if(!grid) return;
     grid.innerHTML='';
     const unlockedIds = new Set(state.unlockedAchievements.map(achIdOf).filter(Boolean));
+    const filter = state.medalFilter || 'all';
     state.achievements.forEach(ach=>{
         const unlocked = unlockedIds.has(ach.id);
+        if (filter === 'unlocked' && !unlocked) return;
+        if (filter === 'locked' && unlocked) return;
         const c = achBadgeConf(ach);
         const card=document.createElement('div');
         card.className = 'achievement-card ' + (unlocked ? 'unlocked' : 'locked');
@@ -3092,17 +3110,42 @@ function updateResourceTimestamp(){
     el.textContent = `${now.getFullYear()}/${pad(now.getMonth()+1)}/${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 }
 
+/* 理智上限 = 博士等级的函数（原版曲线：1级82 / 5级90 / 35级120 / 85级130 / 120级135）。
+   上限曲线只在后端算，前端拿 meta 渲染成 tooltip，避免公式两边各写一份走偏。 */
+function applySanityCapHint(sanityCap){
+    const m = state.resourceMeta;
+    const nav = document.getElementById('navSanityDisplay');
+    const item = document.getElementById('profileSanityItem');
+    let tip = `理智上限 ${sanityCap}`;
+    if (m && m.sanity_cap != null) {
+        tip += `　·　当前 Lv.${m.level}`;
+        if (m.sanity_cap_gain > 0) {
+            tip += `\n升到 Lv.${m.level + 1} → 上限 ${m.sanity_cap_next}（+${m.sanity_cap_gain}）`;
+        } else if (m.sanity_next_gain_level) {
+            tip += `\n本级上限不增长，升到 Lv.${m.sanity_next_gain_level} 时 +${m.sanity_next_gain_amount}`;
+        } else {
+            tip += `\n已达等级上限，理智上限封顶 ${m.sanity_cap_max}`;
+        }
+        tip += `\n满级（Lv.${m.sanity_level_cap}）封顶 ${m.sanity_cap_max}`;
+    }
+    if (nav) nav.title = tip;
+    if (item) item.title = tip;
+}
+
 function updateResourceDisplay(){
     const res=state.resources;
     if(res.lungmen?.current_value!==undefined){ DOM.resLungmen.textContent=res.lungmen.current_value; }
     if(res.orundum?.current_value!==undefined){ DOM.resOrundum.textContent=res.orundum.current_value; }
     if(res.source_stone?.current_value!==undefined){ DOM.resStone.textContent=res.source_stone.current_value; }
-    if(res.sanity?.current_value!==undefined){ DOM.resSanityCurrent.textContent=res.sanity.current_value; DOM.resSanityMax.textContent=res.sanity.max_value||120; }
+    // 理智上限由博士等级决定（原版曲线，见后端 sanity_cap），别再用 ||120 兜底
+    const sanityCap = state.resourceMeta?.sanity_cap ?? res.sanity?.max_value ?? 120;
+    if(res.sanity?.current_value!==undefined){ DOM.resSanityCurrent.textContent=res.sanity.current_value; DOM.resSanityMax.textContent=sanityCap; }
+    applySanityCapHint(sanityCap);
     if(DOM.profileExp) DOM.profileExp.textContent = res.exp?.current_value || 0;
     if(DOM.profileStone) DOM.profileStone.textContent = res.source_stone?.current_value || 0;
     if(DOM.profileLungmen) DOM.profileLungmen.textContent = res.lungmen?.current_value || 0;
     if(DOM.profileOrundum) DOM.profileOrundum.textContent = res.orundum?.current_value || 0;
-    if(DOM.profileSanity) DOM.profileSanity.textContent = `${res.sanity?.current_value||0}/${res.sanity?.max_value||120}`;
+    if(DOM.profileSanity) DOM.profileSanity.textContent = `${res.sanity?.current_value||0}/${sanityCap}`;
     const expCurrent = res.exp?.current_value || 0;
     const lp = levelProgress(expCurrent);
     if(DOM.profileLevel) DOM.profileLevel.textContent = lp.level;
@@ -5996,9 +6039,10 @@ function checkLevelUp(){ const currentLevel=calculateLevel(state.resources.exp?.
         if (DOM.levelUpLevel) DOM.levelUpLevel.textContent = `Lv.${currentLevel}`;
         // 理智条：显示回满后的实际值，比干巴巴一句「理智已回满」更有信息量
         const sanity = state.resources.sanity?.current_value || 0;
-        const sanityMax = state.resources.sanity?.max_value || state.resources.sanity?.limit_value || 0;
+        const sanityMax = state.resourceMeta?.sanity_cap ?? (state.resources.sanity?.max_value || 0);
+        const capGain = state.resourceMeta?.sanity_cap_gain ?? 0;
         DOM.levelUpText.textContent = sanityMax
-            ? `理智回满　${Math.round(sanity)} / ${Math.round(sanityMax)}`
+            ? `理智回满　${Math.round(sanity)} / ${Math.round(sanityMax)}` + (capGain > 0 ? `　上限 +${capGain}` : '')
             : `理智回满　${Math.round(sanity)}`;
         spawnLevelUpSparks();
         DOM.levelUpOverlay.classList.remove('show');   // 重置动画
