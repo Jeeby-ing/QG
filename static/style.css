@@ -2863,11 +2863,15 @@ body.focus-mode .tracking-expanded {
 .skin-lightbox.show { opacity:1; display:flex !important; }
 .skin-lightbox-backdrop { position:absolute; inset:0; background:rgba(2,4,8,0.93); backdrop-filter:blur(8px); }
 /* 舞台跟着画面走：图画多大、框就多大，关闭按钮永远贴在框内右上角，不会再跑到屏幕外 */
+/* 静态立绘 <img> 与动态立绘 <canvas> 叠在同一个网格格子里：
+   两者始终只有一个可见，叠放后舞台尺寸不会被撑成两倍高 ——
+   用 flex 并排时 canvas 量到的高度只有真实值的一半，画面会被纵向压扁。 */
 .skin-lightbox-stage {
-    position:relative; display:flex; flex-direction:column; align-items:center;
+    position:relative; display:grid; place-items:center;
     width:max-content; height:max-content;
     max-width:96vw; max-height:97vh;
 }
+.skin-lightbox-stage > .skin-lightbox-img { grid-area:1 / 1; }
 /* 立绘是正方形（源图 1024×1024）。用 min(92vw,86vh) 同时约束宽高 ——
    既保证「尽可能填满」，又保证正方形比例不被拉扁。 */
 .skin-lightbox-img {
@@ -2882,6 +2886,14 @@ body.focus-mode .tracking-expanded {
     cursor:zoom-in;
     user-select:none; -webkit-user-drag:none;
     touch-action:none;
+}
+/* Spine 动态立绘用的 canvas：几何与交互完全复用 .skin-lightbox-img，
+   内容改由 WebGL 逐帧绘制 —— 单独给一层更深的底，透明区不会漏出背后舞台。
+   它同时带 .hidden 兜底（display:none !important），没就绪时不占位。 */
+.skin-lightbox-img.skin-spine-canvas {
+    background:
+        radial-gradient(120% 88% at 50% 6%, rgba(126,156,196,0.18), rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, rgba(24,28,36,0.94), rgba(10,12,16,0.97));
 }
 /* 放大后可拖动平移；拖拽过程用抓取光标，给一点「手里有东西」的反馈 */
 .skin-lightbox.is-zoomed .skin-lightbox-img { cursor:grab; }
@@ -6466,6 +6478,28 @@ button:focus-visible,
     border: 1px solid rgba(255,207,77,0.42);
     backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     pointer-events: none;
+}
+/* 手里真有 Spine 资源的皮肤：徽章点亮。
+   和「只是源石档位到了动态线」的暗金徽章区分开 —— 前者点了真会动。 */
+.skin-dyn-badge.is-live {
+    color: #fff6d8;
+    background: linear-gradient(180deg, rgba(118,84,18,0.82), rgba(38,26,6,0.88));
+    border-color: rgba(255,207,77,0.85);
+    box-shadow: 0 0 10px rgba(255,190,60,0.32), inset 0 0 6px rgba(255,214,110,0.20);
+}
+/* 动态立绘专区卡片的按钮位：这批皮肤能不能买由原版货架决定，
+   这里只负责把人带进预览，所以刻意不做成按钮，只给一条引导。 */
+.skin-dyn-only {
+    font-size:11.5px; letter-spacing:0.04em; color:var(--text-muted-3);
+}
+.skin-dyn-tag {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 11px; border-radius:8px;
+    font-size:12.5px; font-weight:700; letter-spacing:0.04em;
+    color:#ffe9b0;
+    background:linear-gradient(180deg, rgba(118,84,18,0.52), rgba(30,20,4,0.68));
+    border:1px solid rgba(255,207,77,0.38);
+    pointer-events:none;
 }
 .skin-lightbox-stage.is-dynamic { animation: skinBreath 7s ease-in-out infinite alternate; }
 @keyframes skinBreath {

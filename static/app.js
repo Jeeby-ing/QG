@@ -791,6 +791,13 @@ async function initApp() {
     setInterval(updateResourceTimestamp, 30000);
     initBackgroundParticles();
     initRemoteUrl();  // 远程地址轮询
+    /* 动态立绘索引只有 16KB，后台悄悄拉一份，不进启动进度条。
+       卡片上的「动态立绘」徽章依赖它，所以拉完如果人正停在时装页就重绘一次。 */
+    if (window.DynPortrait) {
+        DynPortrait.init().then(() => {
+            if (state.currentView === 'shop' && shopTab === 'skin') renderSkins();
+        });
+    }
     // R20：支持 #shop / #gacha 这类深链，打开就能直接落在对应视图
     const hashView = (location.hash || '').replace('#', '');
     if (['tasks','graph','calendar','gacha','shop','profile'].includes(hashView)) {
@@ -5294,27 +5301,32 @@ async function loadSkins(){
 function buildSkinCard(s, stone){
     const card = document.createElement('div');
     card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}`;
-    const canBuy = s.unlocked !== false && !s.limited;
-    const btn = s.owned
-        ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
-        : (s.limited
-            ? '<span class="skin-limited-tag"><i class="fa-solid fa-gift"></i>礼包限定</span>'
-            : (canBuy
-                ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
-                : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>'));
+    const canBuy = !s.dynOnly && s.unlocked !== false && !s.limited;
+    const btn = s.dynOnly
+        ? '<span class="skin-dyn-tag"><i class="fa-solid fa-circle-play"></i>点开预览</span>'
+        : (s.owned
+            ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
+            : (s.limited
+                ? '<span class="skin-limited-tag"><i class="fa-solid fa-gift"></i>礼包限定</span>'
+                : (canBuy
+                    ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
+                    : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>')));
     const img = s.image ? `/static/${s.image}` : '';
-    /* R21：21 源石及以上是「动态立绘」档，打上标记 ——
-       预览里会给到一点动态位移，卡片上也标一下，不让档位变成看不见的事。 */
-    const isDynamic = (Number(s.cost) || 0) >= 21;
+    /* 21 源石及以上在原版属「动态立绘」档，但本地不一定真解到了那套 Spine 资源。
+       所以分开标：手里有资源（预览里真会动）的给亮色徽章，仅档位到了的保留原样式 ——
+       不把「按档位该动」说成「点了就能动」。 */
+    const dynLive = !!s.dynOnly || !!(window.DynPortrait && DynPortrait.has(s.skin_id));
+    const isDynamic = dynLive || (Number(s.cost) || 0) >= 21;
     card.innerHTML =
-        `<div class="skin-art${isDynamic ? ' is-dynamic' : ''}"` +
+        `<div class="skin-art${isDynamic ? ' is-dynamic' : ''}${dynLive ? ' has-spine' : ''}"` +
             ` data-skin-id="${escapeHtml(s.skin_id || '')}"` +
             (isDynamic ? ' data-dynamic="1"' : '') +
+            (dynLive ? ' data-spine="1"' : '') +
             (img ? ` style="background-image:url('${img}')"` : '') + '>' +
             (img ? '' : '<i class="fa-solid fa-shirt"></i>') +
             (img ? '<span class="skin-zoom"><i class="fa-solid fa-magnifying-glass-plus"></i></span>' : '') +
             `<span class="skin-rarity">${goldStars(s.rarity)}</span>` +
-            (isDynamic ? '<span class="skin-dyn-badge"><i class="fa-solid fa-wand-magic-sparkles"></i>动态</span>' : '') +
+            (isDynamic ? `<span class="skin-dyn-badge${dynLive ? ' is-live' : ''}"><i class="fa-solid fa-wand-magic-sparkles"></i>${dynLive ? '动态立绘' : '动态'}</span>` : '') +
             (s.owned ? '<span class="skin-owned-badge"><i class="fa-solid fa-check"></i></span>' : '') +
             (s.unlocked === false ? '<span class="skin-lock-badge"><i class="fa-solid fa-lock"></i></span>' : '') +
         '</div>' +
@@ -5323,7 +5335,11 @@ function buildSkinCard(s, stone){
             (s.series ? `<span class="skin-series">${escapeHtml(s.series)}</span>` : '') + '</div>' +
             `<div class="skin-name">${escapeHtml(s.skin_name)}</div>` +
             `<div class="skin-tier">${escapeHtml(s.tier_label)}</div>` +
-            `<div class="skin-card-bottom">${resAmountHTML('source_stone', s.cost, 'skin-price')}${btn}</div>` +
+            // 动态立绘专区的卡不在售，价格位会被渲染成「0 源石」——那是个假标价，
+            // 换成一句说明，左边不至于空着、也不会误导成能买。
+            `<div class="skin-card-bottom">${s.dynOnly
+                ? '<span class="skin-dyn-only">仅展示 · 非在售</span>'
+                : resAmountHTML('source_stone', s.cost, 'skin-price')}${btn}</div>` +
         '</div>';
     return card;
 }
@@ -5331,11 +5347,42 @@ function renderSkins(){
     const list = DOM.skinShopList; if (!list) return;
     bindSkinPreview();
     const stone = state.resources.source_stone?.current_value || 0;
-    const pass = s => skinFilter === 'owned'
-        ? s.owned
-        : (skinFilter === 'all' || String(s.rarity) === skinFilter);
+    const pass = s => {
+        // 'dyn' 只放动态立绘专区的卡：其余三组不带 dynOnly，自然全被滤掉
+        if (skinFilter === 'dyn') return !!s.dynOnly;
+        if (skinFilter === 'owned') return !!s.owned;
+        return skinFilter === 'all' || String(s.rarity) === skinFilter;
+    };
     const items = skinCache.filter(pass);
     const shelf = skinShelf.filter(pass);
+    /* R25 动态立绘专区。后端 /skins 只给「已持有干员的皮肤 + 本周货架 + 限定池」，
+       本地解出来的这 66 件绝大多数不在这三个集合里 —— 不单开一个区，用户永远
+       看不到它们会动。能不能买仍由原版货架决定，所以这批卡只作展示。
+       ⚠️ 必须在这里（空态判断之前）算好：筛「动态立绘」时 items/shelf 都是空的，
+       等到函数末尾再算，早被上面那句 return 拦掉了。 */
+    /* ⚠️ 这里不能直接复用 pass：dynOnly 标记是下面 map 才补上的，
+       先 filter 再 map 的话池子会被自己滤空（'dyn' 筛选项永远一片空白）。
+       pool 本身就已经全是动态立绘，筛「动态立绘」时照单全收即可。 */
+    const dynPool = (window.DynPortrait && DynPortrait.pool()) || [];
+    const dynCards = (skinFilter === 'owned'
+        ? []                                  // 「已拥有」里不该混进只能预览的卡
+        : dynPool.filter(p => skinFilter === 'dyn'
+            || skinFilter === 'all'
+            || String(p.rarity) === skinFilter)
+    ).map(p => ({
+            skin_id: p.skin_id,
+            skin_name: p.skin_name,
+            operator_name: p.operator_name,
+            series: p.series,
+            rarity: p.rarity,
+            image: p.image,
+            cost: 0,
+            tier_label: 'Spine 动态立绘',
+            owned: false,
+            unlocked: true,
+            limited: false,
+            dynOnly: true,
+        }));
     list.innerHTML = '';
 
     const addSection = (kicker, note, arr, locked) => {
@@ -5352,7 +5399,7 @@ function renderSkins(){
     };
 
     // 没有可购买的时装时，明确告诉用户还差哪一步，但货架照样铺满（不至于白屏）
-    if (!items.length && !shelf.length){
+    if (!items.length && !shelf.length && !dynCards.length){
         const empty = document.createElement('div');
         empty.className = 'skin-empty';
         // 区分两种"空"：服务没起来 vs 真的没有符合筛选的时装
@@ -5364,7 +5411,8 @@ function renderSkins(){
         return;
     }
     // 没有可购买的时装时，明确说清原因，别让用户以为是坏了
-    if (!items.length && shelf.length){
+    // （筛「动态立绘」时是特意只看那批，不用弹这句）
+    if (!items.length && shelf.length && skinFilter !== 'dyn'){
         const hint = document.createElement('div');
         hint.className = 'skin-empty-buy';
         hint.innerHTML = '<i class="fa-solid fa-circle-info"></i>' +
@@ -5377,6 +5425,9 @@ function renderSkins(){
        所以这里没有购买按钮，只能靠带「限定时装」标记的礼包开出来。 */
     addSection('限定时装 · 只走礼包', '原版不可用源石兑换，仅从标注「限定时装」的礼包随机产出',
                skinLimitedPool.filter(pass), true);
+    addSection('动态立绘 · Spine 实时演算',
+               `${dynCards.length} 件已解包的骨骼动画，点开即播`,
+               dynCards, false);
 
     list.querySelectorAll('.skin-buy-btn').forEach(b => {
         b.addEventListener('click', () => handleSkinPurchase(b.dataset.skin));
@@ -5402,7 +5453,15 @@ const skinZoom = {
     startX: 0, startY: 0, startTx: 0, startTy: 0,
     pinchDist: 0,
 };
-function skinImageEl(){ return skinLightbox ? skinLightbox.querySelector('.skin-lightbox-img') : null; }
+/* 灯箱里同时挂着 <img>（静态，也是降级用图）和 <canvas>（Spine 动态立绘），
+   两者共用 .skin-lightbox-img 这套几何与交互样式，同一时刻只有一个可见。
+   缩放/拖动必须作用在「当前可见的那个」上，否则会去操作一个 display:none 的节点。 */
+function skinImageEl(){
+    if (!skinLightbox) return null;
+    const all = skinLightbox.querySelectorAll('.skin-lightbox-img');
+    for (const el of all) if (!el.classList.contains('hidden')) return el;
+    return all[0] || null;
+}
 function skinApplyZoom(){
     const im = skinImageEl(); if (!im) return;
     // 回到 1:1 且无位移时清掉 transform，避免残留子像素让立绘发虚
@@ -5436,7 +5495,67 @@ function skinZoomAt(clientX, clientY, factor){
     skinApplyZoom();
 }
 function skinBindZoom(box){
-    const im = box.querySelector('.skin-lightbox-img');
+    /* 动态立绘的 canvas 是后插入的，这里用一个「把交互绑到某个媒体节点」的
+       小函数，插入后由 bindSkinZoomTo() 再绑一次，避免两套重复逻辑。 */
+    const bindOne = (im) => {
+        if (!im || im.dataset.zoomBound) return;
+        im.dataset.zoomBound = '1';
+
+        // 双击：已放大则复位，否则以双击点为锚点放大
+        im.addEventListener('dblclick', e => {
+            e.preventDefault();
+            if (skinZoom.scale > 1.001) skinResetZoom();
+            else skinZoomAt(e.clientX, e.clientY, 2.2);
+        });
+        bindDrag(im);
+    };
+    const bindDrag = (im) => {
+        // 鼠标拖动平移（仅在放大后生效，避免和「点图即关」冲突）
+        im.addEventListener('mousedown', e => {
+            if (skinZoom.scale <= 1.001) return;
+            e.preventDefault();
+            skinZoom.dragging = true; skinZoom.moved = false;
+            skinZoom.startX = e.clientX; skinZoom.startY = e.clientY;
+            skinZoom.startTx = skinZoom.tx; skinZoom.startTy = skinZoom.ty;
+            im.classList.add('is-dragging');
+        });
+
+        // 触屏：双指捏合缩放 + 放大后单指拖动
+        let singleStart = null;
+        im.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                singleStart = null;
+                skinZoom.pinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY);
+            } else if (e.touches.length === 1 && skinZoom.scale > 1.001) {
+                singleStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: skinZoom.tx, ty: skinZoom.ty };
+            }
+        }, { passive: true });
+        im.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const d = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY);
+                const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                if (skinZoom.pinchDist > 0 && d > 0) skinZoomAt(cx, cy, d / skinZoom.pinchDist);
+                skinZoom.pinchDist = d;
+            } else if (e.touches.length === 1 && singleStart) {
+                e.preventDefault();
+                skinZoom.tx = singleStart.tx + (e.touches[0].clientX - singleStart.x);
+                skinZoom.ty = singleStart.ty + (e.touches[0].clientY - singleStart.y);
+                skinApplyZoom();
+            }
+        }, { passive: false });
+        im.addEventListener('touchend', e => {
+            if (e.touches.length < 2) skinZoom.pinchDist = 0;
+            if (e.touches.length === 0) singleStart = null;
+        });
+    };
+    box._bindZoomTo = bindOne;
+    box.querySelectorAll('.skin-lightbox-img').forEach(bindOne);
 
     // 滚轮缩放（以指针所在点为锚点）
     box.addEventListener('wheel', e => {
@@ -5447,22 +5566,7 @@ function skinBindZoom(box){
     // 触控板/触屏的双指捏合，浏览器在部分平台会转成 ctrl+wheel 派发
     box.addEventListener('wheel', () => {}, { passive: true });
 
-    // 双击：已放大则复位，否则以双击点为锚点放大
-    im.addEventListener('dblclick', e => {
-        e.preventDefault();
-        if (skinZoom.scale > 1.001) skinResetZoom();
-        else skinZoomAt(e.clientX, e.clientY, 2.2);
-    });
 
-    // 鼠标拖动平移（仅在放大后生效，避免和「点图即关」冲突）
-    im.addEventListener('mousedown', e => {
-        if (skinZoom.scale <= 1.001) return;
-        e.preventDefault();
-        skinZoom.dragging = true; skinZoom.moved = false;
-        skinZoom.startX = e.clientX; skinZoom.startY = e.clientY;
-        skinZoom.startTx = skinZoom.tx; skinZoom.startTy = skinZoom.ty;
-        im.classList.add('is-dragging');
-    });
     window.addEventListener('mousemove', e => {
         if (!skinZoom.dragging) return;
         const dx = e.clientX - skinZoom.startX, dy = e.clientY - skinZoom.startY;
@@ -5474,41 +5578,7 @@ function skinBindZoom(box){
     window.addEventListener('mouseup', () => {
         if (!skinZoom.dragging) return;
         skinZoom.dragging = false;
-        im.classList.remove('is-dragging');
-    });
-
-    // 触屏：双指捏合缩放 + 放大后单指拖动
-    let singleStart = null;
-    im.addEventListener('touchstart', e => {
-        if (e.touches.length === 2) {
-            singleStart = null;
-            skinZoom.pinchDist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY);
-        } else if (e.touches.length === 1 && skinZoom.scale > 1.001) {
-            singleStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: skinZoom.tx, ty: skinZoom.ty };
-        }
-    }, { passive: true });
-    im.addEventListener('touchmove', e => {
-        if (e.touches.length === 2) {
-            e.preventDefault();
-            const d = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY);
-            const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            if (skinZoom.pinchDist > 0 && d > 0) skinZoomAt(cx, cy, d / skinZoom.pinchDist);
-            skinZoom.pinchDist = d;
-        } else if (e.touches.length === 1 && singleStart) {
-            e.preventDefault();
-            skinZoom.tx = singleStart.tx + (e.touches[0].clientX - singleStart.x);
-            skinZoom.ty = singleStart.ty + (e.touches[0].clientY - singleStart.y);
-            skinApplyZoom();
-        }
-    }, { passive: false });
-    im.addEventListener('touchend', e => {
-        if (e.touches.length < 2) skinZoom.pinchDist = 0;
-        if (e.touches.length === 0) singleStart = null;
+        box.querySelectorAll('.skin-lightbox-img').forEach(el => el.classList.remove('is-dragging'));
     });
 }
 function ensureSkinLightbox(){
@@ -5543,24 +5613,52 @@ function ensureSkinLightbox(){
     return skinLightbox;
 }
 /* 预览优先用官方原图（1024×1024，从 assets-source 按需取），
-   取不到再退回 512 缩略图 —— 这样放大到接近满屏也不会糊。 */
-function openSkinPreview(imgUrl, opName, skinName, fallbackUrl, isDynamic){
+   取不到再退回 512 缩略图 —— 这样放大到接近满屏也不会糊。
+
+   skinId 命中动态立绘资源（static/img/dyn/_index.json）时：先照常显示静态图，
+   Spine 就绪后再切上去「活过来」。WebGL 不可用 / 没有该皮肤的资源 / 加载失败，
+   都只是留在静态图上，不会比原来更差 —— 这也是双媒体节点并存的原因。 */
+let skinPreviewToken = 0;
+function openSkinPreview(imgUrl, opName, skinName, fallbackUrl, isDynamic, skinId){
     const box = ensureSkinLightbox();
-    /* R21：动态立绘档位在预览里加一点极慢的呼吸位移。
-       ⚠️ 诚实说明：本地只有静态立绘（assets-source 里没有任何 Spine/.skel 资源），
-       真正的动态立绘数据没有下载，这里的"动"是 CSS 位移，不是原版演出。 */
+    const token = ++skinPreviewToken;
     const stage = box.querySelector('.skin-lightbox-stage');
+    /* isDynamic 是按源石档位推断出来的，只代表「这档该是动态皮」；
+       真拿到 Spine 资源后会撤掉这个 CSS 呼吸位移，免得两层动效打架。 */
     if (stage) stage.classList.toggle('is-dynamic', !!isDynamic);
-    const im = box.querySelector('.skin-lightbox-img');
+
+    /* 换皮肤时先停掉上一条动态立绘。这一步必须放在「有没有资源」判断之前 ——
+       否则从一件有立绘的皮肤切到没有立绘的皮肤时，上一条会在后台继续空转。 */
+    if (window.DynPortrait) DynPortrait.stop();
+    const im = box.querySelector('.skin-lightbox-img:not(.skin-spine-canvas)');
+    const prevCanvas = box.querySelector('.skin-spine-canvas');
+    im.classList.remove('hidden');
     im.onerror = () => { if (fallbackUrl && im.src !== fallbackUrl) im.src = fallbackUrl; im.onerror = null; };
     im.src = imgUrl || fallbackUrl || '';
+    if (prevCanvas) prevCanvas.classList.add('hidden');
+
     box.querySelector('.skin-lightbox-cap').textContent = `${opName} · ${skinName}`;
     skinResetZoom();          // 每次打开都从 1:1 开始，不继承上一张的缩放
     box.classList.remove('hidden');
     requestAnimationFrame(() => box.classList.add('show'));
+
+    if (!skinId || !window.DynPortrait || !DynPortrait.has(skinId)) return;
+    /* 加载期间用户可能已经换了张皮肤或直接关掉了，用 token 作废过期的那次。 */
+    DynPortrait.play(stage, skinId).then(ok => {
+        if (!ok || token !== skinPreviewToken) return;
+        const cv = box.querySelector('.skin-spine-canvas');
+        if (!cv) return;
+        if (stage) stage.classList.remove('is-dynamic');
+        if (box._bindZoomTo) box._bindZoomTo(cv);   // canvas 是后插入的，交互要补绑
+        im.classList.add('hidden');
+        cv.classList.remove('hidden');
+        skinResetZoom();
+    });
 }
 function closeSkinPreview(){
     if (!skinLightbox) return;
+    skinPreviewToken++;                          // 作废尚未完成的动态立绘加载
+    if (window.DynPortrait) DynPortrait.stop();  // 关掉就停 RAF，别在后台空转
     skinResetZoom();
     skinLightbox.classList.remove('show');
     setTimeout(() => skinLightbox.classList.add('hidden'), 200);
@@ -5580,7 +5678,7 @@ function bindSkinPreview(){
         const nm = card && card.querySelector('.skin-name') ? card.querySelector('.skin-name').textContent : '';
         const sid = art.dataset.skinId || '';
         const full = sid ? `/api/skin/full/${encodeURIComponent(sid)}` : thumb;
-        openSkinPreview(full, op, nm, thumb, art.dataset.dynamic === '1');
+        openSkinPreview(full, op, nm, thumb, art.dataset.dynamic === '1', sid);
     });
 }
 /* 本期精选 · 六星双 UP 卡（R21）
