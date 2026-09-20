@@ -34,9 +34,10 @@ window.DynPortrait = (function () {
 
     var idx = null, poolData = null, idxReq = null, rtReq = null;
     var ctx = null, scene = null, canvas = null, gl = null;
-    var cur = null;                 /* {skeleton,state,pma,entry} */
+    var cur = null;                 /* {skeleton,state,pma,entry,bounds} */
     var cache = [];                 /* [{key,am,atlas,data,t}] */
     var rafId = 0, lastT = 0, dpr = 1;
+    var B_OFF = null, B_SIZE = null, B_TMP = [];
 
     function noop() {}
 
@@ -181,6 +182,60 @@ window.DynPortrait = (function () {
         return names[0] || null;
     }
 
+    /* ---------- 装裱（这一块是「抠出来不对劲」的根因，别乱改） ----------
+     * SceneRenderer 构造函数里 `camera = new OrthoCamera(canvas.width, canvas.height)`，
+     * 而此刻 canvas 还是浏览器的默认 300×150（还没 sizeCanvas）。之后 resize(Fit) 是拿
+     * 那个 300×150 当基准去缩放的，于是相机的世界视野被死死钉在 300×300 左右 ——
+     * 无论灯箱多大，都只看得到骨架中心一小块，四周的部件落在视野外，
+     * 看起来就像"被乱抠了一块"。
+     * 正确做法：不要用 Fit，自己按骨架实际包围盒设 viewport / zoom / position。
+     * 包围盒在装载时对 Idle 动画采样一圈取并集，避免逐帧重算导致画面呼吸抖动。 */
+    function computeFit(rec, skeleton, state) {
+        if (!B_OFF) { B_OFF = new spine.Vector2(); B_SIZE = new spine.Vector2(); }
+        var entry = state.getCurrent(0);
+        var anim = entry && entry.animation;
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        if (anim && typeof anim.apply === 'function') {
+            var N = 8, dur = anim.duration || 0;
+            for (var i = 0; i <= N; i++) {
+                var t = dur > 0 ? dur * i / N : 0;
+                anim.apply(skeleton, t, t, false, null, 1, true, false);
+                skeleton.updateWorldTransform();
+                skeleton.getBounds(B_OFF, B_SIZE, B_TMP);
+                if (B_SIZE.x > 0 && B_SIZE.y > 0) {
+                    if (B_OFF.x < minX) minX = B_OFF.x;
+                    if (B_OFF.y < minY) minY = B_OFF.y;
+                    if (B_OFF.x + B_SIZE.x > maxX) maxX = B_OFF.x + B_SIZE.x;
+                    if (B_OFF.y + B_SIZE.y > maxY) maxY = B_OFF.y + B_SIZE.y;
+                }
+            }
+            /* 采样完把姿态交回 AnimationState，别把骨架停在采样点上 */
+            state.apply(skeleton);
+            skeleton.updateWorldTransform();
+        }
+        if (!isFinite(minX) || maxX - minX <= 0 || maxY - minY <= 0) {
+            return { x: -300, y: -300, w: 600, h: 600 };
+        }
+        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
+
+    function fitCamera() {
+        if (!scene || !canvas) return;
+        var c = cur && cur.bounds;
+        if (!c) return;
+        var cam = scene.camera;
+        var cw = canvas.width, ch = canvas.height;
+        if (cw <= 0 || ch <= 0) return;
+        /* ortho 投影的可见世界宽度 = zoom * viewportWidth，
+           所以 viewport 直接取设备像素、zoom 取「每像素多少世界单位」。 */
+        cam.viewportWidth = cw;
+        cam.viewportHeight = ch;
+        var pad = 1.06;                              /* 四周留一点余量，别贴边 */
+        var zx = c.w * pad / cw, zy = c.h * pad / ch;
+        cam.zoom = zx > zy ? zx : zy;                /* 取较大者，两个方向都装得下 */
+        cam.position.set(c.x + c.w / 2, c.y + c.h / 2, 0);
+    }
+
     function loop() {
         if (!cur) return;
         rafId = requestAnimationFrame(loop);
@@ -196,7 +251,13 @@ window.DynPortrait = (function () {
         sizeCanvas(canvas);                 /* 先对齐分辨率，再让相机按新尺寸装裱 */
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT);
-        scene.resize(spine.webgl.ResizeMode.Fit);
+        /* 借 SceneRenderer 同步一次（它会 gl.viewport 并把 canvas 尺寸拉回 CSS 尺寸），
+           之后我们按 dpr 覆写分辨率、自己设相机 —— 不用它的 Fit，
+           否则视野会被它的初始 300×150 基准钉死（见 fitCamera 上方注释）。 */
+        scene.resize(spine.webgl.ResizeMode.Stretch);
+        sizeCanvas(canvas);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        fitCamera();
         scene.begin();
         scene.drawSkeleton(cur.skeleton, cur.pma);
         scene.end();
@@ -228,7 +289,9 @@ window.DynPortrait = (function () {
                     if (anim) state.setAnimation(0, anim, true);
                     var pma = false;
                     try { pma = !!rec.atlas.pma; } catch (e) { }
-                    cur = { skeleton: skeleton, state: state, pma: pma, entry: entry };
+                    cur = { skeleton: skeleton, state: state, pma: pma, entry: entry, bounds: null };
+                    /* 装裱用的包围盒必须在进渲染循环之前算好，否则第一帧是错的装裱 */
+                    try { cur.bounds = computeFit(rec, skeleton, state); } catch (e) { /* 兜底走默认框 */ }
                     lastT = performance.now() / 1000;
                     if (!rafId) loop();
                     return true;
@@ -258,6 +321,11 @@ window.DynPortrait = (function () {
             trackTime: entry ? entry.trackTime : -1,
             bones: bones.length,
             poseHash: Math.round(sum * 10000) / 10000,
+            bounds: cur.bounds
+                ? (Math.round(cur.bounds.x) + ',' + Math.round(cur.bounds.y) + ' ' +
+                   Math.round(cur.bounds.w) + 'x' + Math.round(cur.bounds.h))
+                : '',
+            zoom: scene && scene.camera ? Math.round(scene.camera.zoom * 10000) / 10000 : -1,
         };
     }
 
