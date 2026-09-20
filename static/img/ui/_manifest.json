@@ -1,0 +1,488 @@
+[
+ {
+  "name": "card_noise",
+  "group": "fx",
+  "file": "card_noise.webp",
+  "w": 128,
+  "h": 128,
+  "kb": 1.9,
+  "src": "arts/ui/img_card_cover_noise.png"
+ },
+ {
+  "name": "disturb",
+  "group": "fx",
+  "file": "disturb.webp",
+  "w": 512,
+  "h": 512,
+  "kb": 4.7,
+  "src": "arts/ui/img_uifx_disturb_01.png"
+ },
+ {
+  "name": "dust_1",
+  "group": "fx",
+  "file": "dust_1.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 25.9,
+  "src": "arts/ui/img_fx_particle_dust_01$0.png"
+ },
+ {
+  "name": "dust_gold",
+  "group": "fx",
+  "file": "dust_gold.webp",
+  "w": 127,
+  "h": 128,
+  "kb": 4.2,
+  "src": "arts/ui/img_fx_particle_gold_01.png"
+ },
+ {
+  "name": "flow_3",
+  "group": "fx",
+  "file": "flow_3.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 8.8,
+  "src": "arts/ui/img_uifx_flow_03.png"
+ },
+ {
+  "name": "glow_basic",
+  "group": "fx",
+  "file": "glow_basic.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 11.4,
+  "src": "arts/ui/img_uifx_basicglow_01$0.png"
+ },
+ {
+  "name": "glow_soft",
+  "group": "fx",
+  "file": "glow_soft.webp",
+  "w": 128,
+  "h": 128,
+  "kb": 1.6,
+  "src": "arts/ui/img_uifx_basicglow_02.png"
+ },
+ {
+  "name": "glow_triangle",
+  "group": "fx",
+  "file": "glow_triangle.webp",
+  "w": 61,
+  "h": 57,
+  "kb": 1.3,
+  "src": "arts/ui/img_fx_glow_triangle$0.png"
+ },
+ {
+  "name": "light_sheet",
+  "group": "fx",
+  "file": "light_sheet.webp",
+  "w": 256,
+  "h": 64,
+  "kb": 3.1,
+  "src": "arts/ui/img_fx_light_sheet_soft$0.png"
+ },
+ {
+  "name": "lightpoint_1",
+  "group": "fx",
+  "file": "lightpoint_1.webp",
+  "w": 249,
+  "h": 245,
+  "kb": 30.6,
+  "src": "arts/ui/img_uifx_lightpoint_01.png"
+ },
+ {
+  "name": "lightpoint_2",
+  "group": "fx",
+  "file": "lightpoint_2.webp",
+  "w": 512,
+  "h": 123,
+  "kb": 5.6,
+  "src": "arts/ui/img_uifx_lightpoint_02$0.png"
+ },
+ {
+  "name": "lightpoint_3",
+  "group": "fx",
+  "file": "lightpoint_3.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 7.4,
+  "src": "arts/ui/img_uifx_lightpoint_03$0.png"
+ },
+ {
+  "name": "particle_flower",
+  "group": "fx",
+  "file": "particle_flower.webp",
+  "w": 512,
+  "h": 485,
+  "kb": 56.8,
+  "src": "arts/ui/uifx_particle_flower_1$0.png"
+ },
+ {
+  "name": "particle_point_1",
+  "group": "fx",
+  "file": "particle_point_1.webp",
+  "w": 250,
+  "h": 250,
+  "kb": 12.1,
+  "src": "arts/ui/uifx_particle_point_1.png"
+ },
+ {
+  "name": "particle_point_2",
+  "group": "fx",
+  "file": "particle_point_2.webp",
+  "w": 211,
+  "h": 227,
+  "kb": 6.3,
+  "src": "arts/ui/uifx_particle_point_2.png"
+ },
+ {
+  "name": "ray_rainbow_1",
+  "group": "fx",
+  "file": "ray_rainbow_1.webp",
+  "w": 254,
+  "h": 256,
+  "kb": 31.7,
+  "src": "arts/ui/img_fx_rainbow_ray_01$0.png"
+ },
+ {
+  "name": "ray_rainbow_2",
+  "group": "fx",
+  "file": "ray_rainbow_2.webp",
+  "w": 512,
+  "h": 512,
+  "kb": 73.6,
+  "src": "arts/ui/img_fx_rainbow_ray_02$0.png"
+ },
+ {
+  "name": "ray_rainbow_3",
+  "group": "fx",
+  "file": "ray_rainbow_3.webp",
+  "w": 233,
+  "h": 249,
+  "kb": 22.1,
+  "src": "arts/ui/img_fx_rainbow_ray_03$0.png"
+ },
+ {
+  "name": "ray_soft_1",
+  "group": "fx",
+  "file": "ray_soft_1.webp",
+  "w": 244,
+  "h": 138,
+  "kb": 7.3,
+  "src": "arts/ui/img_fx_ray_soft_01$0.png"
+ },
+ {
+  "name": "ray_soft_2",
+  "group": "fx",
+  "file": "ray_soft_2.webp",
+  "w": 256,
+  "h": 128,
+  "kb": 5.9,
+  "src": "arts/ui/img_fx_ray_soft_02$0.png"
+ },
+ {
+  "name": "smoke_1",
+  "group": "fx",
+  "file": "smoke_1.webp",
+  "w": 132,
+  "h": 135,
+  "kb": 13.1,
+  "src": "arts/ui/img_uifx_smoke_01.png"
+ },
+ {
+  "name": "star_1",
+  "group": "fx",
+  "file": "star_1.webp",
+  "w": 112,
+  "h": 112,
+  "kb": 5.7,
+  "src": "arts/ui/img_uifx_star_1.png"
+ },
+ {
+  "name": "star_2",
+  "group": "fx",
+  "file": "star_2.webp",
+  "w": 64,
+  "h": 64,
+  "kb": 0.7,
+  "src": "arts/ui/img_uifx_star_2$0.png"
+ },
+ {
+  "name": "star_3",
+  "group": "fx",
+  "file": "star_3.webp",
+  "w": 64,
+  "h": 64,
+  "kb": 1.4,
+  "src": "arts/ui/img_uifx_star_3$0.png"
+ },
+ {
+  "name": "star_4",
+  "group": "fx",
+  "file": "star_4.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 12.8,
+  "src": "arts/ui/img_uifx_star_4$0.png"
+ },
+ {
+  "name": "sweep_1",
+  "group": "fx",
+  "file": "sweep_1.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 0.4,
+  "src": "arts/ui/img_uifx_sweep_01.png"
+ },
+ {
+  "name": "sweep_2",
+  "group": "fx",
+  "file": "sweep_2.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 0.4,
+  "src": "arts/ui/img_uifx_sweep_02.png"
+ },
+ {
+  "name": "sweep_3",
+  "group": "fx",
+  "file": "sweep_3.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 0.5,
+  "src": "arts/ui/img_uifx_sweep_03.png"
+ },
+ {
+  "name": "sweep_4",
+  "group": "fx",
+  "file": "sweep_4.webp",
+  "w": 260,
+  "h": 260,
+  "kb": 0.6,
+  "src": "arts/ui/img_uifx_sweep_04$0.png"
+ },
+ {
+  "name": "wipe_circle",
+  "group": "fx",
+  "file": "wipe_circle.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 1.1,
+  "src": "arts/ui/img_uifx_wipe_circle_01$0.png"
+ },
+ {
+  "name": "wipe_tech_1",
+  "group": "fx",
+  "file": "wipe_tech_1.webp",
+  "w": 260,
+  "h": 260,
+  "kb": 0.9,
+  "src": "arts/ui/img_uifx_wipe_tech_01$0.png"
+ },
+ {
+  "name": "wipe_tech_2",
+  "group": "fx",
+  "file": "wipe_tech_2.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 0.9,
+  "src": "arts/ui/img_uifx_wipe_tech_02$0.png"
+ },
+ {
+  "name": "btn_back",
+  "group": "parts",
+  "file": "btn_back.webp",
+  "w": 168,
+  "h": 73,
+  "kb": 1.0,
+  "src": "arts/ui/btn_back.png"
+ },
+ {
+  "name": "btn_close",
+  "group": "parts",
+  "file": "btn_close.webp",
+  "w": 57,
+  "h": 59,
+  "kb": 1.5,
+  "src": "arts/ui/btn_close$0.png"
+ },
+ {
+  "name": "btn_shadow",
+  "group": "parts",
+  "file": "btn_shadow.webp",
+  "w": 61,
+  "h": 61,
+  "kb": 0.5,
+  "src": "arts/ui/btn_shadow.png"
+ },
+ {
+  "name": "char_tag_bkg",
+  "group": "parts",
+  "file": "char_tag_bkg.webp",
+  "w": 169,
+  "h": 32,
+  "kb": 1.9,
+  "src": "arts/ui/image_char_tag_bkg$0.png"
+ },
+ {
+  "name": "char_tag_bkg_2",
+  "group": "parts",
+  "file": "char_tag_bkg_2.webp",
+  "w": 143,
+  "h": 57,
+  "kb": 3.2,
+  "src": "arts/ui/image_char_tag_bkg_2.png"
+ },
+ {
+  "name": "icon_atk",
+  "group": "parts",
+  "file": "icon_atk.webp",
+  "w": 28,
+  "h": 28,
+  "kb": 0.6,
+  "src": "arts/ui/icon_atk$0.png"
+ },
+ {
+  "name": "icon_attack_speed",
+  "group": "parts",
+  "file": "icon_attack_speed.webp",
+  "w": 23,
+  "h": 23,
+  "kb": 0.5,
+  "src": "arts/ui/icon_attack_speed$0.png"
+ },
+ {
+  "name": "icon_block",
+  "group": "parts",
+  "file": "icon_block.webp",
+  "w": 28,
+  "h": 28,
+  "kb": 0.6,
+  "src": "arts/ui/icon_block$0.png"
+ },
+ {
+  "name": "icon_cost",
+  "group": "parts",
+  "file": "icon_cost.webp",
+  "w": 23,
+  "h": 23,
+  "kb": 0.5,
+  "src": "arts/ui/icon_cost$0.png"
+ },
+ {
+  "name": "icon_def",
+  "group": "parts",
+  "file": "icon_def.webp",
+  "w": 23,
+  "h": 23,
+  "kb": 0.4,
+  "src": "arts/ui/icon_def$0.png"
+ },
+ {
+  "name": "icon_hp",
+  "group": "parts",
+  "file": "icon_hp.webp",
+  "w": 23,
+  "h": 23,
+  "kb": 0.4,
+  "src": "arts/ui/icon_hp$0.png"
+ },
+ {
+  "name": "icon_res",
+  "group": "parts",
+  "file": "icon_res.webp",
+  "w": 28,
+  "h": 28,
+  "kb": 0.5,
+  "src": "arts/ui/icon_res$0.png"
+ },
+ {
+  "name": "icon_time",
+  "group": "parts",
+  "file": "icon_time.webp",
+  "w": 28,
+  "h": 28,
+  "kb": 0.5,
+  "src": "arts/ui/icon_time$0.png"
+ },
+ {
+  "name": "profession_atlas",
+  "group": "parts",
+  "file": "profession_atlas.webp",
+  "w": 117,
+  "h": 117,
+  "kb": 1.0,
+  "src": "arts/ui/sprite_profession$0.png"
+ },
+ {
+  "name": "glitch",
+  "group": "prts",
+  "file": "glitch.webp",
+  "w": 378,
+  "h": 218,
+  "kb": 11.4,
+  "src": "ui/sprite_takeover_glitch$0.png"
+ },
+ {
+  "name": "glitch_label",
+  "group": "prts",
+  "file": "glitch_label.webp",
+  "w": 700,
+  "h": 20,
+  "kb": 6.0,
+  "src": "ui/sprite_auto_battle_label_glitch.png"
+ },
+ {
+  "name": "leakedge",
+  "group": "prts",
+  "file": "leakedge.webp",
+  "w": 128,
+  "h": 243,
+  "kb": 4.8,
+  "src": "ui/meta_auto_battle_leakedge.png"
+ },
+ {
+  "name": "leaklight",
+  "group": "prts",
+  "file": "leaklight.webp",
+  "w": 256,
+  "h": 256,
+  "kb": 15.7,
+  "src": "ui/meta_auto_battle_leaklight_shape.png"
+ },
+ {
+  "name": "prts_error_bg",
+  "group": "prts",
+  "file": "prts_error_bg.webp",
+  "w": 1056,
+  "h": 108,
+  "kb": 11.1,
+  "src": "ui/sprite_battle_meta_prts_error_bg$0.png"
+ },
+ {
+  "name": "prts_error_btn",
+  "group": "prts",
+  "file": "prts_error_btn.webp",
+  "w": 116,
+  "h": 98,
+  "kb": 2.4,
+  "src": "ui/sprite_battle_meta_prts_error_btn.png"
+ },
+ {
+  "name": "prts_error_btn2",
+  "group": "prts",
+  "file": "prts_error_btn2.webp",
+  "w": 193,
+  "h": 159,
+  "kb": 4.9,
+  "src": "ui/sprite_battle_meta_prts_error_btn2$0.png"
+ },
+ {
+  "name": "prts_error_logo",
+  "group": "prts",
+  "file": "prts_error_logo.webp",
+  "w": 128,
+  "h": 128,
+  "kb": 1.5,
+  "src": "ui/prts_error_logo_disturb.png"
+ }
+]

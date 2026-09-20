@@ -5485,27 +5485,167 @@ body.theme-light .quick-complete-btn { color:#1F7A47; border-color:rgba(31,122,7
     .gh-env-zip { width:32px; height:40px; }
 }
 
-.gh-flare { position:absolute; inset:0; pointer-events:none; opacity:0; }
-/* R20：补齐 4★ 的紫色光效 —— 原版十连的光效是「4★及以下紫 / 5★黄 / 6★彩虹」三档，
-   之前只做了黄和彩虹，四星翻牌是全黑的，落差很明显。 */
-.gh-stage.flare-four .gh-flare { animation:ghFlareFour .42s ease-out; }
-.gh-stage.flare-five .gh-flare { animation:ghFlareFive .55s ease-out; }
-.gh-stage.flare-six .gh-flare { animation:ghFlareSix 1s ease-out; }
-@keyframes ghFlareFour {
-    0%   { opacity:0; background:radial-gradient(circle at 50% 50%, rgba(200,170,255,0) 0%, transparent 52%); }
-    25%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(214,186,255,0.42) 0%, rgba(150,110,235,0.20) 30%, transparent 62%); }
+/* ===== L2 原生素材层（来自 APK 的 assets/AB/Android/*/ui）======================
+   由 build_ui_assets.py 转出 static/img/ui/*.webp（54 件 / 0.42MB）。
+   这些是**游戏原版**的光效、粒子、故障贴图 —— 以前用 CSS 径向渐变手搓的
+   "光柱 / 闪光 / 噪点" 全换成它们，观感立刻对味。
+   约定：.ak-fx 是绝对定位的贴图层，默认 opacity:0，由使用方按需点亮。
+   ⚠️ 路径一律写绝对 `/static/...`：相对路径在落在 /static/ 下的页面会解析错。 */
+.ak-fx {
+    position:absolute; pointer-events:none;
+    background-repeat:no-repeat; background-position:center; background-size:contain;
+    opacity:0;
+}
+.ak-fx-rainbow1 { background-image:url('/static/img/ui/ray_rainbow_1.webp'); }
+.ak-fx-rainbow2 { background-image:url('/static/img/ui/ray_rainbow_2.webp'); }
+.ak-fx-rainbow3 { background-image:url('/static/img/ui/ray_rainbow_3.webp'); }
+.ak-fx-light1 { background-image:url('/static/img/ui/lightpoint_1.webp'); }
+.ak-fx-light2 { background-image:url('/static/img/ui/lightpoint_2.webp'); }
+.ak-fx-light3 { background-image:url('/static/img/ui/lightpoint_3.webp'); }
+.ak-fx-ray1 { background-image:url('/static/img/ui/ray_soft_1.webp'); }
+.ak-fx-ray2 { background-image:url('/static/img/ui/ray_soft_2.webp'); }
+.ak-fx-sheet { background-image:url('/static/img/ui/light_sheet.webp'); }
+.ak-fx-glow { background-image:url('/static/img/ui/glow_basic.webp'); }
+.ak-fx-star1 { background-image:url('/static/img/ui/star_1.webp'); }
+.ak-fx-star4 { background-image:url('/static/img/ui/star_4.webp'); }
+.ak-fx-dust { background-image:url('/static/img/ui/dust_1.webp'); }
+.ak-fx-flow { background-image:url('/static/img/ui/flow_3.webp'); }
+.ak-fx-smoke { background-image:url('/static/img/ui/smoke_1.webp'); }
+.ak-fx-disturb { background-image:url('/static/img/ui/disturb.webp'); }
+.ak-fx-leaklight { background-image:url('/static/img/ui/leaklight.webp'); }
+.ak-fx-noise { background-image:url('/static/img/ui/card_noise.webp'); }
+.ak-fx-glitchline { background-image:url('/static/img/ui/glitch_label.webp'); }
+
+/* 建链阶段的 PRTS 故障底噪：原来只有文字 + 进度条，加一层原版噪点与扫描线才有"终端"味 */
+.gh-boot-fx { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .35s ease; }
+.gh-stage.boot .gh-boot-fx { opacity:.20; }
+.gh-boot-fx .gf-noise {
+    position:absolute; inset:0; pointer-events:none;
+    /* 用 card_noise（128² 细颗粒）而不是 disturb（512² 云絮）——
+       云絮平铺到 300px 会出现肉眼可见的方格重复，细颗粒才是"噪点"该有的样子 */
+    background-image:url('/static/img/ui/card_noise.webp');
+    background-repeat:repeat; background-position:0 0; background-size:128px auto;
+    opacity:.85;
+    animation:ghBootNoise 1.5s steps(4, end) infinite;
+}
+.gh-boot-fx .gf-scan {
+    position:absolute; left:0; right:0; top:0; bottom:0; pointer-events:none;
+    background-image:url('/static/img/ui/glitch_label.webp');
+    background-position:0 0; background-size:100% 5px; background-repeat:repeat-y;
+    opacity:.55;
+}
+@keyframes ghBootNoise {
+    0%   { transform:translate(0, 0); }
+    25%  { transform:translate(-14px, 6px); }
+    50%  { transform:translate(9px, -11px); }
+    75%  { transform:translate(-6px, -5px); }
+    100% { transform:translate(0, 0); }
+}
+
+.gh-flare { position:absolute; inset:0; pointer-events:none; opacity:0; overflow:hidden; }
+/* ⚠️ 4★/5★ 的单色不能靠 hue-rotate 去旋彩虹贴图 —— 彩虹是全色域，
+   旋色相只会把彩虹整体挪一段，依然是彩虹，出不来"纯紫/纯金"。
+   所以这里用**遮罩上色**：贴图只取 alpha 当形状，颜色由 background-color 给。
+   6★ 反过来 —— 它要的就是彩虹本体，于是那一档取消遮罩、直接把贴图铺上去。 */
+.gh-flare i {
+    position:absolute; left:50%; top:50%; opacity:0;
+    background-color:var(--fl-tint, #f2efe6);
+    background-repeat:no-repeat; background-position:center; background-size:contain;
+    -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;
+    -webkit-mask-position:center; mask-position:center;
+    -webkit-mask-size:contain; mask-size:contain;
+}
+.gh-flare { --fl-tint:#f2efe6; }
+.gh-stage.flare-four .gh-flare { --fl-tint:#b98cff; }   /* 4★ 紫 */
+.gh-stage.flare-five .gh-flare { --fl-tint:#ffcf5c; }   /* 5★ 金 */
+.gh-stage.flare-six  .gh-flare { --fl-tint:#ffffff; }   /* 6★ 走彩虹贴图本体 */
+
+.gh-flare .fl-halo {
+    width:min(72vmin, 680px); aspect-ratio:1;
+    -webkit-mask-image:url('/static/img/ui/ray_rainbow_2.webp');
+    mask-image:url('/static/img/ui/ray_rainbow_2.webp');
+    transform:translate(-50%,-50%) scale(.5);
+}
+.gh-flare .fl-burst {
+    width:min(46vmin, 430px); aspect-ratio:1;
+    -webkit-mask-image:url('/static/img/ui/ray_rainbow_3.webp');
+    mask-image:url('/static/img/ui/ray_rainbow_3.webp');
+    transform:translate(-50%,-50%) scale(.4);
+}
+.gh-flare .fl-core {
+    width:min(22vmin, 200px); aspect-ratio:1;
+    -webkit-mask-image:url('/static/img/ui/glow_basic.webp');
+    mask-image:url('/static/img/ui/glow_basic.webp');
+    transform:translate(-50%,-50%) scale(.4);
+}
+.gh-flare .fl-beam {
+    width:min(120vmin, 1100px); aspect-ratio:8 / 1;
+    -webkit-mask-image:url('/static/img/ui/lightpoint_2.webp');
+    mask-image:url('/static/img/ui/lightpoint_2.webp');
+    transform:translate(-50%,-50%) scaleX(.25);
+}
+/* 6★：取消遮罩，露出原版彩虹 */
+.gh-stage.flare-six .fl-halo,
+.gh-stage.flare-six .fl-burst {
+    -webkit-mask-image:none; mask-image:none;
+    background-color:transparent;
+}
+.gh-stage.flare-six .fl-halo { background-image:url('/static/img/ui/ray_rainbow_2.webp'); opacity:0; }
+.gh-stage.flare-six .fl-burst { background-image:url('/static/img/ui/ray_rainbow_3.webp'); opacity:0; }
+/* 动画必须挂在 .flare-* 上，不能写进基类 —— 写基类的话页面一加载就跑完了，
+   真正翻牌时反而没动静。三档的观感差异靠时长与峰值拉开：
+   4★ 短促、5★ 中等、6★ 最长最亮（并且 6★ 保留贴图自带的彩虹，不旋色相）。 */
+.gh-stage.flare-four .gh-flare,
+.gh-stage.flare-five .gh-flare,
+.gh-stage.flare-six .gh-flare { animation:ghFlareOn .5s ease-out; }
+.gh-stage.flare-four .gh-flare { --fl-dur:.46s; --fl-peak:.72; }
+.gh-stage.flare-five .gh-flare { --fl-dur:.62s; --fl-peak:.86; }
+.gh-stage.flare-six  .gh-flare { --fl-dur:1.05s; --fl-peak:1; animation-duration:1.05s; }
+.gh-flare { --fl-dur:.6s; --fl-peak:.85; }
+@keyframes ghFlareOn {
+    0%   { opacity:0; }
+    10%  { opacity:var(--fl-peak); }
+    55%  { opacity:calc(var(--fl-peak) * .85); }
     100% { opacity:0; }
 }
-@keyframes ghFlareFive {
-    0%   { opacity:0; background:radial-gradient(circle at 50% 50%, rgba(255,225,150,0) 0%, transparent 55%); }
-    22%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,240,200,0.55) 0%, rgba(255,190,60,0.28) 28%, transparent 66%); }
-    100% { opacity:0; }
+.gh-stage.flare-four .fl-halo,
+.gh-stage.flare-five .fl-halo,
+.gh-stage.flare-six  .fl-halo { animation:ghFlHalo var(--fl-dur) cubic-bezier(.2,.8,.3,1) both; }
+.gh-stage.flare-four .fl-burst,
+.gh-stage.flare-five .fl-burst,
+.gh-stage.flare-six  .fl-burst { animation:ghFlBurst var(--fl-dur) cubic-bezier(.2,.8,.3,1) both; }
+.gh-stage.flare-four .fl-core,
+.gh-stage.flare-five .fl-core,
+.gh-stage.flare-six  .fl-core { animation:ghFlCore var(--fl-dur) cubic-bezier(.2,.8,.3,1) both; }
+.gh-stage.flare-four .fl-beam,
+.gh-stage.flare-five .fl-beam,
+.gh-stage.flare-six  .fl-beam { animation:ghFlBeam var(--fl-dur) cubic-bezier(.2,.8,.3,1) both; }
+@keyframes ghFlHalo {
+    0%   { opacity:0;   transform:translate(-50%,-50%) scale(.5)  rotate(-14deg); }
+    18%  { opacity:.92; }
+    55%  { opacity:.7;  transform:translate(-50%,-50%) scale(1)   rotate(6deg); }
+    100% { opacity:0;   transform:translate(-50%,-50%) scale(1.24) rotate(16deg); }
 }
-@keyframes ghFlareSix {
-    0%   { opacity:0; background:radial-gradient(circle at 50% 50%, rgba(255,240,200,0) 0%, transparent 60%); }
-    14%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,255,255,0.98) 0%, rgba(255,215,110,0.85) 22%, rgba(255,160,30,0.45) 48%, transparent 76%); }
-    46%  { opacity:1; background:radial-gradient(circle at 50% 50%, rgba(255,245,215,0.55) 0%, rgba(255,190,60,0.3) 40%, transparent 74%); }
-    100% { opacity:0; }
+@keyframes ghFlBurst {
+    0%   { opacity:0;   transform:translate(-50%,-50%) scale(.35) rotate(-10deg); }
+    14%  { opacity:.8; }
+    50%  { opacity:.5;  transform:translate(-50%,-50%) scale(.9)  rotate(8deg); }
+    100% { opacity:0;   transform:translate(-50%,-50%) scale(1.2) rotate(18deg); }
+}
+@keyframes ghFlCore {
+    0%   { opacity:0;  transform:translate(-50%,-50%) scale(.4); }
+    9%   { opacity:1;  transform:translate(-50%,-50%) scale(.95); }
+    30%  { opacity:.8; transform:translate(-50%,-50%) scale(1.1); }
+    100% { opacity:0;  transform:translate(-50%,-50%) scale(1.45); }
+}
+@keyframes ghFlBeam {
+    0%   { opacity:0;   transform:translate(-50%,-50%) scaleX(.22); }
+    14%  { opacity:.85; transform:translate(-50%,-50%) scaleX(1); }
+    46%  { opacity:.4;  transform:translate(-50%,-50%) scaleX(1.5); }
+    100% { opacity:0;   transform:translate(-50%,-50%) scaleX(2); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .gh-flare i, .gh-boot-fx .gf-noise { animation:none !important; }
 }
 
 /* 6★ 命中时的上升光粒层 */
