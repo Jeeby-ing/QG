@@ -23,8 +23,11 @@ import mimetypes
 from wallpaper_software import detect_wallpaper_software, apply_wallpaper, get_wallpaper_entry
 
 # ---------- 数据库初始化 ----------
-DB_PATH = "quest_log.db"
-STATIC_DIR = "static"
+# 钉死到脚本目录，避免从其它 cwd 启动时静默用错数据库（数据分离/丢失）
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quest_log.db")
+# 用脚本所在目录拼出绝对路径，避免依赖启动 cwd（否则从其它目录起服务时
+# static 资源 / warehouse_catalog.json 会找不到，触发兜底崩服务）。
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 BADGE_DIR = os.path.join(STATIC_DIR, "badges")
 os.makedirs(BADGE_DIR, exist_ok=True)
 
@@ -2188,7 +2191,7 @@ def check_cycle_parent(cur, task_id: int, new_parent_id: int) -> bool:
 # ---------- FastAPI 应用 ----------
 app = FastAPI(title="QUEST LOG API")
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/media/{file_path:path}")
@@ -2287,7 +2290,7 @@ async def unify_response_format(request, call_next):
 
 @app.get("/")
 async def read_root():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.on_event("startup")
@@ -3781,7 +3784,10 @@ def _build_operator_pool() -> list:
 
 OPERATOR_POOL = _build_operator_pool()
 if not OPERATOR_POOL:      # 目录缺失时兜底，避免卡池为空导致寻访直接报错
-    OPERATOR_POOL = [{"id": "mat_fallback_amiya", "name": "阿米娅", "rarity": 5, "profession": "CASTER"}]
+    # 兜底记录必须带齐与正常记录相同的字段，否则下面按 char_id 建索引会 KeyError 崩服务
+    OPERATOR_POOL = [{"id": "mat_fallback_amiya", "char_id": "mat_fallback_amiya",
+                      "name": "阿米娅", "rarity": 5, "profession": "CASTER",
+                      "portrait": None, "token_icon": None}]
 OPERATOR_POOL_BY_RARITY = {}
 for _op in OPERATOR_POOL:
     OPERATOR_POOL_BY_RARITY.setdefault(_op["rarity"], []).append(_op)

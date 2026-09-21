@@ -161,22 +161,40 @@ def start_server():
         server_owned = False
         log("Existing QUEST LOG server is healthy, reusing it")
         return
+    # Pre-flight checks: surface the real reason instead of a silent hang
+    if not os.path.exists(SERVER_PY):
+        log(f"ERROR: Python 解释器不存在: {SERVER_PY}")
+        log("       请确认 SERVER_PY 路径，或改用本机已安装的 Python。")
+        return
+    if not os.path.exists(APP_PY):
+        log(f"ERROR: 找不到 {APP_PY}")
+        log("       请确认本启动器位于 Quest-log 项目根目录（与 main.py 同级）。")
+        return
     # Otherwise free the port and start our own
     free_port_8000()
     server_owned = True
     log("Starting server...")
+    err_log = os.path.join(_HERE, "launcher_error.log")
     server_proc = subprocess.Popen(
         [SERVER_PY, APP_PY],
         cwd=_HERE,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stderr=open(err_log, "w", encoding="utf-8", errors="replace"),
     )
     for _ in range(100):  # up to 30s
         if server_healthy():
             log(f"Server ready -> http://127.0.0.1:{PORT}")
             return
         time.sleep(0.3)
-    log("WARNING: Server failed to become healthy")
+    # Timed out: dump the server's real stderr so the cause is visible
+    log("WARNING: 30s 内服务未就绪。服务最后输出如下（详见 launcher_error.log）：")
+    try:
+        with open(err_log, "r", encoding="utf-8", errors="replace") as f:
+            tail = [ln for ln in f.read().splitlines() if ln.strip()][-25:]
+        for line in tail:
+            log("  " + line)
+    except Exception:
+        pass
 
 
 def start_cpolar():
