@@ -7541,3 +7541,105 @@ body.theme-light .reality-reward-card:hover {
 /* ③ 寻访结果区 .gacha-result：补一层极淡方舟蓝细边，呼应整体语言（深 / 浅） */
 .gacha-result { border: 1px solid rgba(74,171,234,0.14); }
 body.theme-light .gacha-result { border: 1px solid rgba(0,117,168,0.14); }
+
+/* ============================================================
+   13.6 任务奖励弹窗 · 方舟蓝统一 + 去框磨砂（R29 第七刀）
+   针对用户反馈逐条处理：
+     ① 金/蓝/绿混用 → 收敛为单一方舟蓝（资源光环 / 数量角标 /
+        底部对勾 / 随机掉落标题）。光环颜色由 app.js 内联写入
+        --ring-color，这里用 !important（作者 !important 高于内联）
+        在 CSS 层覆盖，做到 DOM/JS 零改动即可统一。
+     ② 关闭叉号错位 → btn_close.webp 的圆形按钮画在画布偏左上、
+        阴影溢出右下，background-size:contain 居中的是「画布」而不是
+        「圆钮」，叉号便被顶到左上。改回居中的 FA 叉号并染方舟蓝。
+     ③ 底部硬边框 → 去边框 + backdrop 磨砂，仅留奖励内容。
+   全部为叠加层；想回滚整段删除即可（②③ 同样只需删本节）。
+   ============================================================ */
+
+/* ---- ① 关闭按钮：弃用偏移的 btn_close.webp，恢复居中叉号 ---- */
+.modal .modal-close {
+    background-image: none;                    /* 弃用画布偏心的原版贴图 */
+    border-color: rgba(74,171,234,0.35);
+    color: var(--ak-color-primary, #4aabea);
+}
+.modal .modal-close i { display: block; font-size: 15px; line-height: 1; }
+.modal .modal-close:hover { color: #fff; border-color: rgba(74,171,234,0.7); }
+body.theme-light .modal .modal-close { color: var(--ak-color-dark-blue, #0075a8); border-color: rgba(0,117,168,0.35); }
+body.theme-light .modal .modal-close:hover { color: #fff; }
+
+/* ---- ② 结算弹窗去框化 + 磨砂：移除四周硬边框（含底部那条），仅呈现奖励内容 ---- */
+.modal-reward,
+.reward-settlement-modal {
+    border: none;
+    background: rgba(16,18,24,0.60);
+    backdrop-filter: blur(30px) saturate(1.15);
+    -webkit-backdrop-filter: blur(30px) saturate(1.15);
+    box-shadow: 0 0 0 1px rgba(74,171,234,0.12), 0 28px 64px rgba(0,0,0,0.52);
+}
+body.theme-light .modal-reward,
+body.theme-light .reward-settlement-modal {
+    background: rgba(246,249,252,0.62);
+    box-shadow: 0 0 0 1px rgba(0,117,168,0.10), 0 28px 64px rgba(80,70,50,0.18);
+}
+/* 底部区域的硬分隔线一并去掉（改用留白过渡） */
+.reward-settlement-modal .reward-bottom-area,
+.reward-settlement-modal .reward-details { border-top: none; }
+
+/* ---- ③ 资源光环统一方舟蓝（覆盖 app.js 内联的 --ring-color） ---- */
+.reward-settlement-modal .reward-ring { --ring-color: var(--ak-color-primary, #4aabea) !important; }
+body.theme-light .reward-settlement-modal .reward-ring { --ring-color: var(--ak-color-dark-blue, #0075a8) !important; }
+
+/* 数量角标：暖金 → 方舟蓝 */
+.reward-settlement-modal .reward-num-badge {
+    background: linear-gradient(135deg, #1d2b3a, #14202c);
+    border-color: rgba(74,171,234,0.55);
+    color: #cfeaff;
+}
+body.theme-light .reward-settlement-modal .reward-num-badge {
+    background: linear-gradient(135deg, #eaf5fc, #d7ebf7);
+    border-color: rgba(0,117,168,0.45);
+    color: #0b5675;
+}
+
+/* 随机掉落块：暖金底 → 方舟蓝底 */
+.reward-settlement-modal .random-drop {
+    background: rgba(74,171,234,0.06);
+    border-color: rgba(74,171,234,0.12);
+}
+.reward-settlement-modal .random-drop h4 { color: var(--ak-color-primary, #4aabea); }
+body.theme-light .reward-settlement-modal .random-drop {
+    background: rgba(0,117,168,0.05);
+    border-color: rgba(0,117,168,0.12);
+}
+body.theme-light .reward-settlement-modal .random-drop h4 { color: var(--ak-color-dark-blue, #0075a8); }
+
+/* ---- ④ 底部对勾（挂在窗口外，全局类）：绿 → 方舟蓝 ---- */
+.reward-external-check {
+    background: rgba(24,58,86,0.50);
+    border-color: rgba(74,171,234,0.50);
+    box-shadow: 0 0 16px rgba(74,171,234,0.25), 0 4px 12px rgba(0,0,0,0.4);
+    animation: extCheckPulseAk 1.8s ease-in-out infinite;
+}
+.reward-external-check:hover {
+    background: rgba(24,58,86,0.68);
+    box-shadow: 0 0 24px rgba(74,171,234,0.45), 0 6px 16px rgba(0,0,0,0.5);
+}
+.reward-external-check.claimed {
+    background: rgba(24,58,86,0.25);
+    border-color: rgba(74,171,234,0.22);
+}
+/* SVG 描边用的是表示属性，任意 CSS 规则都能盖过它 → 直接改描边色 */
+.reward-external-check svg circle,
+.reward-external-check svg path { stroke: var(--ak-color-primary, #4aabea); }
+@keyframes extCheckPulseAk {
+    0%, 100% { box-shadow: 0 0 14px rgba(74,171,234,0.20); transform: scale(1); }
+    50%      { box-shadow: 0 0 28px rgba(74,171,234,0.45); transform: scale(1.05); }
+}
+.reward-claimed-note { color: rgba(120,190,240,0.85); }
+body.theme-light .reward-external-check {
+    background: rgba(214,236,248,0.60);
+    border-color: rgba(0,117,168,0.45);
+}
+body.theme-light .reward-external-check svg circle,
+body.theme-light .reward-external-check svg path { stroke: var(--ak-color-dark-blue, #0075a8); }
+body.theme-light .reward-claimed-note { color: var(--ak-color-dark-blue, #0075a8); }

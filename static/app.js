@@ -1087,6 +1087,21 @@ async function loadTasks() {
     }
 }
 
+/* R29：只刷新任务数据、不重绘列表。
+   loadTasks() 末尾会走 applyFilters() → renderTasks()，也就是把整张任务列表
+   的 DOM 全部重建。完成任务 / 领取奖励时用它，会把用户正在操作的列表整个刷掉
+   （闪烁、丢焦点、动画中断）。局部更新场景改用本函数：只拉最新数据 + 重画
+   图谱/追踪面板，卡片本身交给 refreshTaskCard() 定点更新。 */
+async function reloadTaskData() {
+    const tree = await apiGet('/tasks/tree?include_archived=true&include_deleted=true');
+    if (tree) {
+        state.tasks = tree;
+        flattenTasks(state.tasks, 0);
+        renderGraph();
+        updateTrackingPanelIfNeeded();
+    }
+}
+
 function flattenTasks(taskTree, level) {
     state.flatTasks = [];
     function walk(nodes, level) {
@@ -3583,12 +3598,10 @@ async function completeTaskAndHandleReward(taskId) {
         }
     }
 
-    // 并行加载减少移动端延迟；完成后恢复滚动位置，避免"跳回列表顶部"
-    const prevScroll = window.scrollY || document.documentElement.scrollTop || 0;
-    const prevListScroll = DOM.taskListContainer ? DOM.taskListContainer.scrollTop : 0;
-    await Promise.all([loadTasks(), loadResources(), loadRealityRewards()]);
-    window.scrollTo(0, prevScroll);
-    if (DOM.taskListContainer) DOM.taskListContainer.scrollTop = prevListScroll;
+    // R29：局部更新 —— 只拉数据、不整表重绘。
+    // 旧写法 loadTasks()+renderTasks() 会把整张列表 DOM 重建两遍，用户正在操作的
+    // 列表瞬间被刷掉（闪烁、丢焦点）。现在拉完数据后只定点刷新受影响的卡。
+    await Promise.all([reloadTaskData(), loadResources(), loadRealityRewards()]);
 
     const updatedTask = state.flatTasks.find(t => t.id === taskId);
     if (updatedTask && updatedTask.status === 'done') {
@@ -3604,7 +3617,8 @@ async function completeTaskAndHandleReward(taskId) {
         notifyRepeatIfNeeded(updatedTask);
     }
     updateTrackingPanel();
-    renderTasks();
+    refreshTaskCardFor(taskId);
+    if (updatedTask && (updatedTask.track || 'daily') === 'campaign') renderCampaignSection();
 }
 
 function markRepeatNotified(taskId) {
@@ -3674,6 +3688,24 @@ function refreshTaskCard(taskId) {
     }
 }
 
+/* R29：定点刷新一张卡及其关联卡（父任务 + 直接子任务）。
+   「完成任务」会让一张卡连带父子状态一起变（后端级联完成子任务、父任务进度
+   随之变化），过去靠整表 renderTasks() 兜住，现在改为只刷这几张卡 —— 列表
+   其余部分完全不动，用户不会看到闪一下。卡片不存在（被筛掉/收起）时各自 no-op。 */
+function refreshTaskCardFor(taskId) {
+    const task = state.flatTasks.find(t => t.id === taskId);
+    refreshTaskCard(taskId);
+    if (task && task.parent_id) refreshTaskCard(task.parent_id);
+    state.flatTasks.forEach(t => { if (t.parent_id === taskId) refreshTaskCard(t.id); });
+    // 完成/领取会解除依赖它的任务阻塞 —— 顺手把当前显示为「依赖阻塞」的卡重算一遍，
+    // 否则它们会一直挂着旧样式，直到下一次整表刷新。
+    document.querySelectorAll('.task-card.dependency-blocked').forEach(c => {
+        const id = Number(c.dataset.taskId);
+        if (id) refreshTaskCard(id);
+    });
+    updateClaimAllButton();
+}
+
 async function updateCount(taskId, delta){
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task||task.status==='done') return;
     const newVal=Math.max(0,Math.min(task.target_value,(task.current_value||0)+delta));
@@ -3691,7 +3723,7 @@ async function updateCount(taskId, delta){
                 if(document.body.classList.contains('focus-mode')) await stopPomodoro();
                 collapseTrackingPanel();
             }
-            await loadTasks();
+            await reloadTaskData();
             await loadResources();
             await loadRealityRewards();
             const updatedTask=state.flatTasks.find(t=>t.id===taskId);
@@ -3706,7 +3738,8 @@ async function updateCount(taskId, delta){
                 notifyRepeatIfNeeded(updatedTask);
             }
             updateTrackingPanel();
-            renderTasks();
+            refreshTaskCardFor(taskId);
+            if(updatedTask && (updatedTask.track||'daily')==='campaign') renderCampaignSection();
         }
     } else {
         task.current_value = newVal;
@@ -4083,7 +4116,10 @@ async function claimReward(){
             closeAllModals();
             if(modalContainer){ modalContainer.style.transition='none'; modalContainer.style.transform=''; modalContainer.style.opacity=''; }
             state.rewardModalAnimating=false;
-            loadResources(); loadTransactions(); loadTasks(); updateTrackingPanel(); loadInventory();
+            // R29：领取后局部更新 —— 只拉数据 + 定点刷新该卡（含父子），不整表重绘
+            loadResources(); loadTransactions();
+            reloadTaskData().then(() => refreshTaskCardFor(taskId));
+            updateTrackingPanel(); loadInventory();
             // 明确提示素材已入库（带中文名），避免"领了奖励但感觉仓库没变化"
             const mats = (result && Array.isArray(result.materials)) ? result.materials : [];
             if (mats.length){
@@ -4108,7 +4144,7 @@ function spawnParticlesGatherThenFly(sourceElement) {
  * 领取反馈动画（R19 重做）
  * 旧版是「8 个随机 ✦/★/+/✧ 文字 + 15 个随机方块/圆点乱飞」—— 用户直说太丑，已整体删掉。
  * 新版只做两件克制的事，对齐方舟原版那种"一闪即收"的反馈：
- *   1) 源位置扩散两道金色光环（纯圆环，无字符、无方块碎片）
+ *   1) 源位置扩散两道方舟蓝光环（纯圆环，无字符、无方块碎片）
  *   2) 顶部资源栏数字/图标做一次 0.2s 的缩放回弹
  * 全程 ≤ 520ms，不挡视线、不抢后续操作。
  */
@@ -4122,7 +4158,7 @@ function playRewardFlyEffect(sourceElement, resultData) {
     const cx = startRect.left + startRect.width / 2;
     const cy = startRect.top + startRect.height / 2;
 
-    // ── 1) 金色光环扩散（两道，错开 90ms）──
+    // ── 1) 方舟蓝光环扩散（两道，错开 90ms）──
     const base = Math.max(startRect.width, startRect.height, 60);
     for (let i = 0; i < 2; i++) {
         const ring = document.createElement('div');
@@ -5461,8 +5497,13 @@ function buildSkinCard(s, stone){
     /* 21 源石及以上在原版属「动态立绘」档，但本地不一定真解到了那套 Spine 资源。
        所以分开标：手里有资源（预览里真会动）的给亮色徽章，仅档位到了的保留原样式 ——
        不把「按档位该动」说成「点了就能动」。 */
-    const dynLive = !!s.dynOnly || !!(window.DynPortrait && DynPortrait.has(s.skin_id));
-    const isDynamic = dynLive || (Number(s.cost) || 0) >= 21;
+    /* R29：动态立绘（Spine）已整体停用（见 dyn-portrait.js 顶部 DYN_DISABLED）。
+       DynPortrait.enabled === false 时不再打「动态」徽章、不再挂 is-dynamic，
+       一律当静态立绘处理，避免"标着会动、点开却是静态"的落差。
+       想恢复动态：把 dyn-portrait.js 的开关改回 false 即可。 */
+    const dynEnabled = !(window.DynPortrait && DynPortrait.enabled === false);
+    const dynLive = dynEnabled && (!!s.dynOnly || !!(window.DynPortrait && DynPortrait.has(s.skin_id)));
+    const isDynamic = dynEnabled && (dynLive || (Number(s.cost) || 0) >= 21);
     card.innerHTML =
         `<div class="skin-art${isDynamic ? ' is-dynamic' : ''}${dynLive ? ' has-spine' : ''}"` +
             ` data-skin-id="${escapeHtml(s.skin_id || '')}"` +

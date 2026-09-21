@@ -20,6 +20,31 @@
 window.DynPortrait = (function () {
     'use strict';
 
+    /* ========================================================================
+       R29 · 动态立绘（Spine）整体停用开关
+       ------------------------------------------------------------------------
+       用户反馈：动态立绘渲染出现「断肢 / 脸部异常线条」等骨骼错位（Spine 资源 /
+       运行时层面的问题，短期内无法稳定修复）。按用户要求「移除动态资源、改用
+       静态立绘」——这里统一短路成一个零操作 API：预览灯箱、卡片徽章、动态专区
+       全部自动退回静态图，并且不再注入 400KB+ 的 spine-webgl runtime。
+       想恢复动态立绘：把 DYN_DISABLED 改回 false 即可，下面代码原样保留。
+       ====================================================================== */
+    var DYN_DISABLED = true;
+    if (DYN_DISABLED) {
+        return {
+            enabled: false,                       /* 前端据此关掉「动态」徽章等 */
+            init: function () { return Promise.resolve({}); },
+            has: function () { return false; },   /* 任何皮肤都不再有动态资源 */
+            get: function () { return null; },
+            pool: function () { return []; },     /* 动态专区随之不再出现 */
+            play: function () { return Promise.resolve(false); },
+            stop: function () {},
+            refresh: function () {},
+            debug: function () { return null; },
+            get playing() { return false; },
+        };
+    }
+
     /* 用绝对路径：app.js 里的图片也是 `/static/...` 起头。
        写成相对的 `static/...` 时，一旦页面本身落在 /static/ 下（无头探针就是这样），
        会解析成 /static/static/... 而静默 404。 */
