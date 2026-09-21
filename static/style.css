@@ -7497,3 +7497,47 @@ body.theme-light .toast {
 body.theme-light .resource-item:hover { box-shadow: 0 4px 12px rgba(80,70,50,0.12), 0 0 10px rgba(0,117,168,0.14); }
 body.theme-light .wh-section-title { border-bottom-color: rgba(0,117,168,0.20); }
 body.theme-light .wh-cat-head { color: var(--ak-color-dark-blue, #0075a8); border-left-color: var(--ak-color-dark-blue, #0075a8); }
+
+/* ============================================================
+   13.5 方舟蓝收尾：主按钮 + 现实奖励卡/寻访结果卡 hover 高光
+   新增均为叠加层，不改动前面 1~13.4 的任何规则；想回滚删这一节即可。
+   ============================================================ */
+
+/* ① 主按钮 .btn-primary 收敛到方舟蓝（深 / 浅两套主题） */
+.btn-primary {
+    background: linear-gradient(135deg, var(--ak-color-primary, #4aabea), #2f8fd0);
+    border-color: var(--ak-color-primary, #4aabea);
+    box-shadow: 0 4px 12px rgba(74,171,234,0.40), inset 0 1px 0 rgba(255,255,255,0.20);
+}
+.btn-primary:hover {
+    background: linear-gradient(135deg, #5cb8f0, #2f8fd0);
+    box-shadow: 0 6px 16px rgba(74,171,234,0.60), inset 0 1px 0 rgba(255,255,255,0.20);
+    transform: translateY(-2px);
+}
+.btn-primary:active {
+    transform: translateY(1px) scale(0.96);
+    box-shadow: 0 2px 6px rgba(74,171,234,0.30);
+}
+body.theme-light .btn-primary {
+    background: linear-gradient(135deg, var(--ak-color-primary, #4aabea), #0075a8);
+    border-color: var(--ak-color-dark-blue, #0075a8);
+    box-shadow: 0 4px 12px rgba(0,117,168,0.30), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+body.theme-light .btn-primary:hover {
+    background: linear-gradient(135deg, #5cb8f0, #0075a8);
+    box-shadow: 0 6px 16px rgba(0,117,168,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+}
+
+/* ② 现实奖励卡 hover：通用白边 -> 方舟蓝描边 + 青蓝外发光（深 / 浅） */
+.reality-reward-card:hover {
+    border-color: rgba(74,171,234,0.45);
+    box-shadow: var(--shadow-large-1), var(--shadow-large-2), 0 0 18px rgba(74,171,234,0.22);
+}
+body.theme-light .reality-reward-card:hover {
+    border-color: rgba(0,117,168,0.45);
+    box-shadow: 0 12px 28px rgba(80,70,50,0.12), 0 0 18px rgba(0,117,168,0.18);
+}
+
+/* ③ 寻访结果区 .gacha-result：补一层极淡方舟蓝细边，呼应整体语言（深 / 浅） */
+.gacha-result { border: 1px solid rgba(74,171,234,0.14); }
+body.theme-light .gacha-result { border: 1px solid rgba(0,117,168,0.14); }
