@@ -7433,3 +7433,67 @@ body.theme-light .calendar-day.today {
     box-shadow: 0 0 12px rgba(0,117,168,0.25) !important;
 }
 body.theme-light .gh-actionbar-view { border-top-color: rgba(0,117,168,0.22); }
+
+/* =========================================================
+   13.4 按钮 / 吐司 / 顶栏资源 / 仓库 · 方舟蓝收敛（R29 第五刀）
+   与 13.0–13.3 同一套语言：把散落的中性白边/黑投影收敛到方舟蓝(#4aabea)。
+   - .btn-secondary：白边 → ak 蓝边，hover 转方舟蓝辉光
+   - .btn：focus-visible 聚焦环转方舟蓝（覆盖 11 区的近白描边）
+   - .toast：被全局玻璃材质盖掉蓝边，这里补回 ak 蓝描边 + 左向辉光条
+   - .resource-item：hover 补极淡 ak 蓝辉光
+   - 仓库弹窗：.wh-section-title 加 ak 蓝底线；.wh-cat-head 由 #3A80D0 收敛到 #4aabea
+   DOM/id/事件零改动；想回滚整段删除即可。
+   ========================================================= */
+
+/* ① 次级按钮：中性白边 → 方舟蓝边 */
+.btn-secondary { border-color: rgba(74,171,234,0.28); }
+.btn-secondary:hover {
+    border-color: var(--ak-color-primary, #4aabea);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3), 0 0 14px rgba(74,171,234,0.22);
+}
+/* ② 通用按钮聚焦环：方舟蓝（覆盖 11 区近白 outline） */
+.btn:focus-visible {
+    outline: 1px solid rgba(74,171,234,0.65) !important;
+    outline-offset: 2px;
+}
+/* ③ 吐司通知：补回 ak 蓝描边 + 左向辉光条（覆盖全局玻璃材质的白边） */
+.toast {
+    position: relative;
+    border-color: rgba(74,171,234,0.30) !important;
+    box-shadow: var(--shadow-medium-1), var(--shadow-medium-2), 0 0 0 1px rgba(74,171,234,0.08), 0 0 22px rgba(74,171,234,0.12) !important;
+}
+.toast::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--ak-color-primary, #4aabea);
+    box-shadow: 0 0 12px rgba(74,171,234,0.6);
+    border-radius: 8px 0 0 8px;
+}
+/* ④ 顶栏资源芯片：hover 极淡 ak 蓝辉光 */
+.resource-item:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 10px rgba(74,171,234,0.15);
+}
+/* ⑤ 仓库弹窗内收敛 */
+.wh-section-title {
+    color: var(--text-secondary-3);
+    border-bottom: 1px solid rgba(74,171,234,0.18);
+    padding-bottom: 6px;
+}
+.wh-cat-head {
+    color: var(--ak-color-primary, #4aabea);
+    border-left-color: var(--ak-color-primary, #4aabea);
+}
+
+/* ---- 浅色主题：蓝压深为 --ak-color-dark-blue(#0075a8) ---- */
+body.theme-light .btn-secondary { border-color: rgba(0,117,168,0.32); }
+body.theme-light .btn-secondary:hover {
+    border-color: var(--ak-color-dark-blue, #0075a8);
+    box-shadow: 0 4px 12px rgba(80,70,50,0.12), 0 0 14px rgba(0,117,168,0.20);
+}
+body.theme-light .btn:focus-visible { outline: 1px solid rgba(0,117,168,0.6) !important; }
+body.theme-light .toast {
+    border-color: rgba(0,117,168,0.32) !important;
+    box-shadow: var(--shadow-medium-1), var(--shadow-medium-2), 0 0 0 1px rgba(0,117,168,0.08), 0 0 22px rgba(0,117,168,0.10) !important;
+}
+body.theme-light .resource-item:hover { box-shadow: 0 4px 12px rgba(80,70,50,0.12), 0 0 10px rgba(0,117,168,0.14); }
+body.theme-light .wh-section-title { border-bottom-color: rgba(0,117,168,0.20); }
+body.theme-light .wh-cat-head { color: var(--ak-color-dark-blue, #0075a8); border-left-color: var(--ak-color-dark-blue, #0075a8); }
