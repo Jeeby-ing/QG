@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
-"""R29 第八刀 · 全站调色：把散落的「金黄色」机械收敛到明日方舟蓝白灰。
+"""⚠️ 已作废（R31，2026-09-22）—— 不要运行，默认会被拒绝执行。
 
-背景：R29 前七刀只动了"组件外观层"，但 style.css 里还散着 200+ 处硬编码的金黄
-（rgba(232,184,24,*) / #E8B818 / 金色渐变按钮 …），用户反馈"还是很多金黄色的配色，
-不是方舟风格"。这些颜色是字面量，没有走 CSS 变量，靠末尾追加规则覆盖不现实，
-所以这里做一次**可复现、可回滚的机械调色**：
+R31 结论：本脚本把「金黄 -> 方舟蓝」的决定**已被推翻**。用户反馈：
+  「星星改用金色而非蓝色；蓝色仅作为多种颜色之一，不要把所有字体都改成蓝色，
+    应保留并合理搭配多种颜色，把握原设计的配色精髓。」
+其中最严重的一点是：它把设计令牌也换了 —— `--highlight-gold-1` 的值一度成了 `#4aabea`，
+于是所有 `var(--highlight-gold-N)` 全渲染成蓝，整站只剩蓝。
 
-  · 只替换颜色字面量，**不动任何选择器 / 布局 / 尺寸**；
-  · 保留稀有度语义的橙金（6★ 卡、gp-r4/r5 礼包缎带、星级、op-chip 星）——
-    这些在方舟里本来就该是暖色；
-  · 结果写回 static/style.css，并打印替换统计。
+现状与正确做法：
+  · 该次调色已由 scripts/restyle_palette_revert.py 整体回退（344 行）；
+  · 配色体系改由 static/style.css §15.0 的语义令牌统一管理
+    （--ak-color-primary 金 / --ak-color-tech 蓝 / --ak-color-success / --ak-color-danger）；
+  · 需要调整配色请改 §15.0 的令牌值，**不要**再跑这个脚本。
 
-用法：python scripts/restyle_palette.py [--dry]
+如确需复现历史蓝化效果，显式加 --force-legacy（并自行承担后果）。
+
+用法：python scripts/restyle_palette.py --force-legacy [--dry]
 """
 import os
 import re
@@ -64,6 +68,12 @@ SKIP = re.compile(
 
 
 def main():
+    if "--force-legacy" not in sys.argv:
+        print("[拒绝执行] 本脚本已于 R31 作废：它会把全站金色再度刷成蓝色。")
+        print("  配色请改 static/style.css 的 §15.0 语义令牌；")
+        print("  要把历史蓝化整体回退，用 scripts/restyle_palette_revert.py。")
+        print("  确需复现历史效果请显式加 --force-legacy。")
+        return
     dry = "--dry" in sys.argv
     src = open(CSS, encoding="utf-8").read()
     lines = src.split("\n")
