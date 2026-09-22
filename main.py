@@ -426,12 +426,25 @@ def _ach_tier_for(rank: int, total: int) -> str:
 
 _ACH_REWARD_BY_TIER = {"bronze": 30, "silver": 95, "gold": 280, "diamond": 760}
 
+# 蚀刻章奖励龙门币 = 经验 × 这个系数（R30 新增，见 ECONOMY["ach_lungmen_per_exp"]）。
+# 定义在这里是因为 _build_family_achievements() 在模块顶部就会跑，那时 ECONOMY 还不存在。
+_ACH_LM_PER_EXP = 3
+
 
 def _ach_reward_exp(tier: str, rank: int, total: int) -> int:
     """奖励经验：同档位里越靠后的阈值给得越多，取整到 5。"""
     base = _ACH_REWARD_BY_TIER.get(tier, 30)
     ratio = rank / max(1, total - 1)
     return max(10, int(round(base * (1.0 + 1.2 * ratio) / 5.0) * 5))
+
+
+def _ach_reward_lm(exp: float) -> int:
+    """蚀刻章奖励龙门币 = 经验 × 系数，取整到 10。
+
+    R30：以前蚀刻章的 reward_lungmen 一律是 0 —— 350 枚章全解锁也只有经验，
+    这是"龙门币给少了"最刺眼的一块。
+    """
+    return max(10, int(round(float(exp) * _ACH_LM_PER_EXP / 10.0) * 10))
 
 
 def _load_fa_icon_names() -> set:
@@ -452,6 +465,56 @@ def _load_fa_icon_names() -> set:
 
 
 _FA_ICON_NAMES = _load_fa_icon_names()
+
+
+# ------------------------------------------------------------
+#  R29 第八刀：蚀刻章改用**游戏原版素材**
+#
+#  历史：之前 350 枚章全站都是 Font Awesome 图标（用户："没有用原游戏的资源"）。
+#  现在 static/img/medal/ 里放着从明日方舟原包解出的 400 枚蚀刻章 PNG
+#  （scripts/build_medal_assets.py 从 Aceship/Arknight-Images 的 ui/medalicon 拉取，
+#   归一化成 256x256 透明方形容器后转 webp）。这里给每枚章分配一张：
+#
+#    · 池顺序 = 语义分组顺序（成长/履历 → 关卡 → 基建 → 阵营 → 塔 → 隐藏 →
+#      肉鸽 → 活动 → 剧情），所以**按家族切连续片段**能让同家族的章形制相近，
+#      看上去像同一套组；
+#    · 池 400 枚 > 全部章 326 枚 ⇒ 每枚章分到的图都不同，依旧是"逐枚不一样"；
+#    · 素材缺失（没跑构建脚本）时 art 为空串，前端自动回退到 Font Awesome，
+#      服务不会因为少一个文件就崩。
+# ------------------------------------------------------------
+MEDAL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "static", "img", "medal")
+
+
+def _load_medal_pool():
+    try:
+        with open(os.path.join(MEDAL_DIR, "_manifest.json"), encoding="utf-8") as fh:
+            return [n for n in json.load(fh).get("pool", []) if isinstance(n, str)]
+    except Exception:
+        return []
+
+
+MEDAL_POOL = _load_medal_pool()
+
+ACH_ART = {}          # achievement id -> "medal/xxx.webp"（或 ""）
+_ART_CURSOR = 0
+
+
+def _alloc_art_block(n: int):
+    """顺序切 n 枚章图（越界回绕）。返回 ['medal/xxx.webp', ...]。"""
+    global _ART_CURSOR
+    if not MEDAL_POOL:
+        return [""] * n
+    size = len(MEDAL_POOL)
+    out = ["medal/%s.webp" % MEDAL_POOL[(_ART_CURSOR + i) % size] for i in range(n)]
+    _ART_CURSOR += n
+    return out
+
+
+# 手写老表先占一段（顺序与表内分组一致）
+for _row, _art in zip(PRESET_ACHIEVEMENTS,
+                      _alloc_art_block(len(PRESET_ACHIEVEMENTS))):
+    ACH_ART[_row[0]] = _art
 
 
 def _build_family_achievements():
@@ -510,6 +573,7 @@ def _build_family_achievements():
                             names[i] if i < len(names) else f"{ctype} {val}",
                             icons[i] if i < len(icons) else ""))
         total = len(entries)
+        arts = _alloc_art_block(total)          # 本家族独占一段原版章图
         for rank, (val, nm, ic) in enumerate(entries):
             tier = _ach_tier_for(rank, total)
             slug = str(val).replace(".", "_")
@@ -518,6 +582,7 @@ def _build_family_achievements():
                 aid = f"{ctype}__{slug}__x"
             used_ids.add(aid)
             used_pairs.add((ctype, val))
+            ACH_ART[aid] = arts[rank]
             label, unit = ACH_TYPE_META.get(ctype, (ctype, ""))
             desc = f"{label} {val} {unit}".strip() if unit else f"{label} {val}"
             built.append((aid, nm, desc, ctype, val,
@@ -775,20 +840,24 @@ def init_db():
         # R23：这里换成 ALL_PRESET_ACHIEVEMENTS = R21 手写老表 + 家族生成的新章（约 350 枚）。
         for (aid, name, desc, ctype, cval, exp, lm, icon, color, tier) in ALL_PRESET_ACHIEVEMENTS:
             conf = json.dumps({"icon": icon, "color": color, "tier": tier,
-                               "metal": TIER_METAL.get(tier, TIER_METAL["bronze"])},
+                               "metal": TIER_METAL.get(tier, TIER_METAL["bronze"]),
+                               "art": ACH_ART.get(aid, "")},
                               ensure_ascii=False)
+            # R30：龙门币不再恒为 0。表里显式写了值就用写的，没写就按经验折算 ——
+            # 老的 UPDATE 是无条件覆盖，所以老库里的 0 也会在这次启动被刷成正式值。
+            lm_grant = int(lm) if lm else _ach_reward_lm(exp)
             cur.execute("""
                 INSERT OR IGNORE INTO achievements
                 (id, name, description, condition_type, condition_value,
                  reward_exp, reward_lungmen, reward_source_stone, reward_orundum, badge_config, hidden)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0)
-            """, (aid, name, desc, ctype, cval, exp, lm, conf))
+            """, (aid, name, desc, ctype, cval, exp, lm_grant, conf))
             cur.execute("""
                 UPDATE achievements
                 SET name = ?, description = ?, condition_type = ?, condition_value = ?,
                     reward_exp = ?, reward_lungmen = ?, badge_config = ?
                 WHERE id = ?
-            """, (name, desc, ctype, cval, exp, lm, conf, aid))
+            """, (name, desc, ctype, cval, exp, lm_grant, conf, aid))
 
         generate_weekly_packs(cur)
 
@@ -1541,10 +1610,12 @@ WAREHOUSE_TOKENS = [it['key'] for it in WAREHOUSE_CATALOG if it.get('cat') == '�
 # R24：原版关卡掉落根本不掉源石（源石只来自首通 / 大版本补偿 / 充值），
 # 所以把 source_stone 从常规掉落池里整个拿掉，只保留后面「极小概率惊喜掉落」那一条。
 BASE_CURRENCY_DROPS = {
-    'low':     [('lungmen', 300, 1200, 10), ('orundum', 5, 20, 4)],
-    'mid':     [('lungmen', 800, 2500, 10), ('orundum', 15, 45, 5)],
-    'high':    [('lungmen', 1500, 4000, 9), ('orundum', 35, 90, 6)],
-    'extreme': [('lungmen', 3000, 7000, 8), ('orundum', 80, 180, 6)],
+    # R30：龙门币整体上调 2.5 倍（用户反馈"龙门币给少了"）。
+    # 原来的区间是 300~7000，配合每星 100 的任务基础，123 个任务才产出 1.6 万龙门币。
+    'low':     [('lungmen', 800, 3000, 10), ('orundum', 5, 20, 4)],
+    'mid':     [('lungmen', 2000, 6000, 10), ('orundum', 15, 45, 5)],
+    'high':    [('lungmen', 4000, 10000, 9), ('orundum', 35, 90, 6)],
+    'extreme': [('lungmen', 8000, 18000, 8), ('orundum', 80, 180, 6)],
 }
 
 
@@ -1602,6 +1673,10 @@ def calculate_random_drops(task_id: int, completed_at: str, cur=None) -> List[st
         pool_name = _pick_pool(star)
         # 素材池 + 基础货币
         pool = list(MATERIAL_DROP_POOLS[pool_name]) + list(BASE_CURRENCY_DROPS[pool_name])
+        # R30：主线任务是源石的地盘 —— 掉落池里把合成玉摘掉，
+        # 否则抽到的玉会在结算时被「源石/玉互斥」清掉，等于抽了个寂寞。
+        if task.get('task_line') == 'main':
+            pool = [e for e in pool if e[0] != 'orundum']
 
         # 掉落数量：随星级提升，且每次随机波动（不再固定 2 个）
         lo, hi = {1: (1, 2), 2: (1, 2), 3: (1, 3), 4: (2, 4), 5: (2, 5), 6: (3, 5)}.get(star, (1, 2))
@@ -1876,8 +1951,9 @@ def _legacy_create_repeat_copy(cur, task_id: int):
     else:
         return
     # 副本不继承父任务和前置依赖
+    # R30：龙门币 / 源石 / 合成玉统一走 auto_reward_*，不再内联写公式
     reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
-    reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
+    reward_lungmen = auto_reward_lungmen(task["priority"], task["task_line"])
     # R19：周期副本同样要能产出源石 —— 原来这里直接透传 task 的 0，
     # 于是「重复任务」永远给不出源石（这也是用户觉得源石不够用的原因之一）
     reward_source_stone = task["reward_source_stone"] or auto_reward_source_stone(
@@ -1944,18 +2020,9 @@ def get_task_with_tags(cur, task_id: int):
             reward_exp = task["priority"] * 50
         reward_exp += child_count * 10
         task_dict["reward_exp"] = reward_exp
-    if task_dict["reward_lungmen"] == 0:
-        if task["task_line"] == 'side':
-            reward_lungmen = task["priority"] * 100 * 1.2
-        else:
-            reward_lungmen = task["priority"] * 100
-        task_dict["reward_lungmen"] = reward_lungmen
-    # R19：列表/详情里显示的源石、合成玉也按同一口径兜底，
-    # 否则 UI 上写 0、实际发奖却有钱，用户会以为"任务不给源石"。
-    if (task_dict["reward_source_stone"] or 0) == 0:
-        task_dict["reward_source_stone"] = auto_reward_source_stone(task["priority"], task["task_line"])
-    if (task_dict["reward_orundum"] or 0) == 0:
-        task_dict["reward_orundum"] = auto_reward_orundum(task["priority"], task["task_line"])
+    # R30：龙门币 / 源石 / 合成玉 全部走同一个 resolve_task_rewards，
+    # 保证「界面显示的数」与「实际发奖的数」逐字一致（含源石/玉互斥）。
+    resolve_task_rewards(task_dict)
     cur.execute("""
         SELECT t.name, t.color FROM tags t
         JOIN task_tags tt ON t.id = tt.tag_id
@@ -2005,12 +2072,8 @@ def build_task_tree(cur, parent_id=None, include_archived=False, include_deleted
                 reward_exp = t["priority"] * 50
             reward_exp += child_count * 10
             t["reward_exp"] = reward_exp
-        if t["reward_lungmen"] == 0:
-            if t["task_line"] == 'side':
-                reward_lungmen = t["priority"] * 100 * 1.2
-            else:
-                reward_lungmen = t["priority"] * 100
-            t["reward_lungmen"] = reward_lungmen
+        # R30：龙门币 / 源石 / 合成玉 与发放路径共用 resolve_task_rewards
+        resolve_task_rewards(t)
         t["children"] = []
         task_dict_by_id[t["id"]] = t
     roots = []
@@ -2429,17 +2492,8 @@ async def get_tasks(
                     reward_exp = task["priority"] * 50
                 reward_exp += child_count * 10
                 task_dict["reward_exp"] = reward_exp
-            if task_dict["reward_lungmen"] == 0:
-                if task["task_line"] == 'side':
-                    reward_lungmen = task["priority"] * 100 * 1.2
-                else:
-                    reward_lungmen = task["priority"] * 100
-                task_dict["reward_lungmen"] = reward_lungmen
-            # R19：源石 / 合成玉同样兜底（与 _grant_task_rewards 同口径）
-            if (task_dict["reward_source_stone"] or 0) == 0:
-                task_dict["reward_source_stone"] = auto_reward_source_stone(task["priority"], task["task_line"])
-            if (task_dict["reward_orundum"] or 0) == 0:
-                task_dict["reward_orundum"] = auto_reward_orundum(task["priority"], task["task_line"])
+            # R30：龙门币 / 源石 / 合成玉 与发放路径同口径（含源石/玉互斥）
+            resolve_task_rewards(task_dict)
             task_dict["tags"] = tag_map.get(task["id"], [])
             result.append(task_dict)
     return {"data": result}
@@ -3039,30 +3093,54 @@ ECONOMY = {
     # ── 任务奖励 · 合成玉：按优先级分档 ──
     # 原版没有「一个任务」这种粒度，这里用「单抽 600 玉」反推：
     # 中度活跃用户每周约完成 10~12 个任务，希望落在 4~5 抽（2400~3000 玉）/周，
-    # 即每任务含掉落约 200~280 玉 —— 任务本体给 8~110，剩下由关卡掉落补。
-    "orundum_by_priority": {1: 8, 2: 15, 3: 30, 4: 50, 5: 75, 6: 110},
-    "orundum_main_bonus": 15,             # 主线额外 15，对齐原版关卡首通 10~30 玉
+    # 即每任务含掉落约 200~280 玉 —— 任务本体给 8~165，剩下由关卡掉落补。
+    # R30：主线摘掉合成玉之后，支线独自承担玉的产出，所以基数整体 ×1.5，
+    # 让「周产玉总量」与改动前基本持平（不是顺手把玉也砍了）。
+    "orundum_by_priority": {1: 12, 2: 25, 3: 45, 4: 75, 5: 110, 6: 165},
+    # R30：主线不再额外叠合成玉 —— 用户要求「合成玉不要和源石一起给」。
+    # 主线任务只结源石，合成玉全部留给支线 / 日常（见下方 exclusivity 说明）。
+    "orundum_main_bonus": 0,
 
     # ── 任务奖励 · 源石 ──
     # 原版源石是不可再生资源：只来自关卡首通 / 大版本补偿 / 充值，
-    # 日常与周常一股都不给。所以只有 main 线才发，数量对齐「每关首通 1 颗」，
-    # 6★ 视为章节终关 / 突袭首通给 2 颗。
-    "stone_by_priority_main": {1: 0, 2: 1, 3: 1, 4: 1, 5: 1, 6: 2},
+    # 日常与周常一股都不给。所以只有 main 线才发，数量对齐「每关首通 1 颗」。
+    # R30 收紧：2★ 不再给（原版低难关首通不给源石），6★ 从 2 颗降到 1 颗
+    #（用户反馈"源石给太多了"，而 6★ 主线在 Quest-log 里出现的频率远高于原版章节终关）。
+    "stone_by_priority_main": {1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 1},
+
+    # ── 任务奖励 · 龙门币（R30 上调）──
+    # 用户反馈「龙门币给少了」。原来每星 100（6★ 主线 600），
+    # 而实际流水里 123 个任务总共只产出 1.6 万龙门币，平均每个 137，
+    # 在「龙门币是养成主货币」的设定下明显偏低。
+    # 现在每星 300（6★ 支线 300×6×1.2 = 2160），约 3 倍。
+    "lungmen_per_star": 300,
+    "lungmen_side_mult": 1.2,
+    # 成就（蚀刻章）以前一颗龙门币都不给，只给经验 —— 350 枚章白拿。
+    # 现在按经验折算：龙门币 = 经验 × 3，取整到 10（实现见 _ach_reward_lm）。
+    "ach_lungmen_per_exp": _ACH_LM_PER_EXP,
 
     # ── 周期上限（防刷：超出部分直接不发，而不是照发）──
     # 日上限 ≈ 日常 100 + 剿灭/周常的日均摊；
     # 周上限 ≈ 100×7 + 500 + 1800 ≈ 3200 玉 ≈ 5.3 抽/周（缺口由签到/活动/成就补）；
-    # 源石周上限 ≈ 一周正常推图的首通量。
-    # 日上限按原版日均（日常 100 + 剿灭 1800/7 + 周常 500/7 ≈ 428）放宽到 600，
-    # 只用来挡「一天狂刷」；真正的天花板是周上限。
+    # 源石周上限 ≈ 一周正常推图的首通量（R30 从 8 收到 4）。
     "daily_orundum_cap": 600,
     "weekly_orundum_cap": 3000,
-    "weekly_stone_cap": 8,
+    # R30：8 → 4。用户本周正好拿满了 8 颗（流水可查），直接砍半最直接可感；
+    # 再加上「每星 3★+ 才给 1 颗」「6★ 不再翻倍」「掉落概率缩到 1/4」，
+    # 源石总产出约降到原来的 45%。
+    "weekly_stone_cap": 4,
 
     # ── 掉落 · 源石 ──
     # 原版关卡掉落根本不掉源石（源石只来自首通），这里只保留极小概率的惊喜掉落。
-    "drop_stone_chance": (0.006, 0.012),   # 按难度从 0.6% 线性到 1.2%
+    # R30：概率再砍到约 1/4（0.6%~1.2% → 0.15%~0.4%），把源石真正变成"惊喜级"。
+    "drop_stone_chance": (0.0015, 0.004),
     "drop_stone_amount": 1,
+
+    # ── 源石 / 合成玉 互斥 ──
+    # 用户明确要求：合成玉不要和源石一起给，分开。
+    # True 时，任何一笔结算里只要出现了源石，就把同一笔的合成玉清零
+    #（源石更稀有、且只由主线产出，所以让源石胜出）。
+    "exclusive_stone_orundum": True,
 }
 
 STONE_BY_PRIORITY_MAIN = ECONOMY["stone_by_priority_main"]
@@ -3090,9 +3168,67 @@ def auto_reward_source_stone(priority, task_line: str = '') -> int:
 
 
 def auto_reward_orundum(priority, task_line: str = '') -> int:
-    """任务合成玉奖励：按优先级分档，主线再加 10（对齐原版关卡首通 10~30 玉）。"""
+    """任务合成玉奖励：按优先级分档。
+
+    R30：主线一律返回 0 —— 主线只结源石，两者互斥（用户要求「分开」）。
+    原版口径其实也是分开的：合成玉来自日常/周常/剿灭，源石来自关卡首通，
+    没有任何一个原版来源会同时给两种。
+    """
+    if task_line == 'main':
+        return 0
     p = _norm_priority(priority)
-    return ORUNDUM_BY_PRIORITY[p] + (ORUNDUM_MAIN_BONUS if task_line == 'main' else 0)
+    return ORUNDUM_BY_PRIORITY[p] + ORUNDUM_MAIN_BONUS
+
+
+def auto_reward_lungmen(priority, task_line: str = '') -> int:
+    """任务龙门币奖励：每星固定额，支线 ×1.2（和 R24 口径一致，只是基数上调）。
+
+    R30：基数 100 → 300。龙门币是养成主货币，原来 123 个任务总共才产出 1.6 万，
+    用户直接反馈「龙门币给少了」。所有计算龙门币的地方都必须调这个函数，
+    否则又会出现「前端显示 100、实发 300」这类两侧口径漂移。
+    """
+    base = ECONOMY["lungmen_per_star"] * _norm_priority(priority)
+    return int(round(base * (ECONOMY["lungmen_side_mult"] if task_line == 'side' else 1.0)))
+
+
+def apply_reward_exclusivity(rewards: dict) -> dict:
+    """源石 / 合成玉 互斥（原地改 dict 并返回）。
+
+    用户要求：合成玉不要和源石一起给，分开。
+    规则：同一笔结算里只要出现了源石，就把合成玉清零 —— 源石只由主线产出、
+    更稀有，所以让它胜出。掉落补进来的合成玉同样会被这条规则清掉，
+    不会出现「主线任务既给源石又给玉」的情况。
+    """
+    if not ECONOMY["exclusive_stone_orundum"]:
+        return rewards
+    if (rewards.get('source_stone') or 0) > 0:
+        rewards['orundum'] = 0
+    return rewards
+
+
+def resolve_task_rewards(task) -> dict:
+    """把「库里存 0 = 走自动兜底」的四个奖励字段补齐成实际值。
+
+    task 既可以是 sqlite Row（dict() 过的 dict），也可以是普通 dict。
+    读取接口（/api/tasks、/api/tasks/tree、/api/tasks/{id}）与发放路径
+    （compute_task_rewards）必须共用这一个函数 —— 历史上这几处各写了一份
+    `priority * 100`，改数值时漏过同步，出现过「界面显示 0、实发有钱」。
+    注意：不含掉落，也不含周期上限截断（那两件事只在发放时算）。
+    原地修改并返回同一个 dict（sqlite Row 会先转成 dict）。
+    """
+    t = task if isinstance(task, dict) else dict(task)
+    priority = t.get("priority") or 1
+    task_line = t.get("task_line") or 'side'
+    if not t.get("reward_exp"):
+        t["reward_exp"] = priority * 50 * (1.3 if task_line == 'main' else 1.0)
+    if not t.get("reward_lungmen"):
+        t["reward_lungmen"] = auto_reward_lungmen(priority, task_line)
+    if not t.get("reward_source_stone"):
+        t["reward_source_stone"] = auto_reward_source_stone(priority, task_line)
+    if not t.get("reward_orundum"):
+        t["reward_orundum"] = auto_reward_orundum(priority, task_line)
+    return apply_reward_exclusivity(t)
+
 
 
 # ---------- 周期产出上限（防「多刷任务 = 无限抽」）----------
@@ -3180,30 +3316,25 @@ def compute_task_rewards(cur, task) -> dict:
             (task_id,))
         child_count = cur.fetchone()[0]
         reward_exp += child_count * 10
-    if task["reward_lungmen"] != 0:
-        reward_lungmen = task["reward_lungmen"]
-    else:
-        reward_lungmen = task["priority"] * 100 * (1.2 if task["task_line"] == 'side' else 1.0)
-    if task["reward_source_stone"] != 0:
-        reward_stone = task["reward_source_stone"]
-    else:
-        reward_stone = auto_reward_source_stone(task["priority"], task["task_line"])
-    if task["reward_orundum"] != 0:
-        reward_orundum = task["reward_orundum"]
-    else:
-        reward_orundum = auto_reward_orundum(task["priority"], task["task_line"])
 
+    # R30：龙门币 / 源石 / 合成玉 统一走 resolve_task_rewards ——
+    # 与 /api/tasks、/api/tasks/tree 显示的是同一个函数，不再有两份公式。
+    base = resolve_task_rewards(dict(task))
     rewards = {
         'exp': reward_exp,
-        'lungmen': reward_lungmen,
-        'source_stone': reward_stone,
-        'orundum': reward_orundum,
+        'lungmen': base['reward_lungmen'],
+        'source_stone': base['reward_source_stone'],
+        'orundum': base['reward_orundum'],
     }
     drop_rewards = parse_drop_config_to_rewards(task["drop_config"])
     rewards['source_stone'] += drop_rewards['source_stone']
     rewards['orundum'] += drop_rewards['orundum']
     rewards['lungmen'] += drop_rewards['lungmen']
+    # 掉落可能把合成玉补进一个本来就有源石的主线任务 —— 结算的最后一步再过一次互斥，
+    # 保证「同一笔奖励里绝不会同时出现源石与合成玉」。
+    apply_reward_exclusivity(rewards)
     return rewards
+
 
 
 def _grant_task_rewards(cur, task):
