@@ -8065,3 +8065,114 @@ body.theme-light .nav-tab.active {
     background: rgba(184,134,11,0.14);
     box-shadow: inset 0 0 0 1px rgba(138,98,0,0.28);
 }
+
+/* ==========================================================================
+   16.0  弹窗进出场 + 领奖反馈（R32）
+   --------------------------------------------------------------------------
+   用户反馈：「替换当前弹窗突兀弹出又突然消失的生硬效果，确保交互体验自然连贯」。
+
+   旧行为的两个硬伤：
+     · 进场只有 0.25s 的 modalIn，且遮罩是 display:none ↔ block（无法过渡），
+       所以遮罩是"啪"地出现；
+     · 退场直接把 .show 摘掉 → display:none，没有任何过渡，就是"突然消失"。
+   现在：
+     · 遮罩改用 opacity + visibility 过渡（display 恒为 block），可淡入可淡出；
+     · 弹窗进场 akModalIn（轻微上浮 + 回弹放大），退场 akModalOut（缩小淡出），
+       退场动画跑完（或 320ms 兜底）才由 JS 真正 hidden —— 见 app.js __animateModalOut。
+
+   本节全部是「后写覆盖」，前面的规则一行没改；想回滚删掉这一节即可。
+   ========================================================================== */
+
+/* ---- 16.0.1 遮罩：可进可出 ---- */
+.modal-overlay {
+    display: block;                       /* 覆盖旧 display:none（过渡要靠它） */
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    animation: none;                      /* 旧的 overlayIn 不再需要 */
+    transition: opacity 0.30s ease, visibility 0s linear 0.30s;
+}
+.modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    animation: none;
+    transition: opacity 0.30s ease, visibility 0s;
+}
+
+/* ---- 16.0.2 弹窗本体：进场弹性放大 / 退场缩小淡出 ---- */
+.modal-container.show {
+    animation: akModalIn 0.36s cubic-bezier(0.18, 1.04, 0.32, 1) both;
+}
+.modal-container.closing {
+    animation: akModalOut 0.22s cubic-bezier(0.4, 0, 0.7, 0.2) both;
+    pointer-events: none;
+}
+@keyframes akModalIn {
+    from { opacity: 0; transform: translate(-50%, -44%) scale(0.94); }
+    to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes akModalOut {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    to   { opacity: 0; transform: translate(-50%, -52%) scale(0.965); }
+}
+
+/* ---- 16.0.3 奖励结算弹窗：标题栏从蓝改金，和里面的金色奖励/金按钮同源 ----
+   R31 的角色分工是「金 = 主强调 / 关键数值 / 奖励；蓝 = 科技与信息」，
+   结算窗整屏都是奖励，标题却挂一条蓝线，是明显的自相矛盾。 */
+#rewardModal .modal-header {
+    border-bottom-color: var(--ak-color-primary, #FFD028);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 20px rgba(255,208,40,0.10);
+}
+#rewardModal .modal-title {
+    color: var(--ak-color-primary, #FFD028);
+    text-shadow: 0 0 12px rgba(255,208,40,0.30);
+}
+/* 领取按钮最后浮现（只动 opacity，避免 keyframes 的 transform 压住 :hover 上浮） */
+#rewardModal .reward-claim-btn {
+    animation: akModalFadeIn 0.40s ease both;
+    animation-delay: 0.18s;
+}
+@keyframes akModalFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- 16.0.4 任务卡：可领取时整卡就是按钮 ---- */
+.task-card.claimable { cursor: pointer; }
+.task-card.claimable .task-claim-badge { pointer-events: auto; }
+
+/* ---- 16.0.5 领奖落点：金色光晕收束 + 徽章弹一下 ---- */
+.task-card.claim-just-done {
+    animation: akClaimDone 0.9s cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+@keyframes akClaimDone {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 208, 40, 0); }
+    28%  { box-shadow: 0 0 0 2px rgba(255, 208, 40, 0.55), 0 0 26px rgba(255, 196, 60, 0.45); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 208, 40, 0); }
+}
+.task-card.claim-just-done .task-claim-badge {
+    animation: akBadgePop 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes akBadgePop {
+    0%   { transform: scale(0.78); opacity: 0.45; }
+    62%  { transform: scale(1.09); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* ---- 16.0.6 吐司退场：不再"啪"地消失 ---- */
+.toast.toast-out {
+    animation: akToastOut 0.22s ease forwards;
+    pointer-events: none;
+}
+@keyframes akToastOut {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(10px); }
+}
+
+/* 尊重系统的「减少动态效果」偏好 */
+@media (prefers-reduced-motion: reduce) {
+    .modal-overlay, .modal-container.show, .modal-container.closing,
+    #rewardModal .reward-claim-btn, .task-card.claim-just-done,
+    .task-card.claim-just-done .task-claim-badge, .toast.toast-out {
+        animation: none !important;
+        transition-duration: 0.01ms !important;
+    }
+}

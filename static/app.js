@@ -1007,7 +1007,15 @@ function showToast(msg, duration = 3000) {
     toast.className = 'toast';
     toast.textContent = msg;
     DOM.toastContainer.appendChild(toast);
-    setTimeout(() => toast.remove(), duration);
+    /* R32：以前时间一到直接 remove() —— 吐司"啪"地消失。
+       现在先挂 .toast-out 走一段淡出（240ms）再摘，和弹窗的退场是一套语言。 */
+    const kill = () => {
+        if (toast.dataset.leaving) return;
+        toast.dataset.leaving = '1';
+        toast.classList.add('toast-out');
+        setTimeout(() => toast.remove(), 240);
+    };
+    setTimeout(kill, duration);
 }
 
 function showConfirm(message, callback) {
@@ -1847,9 +1855,10 @@ function createTaskCard(task) {
     }
     if (task.status === 'done') card.draggable = false;
 
-    /* R29 第九刀：卡片本身只负责「展示状态 + 进详情页」。
-       领奖不再是「点卡片任意处」——那会让人想看一眼详情就把奖励领掉了。
-       三态由 claimStateOf() 统一给出，徽章才是唯一的领奖入口。 */
+    /* R29 第九刀定下「三态由 claimStateOf() 统一给出」这条铁律（沿用至今）。
+       R32：领奖入口重新放宽 —— 可领取的卡片点整卡即领取（用户要求「无需先点开详情页」），
+       右侧徽章是同一动作的可视化提示；卡片进详情改为只在「没奖可领」时发生，
+       详情另有操作区里的 ⓘ 按钮兜底。 */
     const claimState = claimStateOf(task);
     const claimable = claimState === 'claimable';
 
@@ -2060,6 +2069,14 @@ function createTaskCard(task) {
         trackBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleTrackingForTask(task.id); });
         actions.appendChild(trackBtn);
     }
+    /* R32：详情入口 —— 可领取的卡片点整卡是「领取」，所以详情必须另给一个
+       显式入口，否则想看任务信息就只剩编辑按钮。放在操作区第一位。 */
+    const detailBtn = document.createElement('button');
+    detailBtn.className = 'action-btn';
+    detailBtn.innerHTML = '<i class="fa-solid fa-circle-info"></i>';
+    detailBtn.title = '查看详情';
+    detailBtn.addEventListener('click', (e) => { e.stopPropagation(); openTaskDetail(task.id); });
+    actions.appendChild(detailBtn);
     const editBtn = document.createElement('button');
     editBtn.className = 'action-btn';
     editBtn.innerHTML = '<i class="fa-solid fa-pen"></i>';
@@ -2099,15 +2116,18 @@ function createTaskCard(task) {
         /* ⚠️ 必须在 appendChild(actions) 之后再 insertBefore ——
            actions 还不是 card 的子节点时 insertBefore 会抛 NotFoundError。
            R29 第九刀：徽章从 <div pointer-events:none> 改成真正的 <button>。
-           它现在是列表里唯一的领奖入口，卡片本身只管打开详情页。 */
+           R32：徽章不再是「唯一入口」，而是与「点整卡领取」同一个动作的可视化提示。 */
         card.insertBefore(buildClaimBadge(claimState, task, card), actions);
     }
     card.addEventListener('click', () => {
         if (window._suppressClick) return;
         if (state.selectionMode) { toggleSelectTask(task); return; }
-        /* 点卡片 = 看详情（用户明确要求：点卡片只是进详情页看信息，
-           不应该顺手把奖励领掉）。领奖只走右侧徽章 / 详情页按钮 / 一键领取。 */
-        if (!isBlocked(task)) openTaskDetail(task.id);
+        if (isBlocked(task)) return;
+        /* R32：可领取的卡片 = 直接领取（用户要求「无需先点开详情页」）。
+           点卡片进详情这条路只对「没有奖可领」的卡保留，详情入口另有
+           操作区里的 ⓘ 详情按钮，所以信息并没有被藏起来。 */
+        if (claimState === 'claimable') { claimTaskFromCard(task.id, card); return; }
+        openTaskDetail(task.id);
     });
     return card;
 }
@@ -2185,6 +2205,16 @@ async function claimTaskFromCard(taskId, cardEl){
     else refreshTaskCardFor(taskId);                // 单个任务：定点刷新，不闪
     if (typeof updateTrackingPanel === 'function') updateTrackingPanel();
     try { loadInventory(); } catch (e) {}
+
+    /* R32：领到手的一瞬间给卡片一个金色光晕收束 + 徽章弹一下 ——
+       让「卡片上的可领取 → 已领取」有个视觉落点，而不是徽章无声无息地换了个字。
+       注意要在 refreshTaskCardFor 之后加：它会整块重写 card.className。 */
+    const cardAfter = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
+    if (cardAfter){
+        cardAfter.classList.remove('claiming');
+        cardAfter.classList.add('claim-just-done');
+        setTimeout(()=>cardAfter.classList.remove('claim-just-done'), 950);
+    }
 
     const granted = [];
     const rw = result.rewards || {};
@@ -3708,10 +3738,9 @@ async function completeTaskAndHandleReward(taskId) {
     const updatedTask = state.flatTasks.find(t => t.id === taskId);
     if (updatedTask && updatedTask.status === 'done') {
         /* R19：快捷完成后【不再自动弹】领取奖励窗口。
-           R29 第九刀：领奖入口改成右侧「可领取」徽章（点卡片只进详情页），
-           提示语跟着改，否则用户会继续去点卡片。 */
+           R32：领奖入口改成「点整卡即可」+ 右侧可领取徽章，提示语跟着改。 */
         if (claimStateOf(updatedTask) === 'claimable') {
-            showToast('任务完成 · 点右侧「可领取」领取奖励');
+            showToast('任务完成 · 点一下这张卡片即可领取奖励');
         } else {
             showToast('任务已完成');
         }
@@ -4217,13 +4246,12 @@ async function claimReward(){
            避免动画期间卡片还挂着「可领取」被再点一次。 */
         const ids=(Array.isArray(result.detail)?result.detail:[]).map(d=>d&&d.id).filter(Boolean);
         markClaimedLocally(ids.length?ids:[Number(taskId)]);
-        setTimeout(() => spawnParticlesGatherThenFly(document.querySelector('#rewardModal .modal')), 300);
-        const modalContainer=document.querySelector('#rewardModal');
-        if(modalContainer){ modalContainer.style.transition='transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94), opacity 0.3s ease';
-            modalContainer.style.transform='translate(-50%, -50%) scale(0.6)'; modalContainer.style.opacity='0'; }
+        /* R32：视觉收尾改成「光环从弹窗扩散 → 弹窗按统一退场动画收掉」。
+           这里不再手写内联 transform/opacity：CSS 动画的优先级高于内联普通声明，
+           两套写法叠在同一个元素上只会互相打架（旧版就是硬等 600ms 才 close）。 */
+        spawnParticlesGatherThenFly(document.querySelector('#rewardModal .modal'));
+        setTimeout(()=>closeAllModals(), 380);
         setTimeout(()=>{
-            closeAllModals();
-            if(modalContainer){ modalContainer.style.transition='none'; modalContainer.style.transform=''; modalContainer.style.opacity=''; }
             state.rewardModalAnimating=false;
             // R29：领取后局部更新 —— 只拉数据 + 定点刷新该卡（含父子），不整表重绘
             loadResources(); loadTransactions();
@@ -4240,7 +4268,7 @@ async function claimReward(){
             if(currentIndex!==-1&&currentIndex+1<sorted.length){ const nextTaskId=sorted[currentIndex+1].id;
                 const nextCard=document.querySelector(`.task-card[data-task-id="${nextTaskId}"]`);
                 if(nextCard){ nextCard.classList.add('highlight-next'); nextCard.scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>nextCard.classList.remove('highlight-next'),3000); } }
-        }, 600);
+        }, 760);
     } else {
         state.rewardModalAnimating=false;
         /* 领取失败（最常见的就是后端回「奖励已领取」→ 说明别的入口已经发过了）：
@@ -6109,11 +6137,50 @@ async function loadOperatorRecords(){
     });
 }
 
-function openModal(id){ const modal = document.getElementById(id); if(modal){ modal.classList.add('show'); modal.classList.remove('hidden'); } DOM.modalOverlay.classList.add('show'); }
+/* ===== 弹窗开合（R32：带进出场动画） =====
+   旧行为：openModal 直接加 .show、closeAllModals 直接把 .show 摘掉 →
+   靠 display:none 瞬间消失，观感是「啪」地出现又「啪」地不见。
+   现在：进场走 akModalIn（弹性放大 + 上浮归位），退场走 .closing + akModalOut
+   （缩小淡出），等退场动画跑完（或 320ms 兜底）才真正 hidden。
+   退场期间若又打开新弹窗，openModal 会先把正在退场的收干净，避免两层同时可见。 */
+function __finalizeModal(m){
+    m.classList.remove('show', 'closing');
+    m.classList.add('hidden');
+    m.style.transform = '';
+    m.style.opacity = '';
+    m.style.transition = '';
+}
+function __animateModalOut(m){
+    if (!m || m.classList.contains('hidden')) { if (m) __finalizeModal(m); return; }
+    m.classList.add('closing');
+    let settled = false;
+    const done = () => {
+        if (settled) return; settled = true;
+        m.removeEventListener('animationend', done);
+        __finalizeModal(m);
+    };
+    m.addEventListener('animationend', done);
+    setTimeout(done, 320);          // 兜底：动画被系统关闭 / 未触发也要收干净
+}
+function openModal(id){
+    /* 先把还在退场的弹窗立刻收起，否则会出现「旧窗渐隐 + 新窗渐显」两层叠加 */
+    document.querySelectorAll('.modal-container.closing').forEach(__finalizeModal);
+    const modal = document.getElementById(id);
+    if(modal){
+        modal.classList.remove('hidden', 'closing');
+        void modal.offsetWidth;      // 强制回流，保证同一弹窗连续打开时进场动画能重放
+        modal.classList.add('show');
+    }
+    DOM.modalOverlay.classList.add('show');
+}
 function closeAllModals(){
     if (rewardModalTimer) { clearTimeout(rewardModalTimer); rewardModalTimer = null; }
     rewardModalOpenTaskId = null;
-    document.querySelectorAll('.modal-container').forEach(m=>{ m.classList.remove('show'); m.classList.add('hidden'); m.style.transform=''; m.style.opacity=''; }); DOM.modalOverlay.classList.remove('show');
+    const shown = [...document.querySelectorAll('.modal-container')]
+        .filter(m => m.classList.contains('show') && !m.classList.contains('hidden'));
+    if (shown.length) shown.forEach(__animateModalOut);
+    else document.querySelectorAll('.modal-container').forEach(__finalizeModal);  // 收掉残留
+    DOM.modalOverlay.classList.remove('show');
     // 清理外部对勾
     const extCheck = document.querySelector('.reward-external-check'); if(extCheck) extCheck.remove();
 }
@@ -6128,8 +6195,9 @@ function handleGlobalEscape(){
     // 2) 时装大图预览
     if (skinLightbox && !skinLightbox.classList.contains('hidden')) { closeSkinPreview(); return; }
     // 3) 弹窗：关掉可见的最后一个（后来居上，符合「返回上一层」的直觉）
+    //    正在退场（.closing）的不算「可见」，否则连按 ESC 会重复命中同一个窗
     const opens = [...document.querySelectorAll('.modal-container')]
-        .filter(m => m.classList.contains('show') && !m.classList.contains('hidden'));
+        .filter(m => m.classList.contains('show') && !m.classList.contains('hidden') && !m.classList.contains('closing'));
     if (opens.length) { closeTopModal(opens[opens.length - 1]); return; }
 }
 // 兜底注册：即使页面上的自定义下拉初始化没跑，ESC 也必须能关窗口
@@ -6142,13 +6210,12 @@ document.addEventListener('keydown', e => {
     handleGlobalEscape();
 });
 function closeTopModal(m){
-    m.classList.remove('show');
-    m.classList.add('hidden');
-    m.style.transform = '';
-    m.style.opacity = '';
-    // 还有别的弹窗开着就保留遮罩，否则一并撤掉
+    if (!m) return;
+    /* 先看「除它自己以外」还有没有别的弹窗开着 —— 决定遮罩留不留。
+       注意要在加 .closing 之前判断：退了场的弹窗仍然挂着 .show。 */
     const stillOpen = [...document.querySelectorAll('.modal-container')]
-        .some(x => x.classList.contains('show') && !x.classList.contains('hidden'));
+        .some(x => x !== m && x.classList.contains('show') && !x.classList.contains('hidden'));
+    __animateModalOut(m);
     if (!stillOpen) {
         if (DOM.modalOverlay) DOM.modalOverlay.classList.remove('show');
         if (typeof rewardModalTimer !== 'undefined' && rewardModalTimer) { clearTimeout(rewardModalTimer); rewardModalTimer = null; }
