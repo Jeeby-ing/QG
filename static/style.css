@@ -7985,3 +7985,83 @@ body.theme-light .btn.btn-claimed:hover {
     border-color: rgba(0, 0, 0, 0.16);
 }
 body.theme-light .btn.btn-claimed i { opacity: 0.75; }
+
+/* ==========================================================================
+   15.1  主按钮「领取奖励」静态态 / 反馈态统一（R31 补）
+   --------------------------------------------------------------------------
+   问题（用户截图）：同一个「领取奖励」按钮，静态态是一块蓝，
+   悬停/按下却是「左半金、右半蓝」——像是两个不同的按钮。
+
+   根因：§13.5 的 .btn-primary 是我手写的**金→蓝**渐变
+   （`linear-gradient(135deg, var(--ak-color-primary,#FFD028), #2f8fd0)`），
+   R31 的配色回退脚本只认得「机械调色产出」的那批蓝色字面量，
+   `#2f8fd0` / `#5cb8f0` / `#0075a8` 是我直接写进去的，没被回退 ——
+   于是首停变回金色、次停还是蓝，成了金蓝各半；
+   而 :hover 那两条本来就**全是蓝**，和静态态更对不上。
+
+   规范（静态 / hover / active / focus 四态共用同一套材质，只改明度）：
+     金渐变 + 深棕文字（金底上唯一够对比的方案）+ 同色系描边与光晕；
+     尺寸 / 圆角 / 图标不受状态影响，状态只允许改「明度 + 位移 + 光晕强度」。
+   本节的覆盖顺序在 §13.5 之后，同特异性下后者胜，故生效。
+   ========================================================================== */
+.btn-primary {
+    background: linear-gradient(135deg, #FFD028, #D69400);
+    border-color: #E8B000;
+    color: #2A1A00;                                   /* 深棕字：金底可读性 */
+    box-shadow: 0 4px 12px rgba(232,184,24,0.40), inset 0 1px 0 rgba(255,255,255,0.30);
+    text-shadow: none;
+}
+.btn-primary:hover {
+    background: linear-gradient(135deg, #FFE066, #E8A800);
+    border-color: #FFD028;
+    box-shadow: 0 6px 16px rgba(232,184,24,0.60), inset 0 1px 0 rgba(255,255,255,0.35);
+    transform: translateY(-2px);
+}
+.btn-primary:active {
+    background: linear-gradient(135deg, #E8B000, #C8860C);
+    border-color: #C8860C;
+    box-shadow: 0 2px 6px rgba(232,184,24,0.30);
+    transform: translateY(1px) scale(0.96);
+}
+/* 键盘可达性：聚焦环与主色同源，不再冒出一个纯蓝圈 */
+.btn-primary:focus-visible,
+button.task-claim-badge:focus-visible {
+    outline: 2px solid var(--ak-color-primary, #FFD028);
+    outline-offset: 2px;
+}
+/* 浅色主题：同一套金，只是整体压深一档 */
+body.theme-light .btn-primary {
+    background: linear-gradient(135deg, #FFD028, #E0A800);
+    border-color: #B8860B;
+    color: #3A2600;
+    box-shadow: 0 4px 12px rgba(160,110,0,0.30), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+body.theme-light .btn-primary:hover {
+    background: linear-gradient(135deg, #FFE066, #EFA900);
+    border-color: #B8860B;
+    box-shadow: 0 6px 16px rgba(160,110,0,0.42), inset 0 1px 0 rgba(255,255,255,0.40);
+}
+/* 浅色主题必须有独立的 :active —— 否则会被上面 (0,2,1) 的 .btn-primary 静态规则
+   以「更高特异性」压住 (0,2,0) 的 .btn-primary:active，按下时外观毫无反馈。 */
+body.theme-light .btn-primary:active {
+    background: linear-gradient(135deg, #E8B000, #B8860B);
+    border-color: #8A6200;
+    box-shadow: 0 2px 6px rgba(160,110,0,0.30);
+}
+
+/* ---- 15.1.1  导航选中态：下划线里的「金-青-金」夹心 + 浅色主题的蓝，统一成金 ----
+   注意特异性：原规则是 .nav-tab.active::after（0,2,1），本节必须同特异性才盖得住。 */
+.nav-tab.active::after {
+    background: linear-gradient(90deg,
+        transparent, #FFD028 18%, #FFE9A8 50%, #FFD028 82%, transparent);
+}
+body.theme-light .nav-tab.active::after {
+    background: linear-gradient(90deg,
+        transparent, #B8860B 18%, #E0A800 50%, #B8860B 82%, transparent);
+}
+/* 浅色主题选中态的文字与底板也跟着主色走（原为蓝字蓝底） */
+body.theme-light .nav-tab.active {
+    color: #7A5400;
+    background: rgba(184,134,11,0.14);
+    box-shadow: inset 0 0 0 1px rgba(138,98,0,0.28);
+}
