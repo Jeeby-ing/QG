@@ -8574,3 +8574,155 @@ body.theme-light .gp-chip b { color: #1A1A1A; }
 body.theme-light .gp-buy { text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
 body.theme-light .gp-buy.gp-buy-locked,
 body.theme-light .gp-buy:disabled { color: var(--text-muted-3); }
+
+/* ============================================================
+ * §18.3  方案A：主操作控件回到原版青蓝 #0090D0（R36）
+ * ------------------------------------------------------------
+ * 依据（R34b 解出的客户端图集实测值，同 §18.2）：
+ *   month_card_buy_btn.webp  228x62   #0090D0(99%)
+ *       → 原版**主操作按钮**就是这块青蓝。金色在原版里只承担
+ *         「星级 / 稀有度 / 蚀刻章 / 货币数字」这类**语义色**，
+ *         从来不用来做按钮底色。本项目 R24/R31 的"金为主"决定
+ *         把两者合成了一支金，于是"能点的主按钮"和"星级装饰"
+ *         是同一个颜色，主次不分 —— 这就是本节要解决的问题。
+ *
+ * 本节只做一件事：把**主操作控件**换成原版青蓝，尺寸 / 圆角 /
+ * 位移反馈 / 扫光动效一律不动，只换色号与文字色。
+ *
+ * 明确**不碰**（继续保留金色语义）：
+ *   星星与星级色条、稀有度标签、蚀刻章、货币与经验数字、
+ *   左上角 Logo、顶部导航选中下划线（那是品牌装饰条，不是按钮；
+ *   要不要一起改成青蓝是另一个话题，说一声即可）。
+ *
+ * 青蓝三档（与 §18.2 购买条同源，保证"所有可点的主操作"是同一块材质）：
+ *   常态 #0090D0 / 悬停 #00A6EF / 按下 #0079AF；浅色主题整体压深到 #0075a8。
+ * 想回滚：整段删掉即可，前面一行都没动。
+ * ============================================================ */
+
+/* ① 主按钮 .btn-primary —— 四态 × 双主题。
+      §15.1 那套金渐变与本节的 :root 规则特异性同级，本节在文件最后，
+      同特异性下后者胜；浅色主题同理（(0,2,0) 对 (0,2,0)）。 */
+.btn-primary {
+    background: linear-gradient(135deg, #00A6EF, #0079AF);
+    border-color: #0090D0;
+    color: #F0F0F0;                       /* 原版按钮是白字，不再是金底上的深棕字 */
+    text-shadow: 0 1px 2px rgba(0,0,0,0.42);
+    box-shadow: 0 4px 12px rgba(0,144,208,0.40), inset 0 1px 0 rgba(255,255,255,0.28);
+}
+.btn-primary:hover {
+    background: linear-gradient(135deg, #2CB8F5, #0090D0);
+    border-color: #00A6EF;
+    box-shadow: 0 6px 16px rgba(0,144,208,0.58), inset 0 1px 0 rgba(255,255,255,0.34);
+    transform: translateY(-2px);
+}
+.btn-primary:active {
+    background: linear-gradient(135deg, #0079AF, #00648C);
+    border-color: #00648C;
+    box-shadow: 0 2px 6px rgba(0,144,208,0.30);
+    transform: translateY(1px) scale(0.96);
+}
+.btn-primary:focus-visible,
+button.task-claim-badge:focus-visible {
+    outline: 2px solid #00A6EF;
+    outline-offset: 2px;
+}
+body.theme-light .btn-primary {
+    background: linear-gradient(135deg, #00A6EF, #0075a8);
+    border-color: #0075a8;
+    color: #F7FBFE;
+    text-shadow: 0 1px 2px rgba(0,40,60,0.34);
+    box-shadow: 0 4px 12px rgba(0,117,168,0.28), inset 0 1px 0 rgba(255,255,255,0.34);
+}
+body.theme-light .btn-primary:hover {
+    background: linear-gradient(135deg, #2CB8F5, #0089C4);
+    border-color: #00648C;
+    box-shadow: 0 6px 16px rgba(0,117,168,0.40), inset 0 1px 0 rgba(255,255,255,0.40);
+}
+body.theme-light .btn-primary:active {
+    background: linear-gradient(135deg, #0075a8, #00648C);
+    border-color: #00648C;
+    box-shadow: 0 2px 6px rgba(0,117,168,0.28);
+}
+
+/* ② 「领取奖励」徽章：可领取态从金换成同一块青蓝。
+      （已领取态的静音灰是 §15.0.2 的语义，保持不动。） */
+button.task-claim-badge:not(.is-claimed) {
+    color: #EAF7FF;
+    background: linear-gradient(180deg, rgba(0,166,239,0.24), rgba(6,32,46,0.70));
+    border: 1px solid rgba(0,166,239,0.62);
+    box-shadow: 0 0 0 1px rgba(0,166,239,0.06), 0 4px 12px rgba(0,0,0,0.30);
+}
+button.task-claim-badge:not(.is-claimed):hover {
+    color: #FFFFFF;
+    border-color: rgba(44,184,245,0.88);
+    background: linear-gradient(180deg, rgba(0,166,239,0.36), rgba(8,40,58,0.76));
+}
+body.theme-light button.task-claim-badge:not(.is-claimed) {
+    color: #06415F;
+    background: linear-gradient(180deg, rgba(0,166,239,0.20), rgba(255,255,255,0.86));
+    border-color: rgba(0,117,168,0.52);
+    box-shadow: 0 2px 8px rgba(0,117,168,0.18);
+}
+body.theme-light button.task-claim-badge:not(.is-claimed):hover {
+    color: #04303F;
+    border-color: rgba(0,117,168,0.78);
+    background: linear-gradient(180deg, rgba(0,166,239,0.30), rgba(255,255,255,0.94));
+}
+
+/* ③ 金色玻璃按钮族（§8.3 那套"主态配方"）：同一块玻璃换色号，
+      alpha / 圆角 / 位移反馈全部沿用原值，保证和别的按钮是同一套物理。 */
+.skin-filter-btn.active,
+.gh-act.primary,
+.ex-max,
+.btn-diamond,
+.game-btn.btn-gold {
+    background: rgba(0,166,239,0.20);
+    border: 1px solid rgba(0,166,239,0.58);
+    color: #D9F1FF;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.45), 0 0 10px rgba(0,144,208,0.16);
+}
+.skin-filter-btn.active:hover,
+.gh-act.primary:hover:not(:disabled),
+.ex-max:hover,
+.btn-diamond:hover,
+.game-btn.btn-gold:hover:not(:disabled) {
+    background: rgba(0,166,239,0.32);
+    border-color: #2CB8F5;
+    color: #FFFFFF;
+    box-shadow: 0 0 0 1px rgba(0,166,239,0.34), 0 0 14px rgba(0,144,208,0.34);
+}
+.skin-filter-btn.active:active,
+.gh-act.primary:active:not(:disabled),
+.ex-max:active,
+.btn-diamond:active,
+.game-btn.btn-gold:active:not(:disabled) {
+    box-shadow: inset 0 2px 7px rgba(0,48,72,0.46);
+}
+/* 选中芯片要比普通按钮更"跳"一点：同一支青蓝，只把 alpha 提上去。 */
+.skin-filter-btn.active { background: rgba(0,166,239,0.32); color: #FFFFFF; font-weight: 700; }
+
+/* ④ 浅色主题下的玻璃按钮族：底子发白，青蓝压深一档。 */
+body.theme-light .skin-filter-btn.active,
+body.theme-light .gh-act.primary,
+body.theme-light .ex-max,
+body.theme-light .btn-diamond,
+body.theme-light .game-btn.btn-gold {
+    background: rgba(0,166,239,0.16);
+    border-color: rgba(0,117,168,0.50);
+    color: #06415F;
+    box-shadow: 0 1px 4px rgba(0,60,90,0.18), 0 0 10px rgba(0,144,208,0.10);
+}
+body.theme-light .skin-filter-btn.active:hover,
+body.theme-light .gh-act.primary:hover:not(:disabled),
+body.theme-light .ex-max:hover,
+body.theme-light .btn-diamond:hover,
+body.theme-light .game-btn.btn-gold:hover:not(:disabled) {
+    background: rgba(0,166,239,0.28);
+    border-color: #0075a8;
+    color: #04303F;
+}
+body.theme-light .skin-filter-btn.active {
+    background: rgba(0,166,239,0.30);
+    color: #04303F;
+    font-weight: 700;
+}
