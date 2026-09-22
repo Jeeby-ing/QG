@@ -8381,3 +8381,116 @@ body.theme-light .task-card.claimed:not(.claimable) {
     --font-display: 'AK Sans CN', "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei",
                     var(--font-main);
 }
+
+/* ============================================================
+ * §18.1  顶部导航「单行化 + 响应式压缩」（R35）
+ * ------------------------------------------------------------
+ * 缺陷（改前实测，见 C:/Users/MMCGA/ql_nav_fix_probe.py）：
+ *   视口 ≤1600px 时 6 个中文 tab 被压成「一个字一行」，实测高度 116px。
+ *
+ * 根因链（三环，缺一不可）：
+ *   ① .nav-center 是 flex:1 的 flex 容器，里面除了 6 个 .nav-tab，
+ *      还塞着 .resource-timestamp（实测 ≈147px，flex-shrink:0，永不让位）；
+ *   ② .nav-tab 是 flex 子项，默认 flex-shrink:1 + min-width:auto，
+ *      自动最小尺寸 = 图标 + gap + **一个汉字** + 左右 padding
+ *      → 实测 82px，正好等于 18+8+16+40，一个数字不差；
+ *   ③ 中间区被压到 679px（= tabs 的 min-content 下限 532 + 时间戳 147）后
+ *      按钮只能继续压到内容宽以下 → 中文标签断行。
+ *   旁证：同一视口下 'AK Sans CN' 与 sans-serif 两轮数值**完全一致**，
+ *      所以这与 R34 换原版字体无关，是既有布局缺陷（不是新引入的回归）。
+ *
+ * 修法（零改 DOM / 零改 JS / 零改旧规则，全部追加）：
+ *   A. 硬保证：标签 nowrap、tab 不许被压到内容宽以下（flex:0 0 auto）；
+ *   B. 让 .nav-center 自己成为横向滚动容器 —— 标签永不折行、永不丢失，
+ *      这是兜底，正常情况下根本不会出现滚动条；
+ *   C. 按宽度分 3 档压缩字号/内距，让 ≥1246px 完全不需要滚动；
+ *   D. 空间不够时先让装饰性内容让位（状态栏时间戳、logo 副标题）。
+ *
+ * 想回滚：删掉本节即可，前面任何一行规则都没动。
+ * ============================================================ */
+
+/* ---- A. 硬保证（≥769px；窄屏是抽屉式大按钮，另有布局，不参与） ---- */
+@media (min-width: 769px) {
+    /* safe center：content 放得下时居中（维持原观感），放不下时退回 start，
+       避免「居中 + 溢出」下最左边那几个 tab 永远滚不到的老问题。 */
+    .top-nav .nav-center { justify-content: safe center; }
+    .top-nav .nav-tab { flex: 0 0 auto; }          /* 不再被压到内容宽以下 */
+    .top-nav .nav-tab > span { white-space: nowrap; }  /* 中文标签不再逐字断行 */
+}
+
+/* ---- B. 横向滚动兜底 + 装饰让位（≤1750px 才开，宽屏维持原样零变化） ----
+   之所以从 1750 才开始：≥1751 时 nav-center 实测有 882px 可用，
+   而「6 个 tab(692) + 时间戳(147) = 839」放得下，不需要滚动容器，
+   也就不希望 overflow 改变 active 柔光的混合背景，做到宽屏像素级不动。
+   padding 13px 0：nav 高 70，tab 高 44，正好上下各留 13px。
+   这 13px 是必要的 —— .nav-tab.active::before 柔光高 128%、bottom:-8px，
+   实际上下各溢出 5px / 9px，没有这个内距会被滚动容器直接裁掉。 */
+@media (min-width: 769px) and (max-width: 1750px) {
+    .top-nav .nav-center {
+        flex: 1 1 auto;
+        min-width: 0;                       /* 覆盖 min-width:auto，允许中间区真正让位 */
+        padding: 13px 0;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;              /* Firefox */
+        -ms-overflow-style: none;
+    }
+    .top-nav .nav-center::-webkit-scrollbar { display: none; }
+    /* 时间戳（「最后更新 …」）是纯展示信息，空间不够时第一个让位 */
+    .top-nav .resource-timestamp { display: none; }
+}
+
+/* ---- C. 分档压缩 ----
+   每档的断点不是拍脑袋定的，是按「实测 navL/navR + 该档 tab 实测总宽」反推的：
+   不滚动的条件 = navL + navR + 48(顶栏左右 padding) + tabs总宽 ≤ 视口。
+   （flex-shrink 是按 flex-basis 成比例分摊的，所以光靠 flex 不会让中间区先让位，
+     各档「刚够用」的临界宽度就用断点写死，再窄才落到 B 的横向滚动兜底。）
+
+   实测（改后，ql_nav_after_probe.py）：
+     A 档 tabs=692 → 需 navL363+navR458+48 = 869 → 临界 1561px
+     B 档 tabs=600 → 需 363+458+48     = 869 → 临界 1469px
+     C 档 tabs=519 → 需 363+410+48     = 821 → 临界 1340px
+     D 档 tabs=462 → 需 264+307+48     = 619 → 临界 1081px
+   断点各留一点余量，宁可早一档也不要出现滚动条。 */
+
+/* ---- C-1. 档 B：≤1560px ---- */
+@media (min-width: 769px) and (max-width: 1560px) {
+    .top-nav .nav-center { gap: 6px; }
+    .top-nav .nav-tab { padding: 10px 16px; gap: 6px; font-size: 15px; }
+    .top-nav .nav-tab > i { font-size: 17px; }
+}
+
+/* ---- C-2. 档 C：≤1468px ---- */
+@media (min-width: 769px) and (max-width: 1468px) {
+    .top-nav .nav-center { gap: 5px; }
+    .top-nav .nav-tab { padding: 10px 12px; gap: 5px; font-size: 14px; }
+    .top-nav .nav-tab > i { font-size: 16px; }
+    .top-nav .resource-display { gap: 6px; }
+    .top-nav .resource-item { padding: 3px 8px; }
+}
+
+/* ---- C-3. 档 D：≤1369px ----
+   这一档 nav-left / nav-right 的实测值同时掉到 264 / 307
+   （logo 副标题缩小、版本号隐藏、资源条收窄），是「紧凑桌面」的主要形态。 */
+@media (min-width: 769px) and (max-width: 1369px) {
+    .top-nav .nav-center { gap: 4px; }
+    .top-nav .nav-tab { padding: 10px 10px; gap: 4px; font-size: 13px; }
+    .top-nav .nav-tab > i { font-size: 15px; }
+    .top-nav .logo-text { font-size: 18px; }
+    .top-nav .logo-version { display: none; }
+    .top-nav .resource-item { padding: 2px 6px; gap: 4px; font-size: 11px; }
+    .top-nav .resource-icon { width: 15px; height: 15px; }
+    .top-nav .nav-sanity-display { padding: 2px 6px; gap: 4px; }
+    .top-nav .sanity-current { font-size: 14px; }
+    .top-nav .sanity-max { font-size: 10px; }
+}
+
+/* ---- C-4. 档 E：≤1100px ----
+   这一档开始 6 个中文标签 + 资源条在物理上已经放不进一行了
+   （实测临界 1081px），只保留猫形图标作为品牌标识（功能入口一个不少），
+   把省下的宽度全给标签；再窄则落到 B 的横向滚动兜底，6 个入口依然都在。 */
+@media (min-width: 769px) and (max-width: 1100px) {
+    .top-nav .logo-text { display: none; }
+    .top-nav .resource-item { padding: 2px 5px; gap: 3px; }
+    .top-nav .sanity-nav-values { display: none; }
+}
