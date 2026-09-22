@@ -8176,3 +8176,183 @@ body.theme-light .nav-tab.active {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* ==========================================================================
+   17.0  领奖入口「居中化」（R33）
+   --------------------------------------------------------------------------
+   用户原话：「把领取奖励按钮移动到界面中间位置，方便点击，避免放在边缘导致偏远。」
+
+   旧状态：领奖入口是卡片**最右缘**的一枚 11px 小徽章（.task-claim-badge，12.5 段），
+           挤在进度条和 ⓘ ✎ 🗑 📦 之间。它虽然是 flex 流内元素、不会压住按钮，
+           但视觉靶区只有 ~70×20px，而且离标题/视线/鼠标都隔着半张卡片的距离。
+
+   新状态：入口搬进 .task-main（它自带 flex-wrap:wrap），用 flex:1 1 100%
+           拿走一整行（.task-claim-row），再用 justify-content:center 居中；
+           命中面积 ≈ 旧徽章的 6 倍，并且在"任务内容的正下方"，视线不用横移。
+
+   注意：.task-claim-badge / button.task-claim-badge 那一堆规则（12.5 段、14.4 段）
+   现在已成**死代码** —— DOM 里不再产生这个类名。之所以不删，是因为它们只影响
+   这个不复存在的元素，留着不影响任何渲染；真回滚本节时会自动复活。
+   本节全部是后写覆盖，前面规则一行没改；想回滚删掉这一节即可。
+   ========================================================================== */
+
+/* ---- 17.0.1 承载行：独占卡片一整行并水平居中 ----
+   前提：卡片本身要允许换行。.task-card 默认是 nowrap 的单行 flex，
+   直接塞 flex-basis:100% 会把右边那排元素挤扁 —— 所以这里补一条 flex-wrap。
+   其余子项（.task-indent / .task-main / .task-progress / .task-actions）的
+   flex-basis 加起来远小于卡片宽，自由空间全部给 .task-main 吸收，
+   开 wrap 不会让它们另起一行（已用无头探针实测：卡片行数仍是 1）。 */
+.task-card { flex-wrap: wrap; }
+
+.task-claim-row {
+    flex: 1 1 100%;              /* 100% 基准宽 → 强制换行，拿到自己的一整行 */
+    display: flex;
+    justify-content: center;     /* 就是它把按钮放到"界面中间" */
+    align-items: center;
+    padding: 5px 0 2px;
+    min-width: 0;
+    position: relative;
+    z-index: 2;
+}
+
+/* ---- 17.0.2 按钮本体：可领取 = 金色实心大按钮 ---- */
+.task-claim-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-width: 152px;
+    min-height: 34px;
+    padding: 7px 26px;
+    border: 1px solid rgba(255, 207, 77, 0.55);
+    border-radius: 10px;
+    background: linear-gradient(180deg, rgba(255, 207, 77, 0.20), rgba(30, 25, 12, 0.72));
+    color: var(--highlight-gold-1, #ffcf4d);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+    /* 静态 + hover 两态，**不做无尽脉动**（R25 明确否掉了"一直发光"的金色徽章） */
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    transition: transform 0.15s ease, border-color 0.15s ease,
+                background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+}
+.task-claim-btn i { font-size: 13px; }
+.task-claim-btn:hover {
+    color: #fff6d6;
+    border-color: rgba(255, 220, 130, 0.90);
+    background: linear-gradient(180deg, rgba(255, 207, 77, 0.34), rgba(40, 33, 16, 0.80));
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42), 0 0 18px rgba(255, 196, 60, 0.34),
+                inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    transform: translateY(-2px);
+}
+.task-claim-btn:active {
+    transform: translateY(1px) scale(0.97);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40);
+}
+.task-claim-btn:focus-visible {
+    outline: 2px solid var(--ak-color-primary, #FFD028);
+    outline-offset: 3px;
+}
+
+/* ---- 17.0.3 已领取：同一位置换成**紧凑**暗色片。
+        为什么不跟可领取一样做成大按钮：一屏里成排的大灰按钮会把列表撑高一倍，
+        而"已领取"是**没有动作可做**的状态，不该和"有奖可领"抢同样的视觉权重。
+        所以它位置仍然居中（同一行、同一个槽位，用户不用重新找），但尺寸收小。
+        关键：**不 disabled、不 pointer-events:none** —— 用户报的
+        「点击已领取任务无任何响应」，根因就是旧版这里挂了个 disabled 按钮，
+        点下去连事件都不会触发。现在它可点，点下去给 toast + 打开详情。 ---- */
+.task-claim-row[data-state="claimed"] { padding: 1px 0 0; }
+.task-claim-btn.is-claimed {
+    cursor: pointer;
+    min-width: 0;
+    min-height: 0;
+    padding: 3px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    gap: 5px;
+    color: rgba(214, 214, 206, 0.62);
+    background: rgba(38, 38, 42, 0.46);
+    border-color: rgba(255, 255, 255, 0.11);
+    box-shadow: none;
+    letter-spacing: 0.08em;
+}
+.task-claim-btn.is-claimed i { font-size: 11px; opacity: 0.85; }
+.task-claim-btn.is-claimed:hover {
+    color: rgba(236, 236, 229, 0.86);
+    background: rgba(52, 52, 58, 0.58);
+    border-color: rgba(255, 255, 255, 0.22);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+    transform: translateY(-1px);
+}
+.task-claim-btn.is-claimed:active { transform: translateY(0) scale(0.98); }
+
+/* ---- 17.0.4 兜底：已领取的卡片在任何层叠顺序下都不可能是金色可领取态 ----
+       claimable / claimed 在 app.js 里是三态互斥的，正常不可能同时挂上；
+       :not() 让特异性升到 (0,3,0)，压过所有 .task-card.claimable 规则。
+       这是给"旧 class 残留 / 第三方样式"留的最后一道闸。 */
+.task-card.claimed:not(.claimable) {
+    border-color: rgba(74, 171, 234, 0.16);
+    background: linear-gradient(180deg, rgba(74, 171, 234, 0.03), rgba(255, 255, 255, 0.01)), var(--glass-2);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+}
+.task-card.claimed:not(.claimable):hover {
+    border-color: rgba(74, 171, 234, 0.30);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+    transform: translateY(-1px);
+}
+
+/* ---- 17.0.5 领奖落点动画接到新按钮上（旧选择器指向已消失的 .task-claim-badge）---- */
+.task-card.claim-just-done .task-claim-btn {
+    animation: akBadgePop 0.52s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---- 17.0.6 奖励结算弹窗里的「领取奖励」：限宽 + 居中 ----
+       原来 width:100% 拉满整条底边，看着像页面底栏而不是一个"按钮"。
+       现在它是弹窗正中一枚 240~280px 的按钮，和上面的奖励圆卡同轴。 */
+#rewardModal .reward-claim-btn {
+    display: flex;
+    width: min(260px, 100%);
+    min-width: 0;
+    margin: 8px auto 0;
+}
+
+/* ---- 17.0.7 浅色主题：同一套金，底色整体压深一档保证对比度 ---- */
+body.theme-light .task-claim-btn {
+    color: #6B4900;
+    background: linear-gradient(180deg, rgba(255, 208, 40, 0.34), rgba(255, 240, 200, 0.92));
+    border-color: rgba(184, 134, 11, 0.55);
+    box-shadow: 0 4px 12px rgba(160, 110, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+body.theme-light .task-claim-btn:hover {
+    color: #4E3500;
+    background: linear-gradient(180deg, rgba(255, 208, 40, 0.50), rgba(255, 244, 214, 0.96));
+    border-color: rgba(160, 110, 0, 0.80);
+}
+body.theme-light .task-claim-btn.is-claimed {
+    color: rgba(40, 40, 38, 0.58);
+    background: rgba(238, 238, 234, 0.92);
+    border-color: rgba(0, 0, 0, 0.16);
+    box-shadow: none;
+}
+body.theme-light .task-claim-btn.is-claimed:hover {
+    color: rgba(28, 28, 26, 0.82);
+    background: rgba(228, 228, 222, 0.96);
+    border-color: rgba(0, 0, 0, 0.26);
+}
+body.theme-light .task-card.claimed:not(.claimable) {
+    border-color: rgba(0, 117, 168, 0.18);
+    background: linear-gradient(180deg, rgba(0, 117, 168, 0.05), rgba(255, 255, 255, 0.5)), var(--glass-2);
+}
+
+/* ---- 17.0.8 窄屏：按钮收窄但仍保持居中与可点热区（≥40px 高） ---- */
+@media (max-width: 768px) {
+    .task-claim-row { padding: 4px 0 2px; }
+    .task-claim-btn { min-width: 132px; min-height: 40px; padding: 8px 20px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .task-card.claim-just-done .task-claim-btn { animation: none !important; }
+}

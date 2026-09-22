@@ -931,7 +931,9 @@ async function apiGet(endpoint) {
         const res = await fetch(`${API_BASE}${endpoint}`, { cache: 'no-store' });
         if (!res.ok) {
             let message = `API ${endpoint} failed`;
-            try { const errData = await res.json(); message = errData?.message || message; } catch {}
+            /* FastAPI 的 HTTPException 把原因写在 detail 里，不是 message。
+               以前只读 message → 界面上永远显示「API /xxx failed」这种没人看得懂的话。 */
+            try { const errData = await res.json(); message = errData?.message || errData?.detail || message; } catch {}
             throw new Error(message);
         }
         const json = await res.json();
@@ -952,7 +954,7 @@ async function apiPost(endpoint, data = {}, isFormData = false) {
         const res = await fetch(`${API_BASE}${endpoint}`, options);
         if (!res.ok) {
             let message = `API ${endpoint} failed`;
-            try { const errData = await res.json(); message = errData?.message || message; } catch {}
+            try { const errData = await res.json(); message = errData?.message || errData?.detail || message; } catch {}
             throw new Error(message);
         }
         const json = await res.json();
@@ -2112,12 +2114,14 @@ function createTaskCard(task) {
         actions.appendChild(archiveBtn);
     }
     card.appendChild(actions);
+    /* R33：领奖入口从「卡片最右侧、挤在操作图标旁边的小徽章」搬到
+       「任务主内容区里独占一整行、水平居中、面积大得多的按钮」。
+       用户反馈原话：「把领取奖励按钮移动到界面中间位置，方便点击，
+       避免放在边缘导致偏远。」—— 旧徽章贴在最右缘，视线和鼠标都要跨半个卡片。
+       .task-main 自带 flex-wrap:wrap，塞进去的子项 flex:1 1 100% 就是独占一行，
+       再用 justify-content:center 居中，不需要动卡片的整体 flex 结构。 */
     if (claimState !== 'unclaimable') {
-        /* ⚠️ 必须在 appendChild(actions) 之后再 insertBefore ——
-           actions 还不是 card 的子节点时 insertBefore 会抛 NotFoundError。
-           R29 第九刀：徽章从 <div pointer-events:none> 改成真正的 <button>。
-           R32：徽章不再是「唯一入口」，而是与「点整卡领取」同一个动作的可视化提示。 */
-        card.insertBefore(buildClaimBadge(claimState, task, card), actions);
+        card.appendChild(buildClaimRow(claimState, task, card));
     }
     card.addEventListener('click', () => {
         if (window._suppressClick) return;
@@ -2125,34 +2129,52 @@ function createTaskCard(task) {
         if (isBlocked(task)) return;
         /* R32：可领取的卡片 = 直接领取（用户要求「无需先点开详情页」）。
            点卡片进详情这条路只对「没有奖可领」的卡保留，详情入口另有
-           操作区里的 ⓘ 详情按钮，所以信息并没有被藏起来。 */
+           操作区里的 ⓘ 详情按钮，所以信息并没有被藏起来。
+           R33：已领取的卡点下去必须有明确反馈（用户报「点了没反应」）——
+           给一条 toast + 打开详情，而不是静默什么也不做。 */
         if (claimState === 'claimable') { claimTaskFromCard(task.id, card); return; }
+        if (claimState === 'claimed') { onClaimedCardClick(task.id); return; }
         openTaskDetail(task.id);
     });
     return card;
 }
 
-/* 领取徽章：可领取 = 金色可点，已领取 = 暗色禁点。两态都不再让点击穿透到卡片。 */
-function buildClaimBadge(claimState, task, cardEl) {
-    const badge = document.createElement('button');
-    badge.type = 'button';
-    badge.className = 'task-claim-badge' + (claimState === 'claimed' ? ' is-claimed' : '');
-    badge.dataset.state = claimState;      // 定点刷新据此判断徽章要不要换
-    badge.innerHTML = claimBadgeHTML(claimState);
+/* 领取入口（R33 重做）：独占任务主内容区一整行、水平居中。
+   claimable → 金色大按钮「领取奖励」，点一下即发奖（和点整卡同一个动作）；
+   claimed   → 同样位置给一个暗色「已领取」，但**不 disabled** ——
+               点它仍然有明确反馈（toast + 打开详情）。旧版是个 disabled 徽章，
+               点下去毫无反应，正是用户说的「点击已领取任务无任何响应」。 */
+function buildClaimRow(claimState, task, cardEl) {
+    const row = document.createElement('div');
+    row.className = 'task-claim-row';
+    row.dataset.state = claimState;        // 定点刷新据此判断要不要整块换掉
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'task-claim-btn' + (claimState === 'claimed' ? ' is-claimed' : '');
+    btn.dataset.state = claimState;
+    btn.innerHTML = claimBadgeHTML(claimState);
     if (claimState === 'claimable') {
-        badge.title = '领取该任务的奖励';
-        badge.setAttribute('aria-label', '领取奖励');
-        badge.addEventListener('click', (e) => {
+        btn.title = '领取该任务的奖励';
+        btn.setAttribute('aria-label', '领取奖励');
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (window._suppressClick) return;
             claimTaskFromCard(task.id, cardEl);
         });
     } else {
-        badge.disabled = true;
-        badge.title = '奖励已领取';
-        badge.setAttribute('aria-label', '奖励已领取');
+        btn.title = '奖励已领取，点击查看详情';
+        btn.setAttribute('aria-label', '奖励已领取');
+        btn.addEventListener('click', (e) => { e.stopPropagation(); onClaimedCardClick(task.id); });
     }
-    return badge;
+    row.appendChild(btn);
+    return row;
+}
+
+/* 点「已领取」的卡片或按钮：先明确告诉用户状态，再把他想看的内容打开。
+   以前这条路要么没反应、要么只默默开个弹窗，用户以为界面卡住了。 */
+function onClaimedCardClick(taskId) {
+    showToast('该任务奖励已领取');
+    openTaskDetail(taskId);
 }
 
 
@@ -2186,10 +2208,16 @@ async function claimTaskFromCard(taskId, cardEl){
     state.rewardModalAnimating = false;
     if (!result){
         /* 失败也要把状态对齐一次：后端若回「奖励已领取」，说明它其实已经领过了，
-           卡片必须立刻变成「已领取」，不能留在「可领取」却点不动（用户报的正是这个）。 */
-        showToast('领取失败，请重试');
+           卡片必须立刻变成「已领取」，不能留在「可领取」却点不动（用户报的正是这个）。
+           后端给的原因（「奖励已领取」/「任务未完成」）已经由 apiPost 弹成一条 toast，
+           这里只把卡片状态拉回真实值，并针对「其实已领过」再补一句更明确的说明 ——
+           这正是"显示可领取、点下去却像没反应"最常见的那条路径。 */
         cardEl?.classList.remove('claiming');
         await resyncClaimState(taskId);
+        const settled = state.flatTasks.find(t => t.id === taskId);
+        if (settled && claimStateOf(settled) === 'claimed') {
+            showToast('该任务奖励此前已领取，无需重复领取');
+        }
         return;
     }
 
@@ -2279,8 +2307,20 @@ function hasActualReward(task) {
      claimed     已领取：已完成 + 奖励已领              → 暗色徽章（不可点）
      unclaimable 不可领取：还没完成（或确实没奖励）      → 不挂徽章
    ------------------------------------------------------------ */
+/* 「已领取」标记的判读 —— 后端历史上出现过 0/1/true/false/'1'/'true' 混合形态，
+   所以这里一律宽松判：真值、非 0 数字、'1'/'true'/'yes'/'y' 都算已领取。
+   （R33 补：原先只认 '1' 和 'true'，遇到 'True'/'yes' 会误判成"未领取"。） */
 function isClaimedFlag(v) {
-    return v === true || v === 1 || v === '1' || v === 'true';
+    if (v === true || v === 1) return true;
+    if (typeof v === 'number') return v > 0;
+    if (typeof v === 'string') {
+        const s = v.trim().toLowerCase();
+        if (s === '' || s === '0' || s === 'false' || s === 'no' || s === 'null' || s === 'undefined') return false;
+        if (s === '1' || s === 'true' || s === 'yes' || s === 'y') return true;
+        const n = Number(s);
+        return !isNaN(n) && n > 0;
+    }
+    return false;
 }
 
 function claimStateOf(task) {
@@ -2294,8 +2334,10 @@ function claimStateOf(task) {
     return hasActualReward(task) ? 'claimable' : 'unclaimable';
 }
 
+/* R33：文案跟着按钮一起放大 —— 旧徽章是小角标，写「可领取」三个字刚好；
+   现在它是一个居中大按钮，写「领取奖励」才是用户一眼扫到就能点的那句话。 */
 function claimBadgeHTML(state) {
-    if (state === 'claimable') return '<i class="fa-solid fa-gift"></i><span>可领取</span>';
+    if (state === 'claimable') return '<i class="fa-solid fa-gift"></i><span>领取奖励</span>';
     if (state === 'claimed') return '<i class="fa-solid fa-check"></i><span>已领取</span>';
     return '';
 }
@@ -3803,23 +3845,29 @@ function refreshTaskCard(taskId) {
        要等到下一次整表重绘才会摘掉「可领取」，这期间点它毫无反应。
        现在徽章按 data-state 记住自己是哪一态，变了就整块换掉。 */
     const claimState = claimStateOf(task);
-    card.className = `task-card status-${task.status} ${(task.children && task.children.length) ? 'parent-task' : 'child-task'}`
-        + `${isBlocked(task) ? ' dependency-blocked' : ''}`
-        + `${claimState === 'claimable' ? ' claimable' : ''}`
-        + `${claimState === 'claimed' ? ' claimed' : ''}`
-        + `${state.selectionMode ? ' selecting' : ''}`
-        + `${state.selectedIds && state.selectedIds.has(task.id) ? ' selected' : ''}`;
+    /* R33：不再整体重写 className。旧写法 `card.className = ...` 只列了它记得住的
+       那几个类，于是 createTaskCard 写上的 task-level-N / task-in-group-child
+       会在第一次定点刷新后**凭空消失** —— 卡片缩进跳一格、分组样式掉色。
+       现在只增删「与状态有关」的那几个类，其余原样保留。 */
+    card.classList.remove('status-todo', 'status-in_progress', 'status-paused', 'status-done', 'status-cancelled',
+                          'claimable', 'claimed', 'dependency-blocked');
+    card.classList.add(`status-${task.status}`);
+    if (isBlocked(task)) card.classList.add('dependency-blocked');
+    /* 三态互斥：claimable / claimed 绝不会同时挂上，所以"已领取还长着可领取的样子"
+       从类名这一层就不可能发生。 */
+    if (claimState === 'claimable') card.classList.add('claimable');
+    else if (claimState === 'claimed') card.classList.add('claimed');
+    card.classList.toggle('selecting', !!state.selectionMode);
+    card.classList.toggle('selected', !!(state.selectedIds && state.selectedIds.has(task.id)));
     card.dataset.status = task.status;
-    const oldBadge = card.querySelector('.task-claim-badge');
+    const oldRow = card.querySelector('.task-claim-row');
     if (claimState === 'unclaimable') {
-        oldBadge?.remove();
-    } else if (!oldBadge || oldBadge.dataset.state !== claimState) {
-        oldBadge?.remove();
-        const newBadge = buildClaimBadge(claimState, task, card);
-        // 与 createTaskCard 保持一致：插在操作区之前，不能 absolute 压住按钮
-        const actionsEl = card.querySelector('.task-actions');
-        if (actionsEl) card.insertBefore(newBadge, actionsEl);
-        else card.appendChild(newBadge);
+        oldRow?.remove();
+    } else if (!oldRow || oldRow.dataset.state !== claimState) {
+        oldRow?.remove();
+        const newRow = buildClaimRow(claimState, task, card);
+        // 与 createTaskCard 保持一致：挂在卡片末尾，独占一整行并水平居中
+        card.appendChild(newRow);
     }
 }
 
@@ -4192,7 +4240,10 @@ async function openRewardModal(taskId){
         } else DOM.randomDropSection.style.display='none';
     } catch{ DOM.randomDropSection.style.display='none'; } } else DOM.randomDropSection.style.display='none';
 
-    // 底部对勾（放在窗口下方外部，可点击领取）
+    /* 底部对勾：可点击领取。
+       R33：它以前会被 append 到 document.body，再用 position:fixed 钉在弹窗**外面**
+       的右下角（top = 弹窗底 + 30px）—— 那才是界面里真正"落在边缘、离得远"的元素。
+       现在回到弹窗内部、和领取按钮同一个居中区块，位置完全交给布局。 */
     const checkWrap = document.createElement('div'); checkWrap.className='reward-external-check';
     checkWrap.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     // 点击对勾 = 领取奖励
@@ -4214,27 +4265,13 @@ async function openRewardModal(taskId){
         DOM.rewardDetails.appendChild(bottomArea);
     } else {
         DOM.rewardClaimBtn.style.display='';
-        // 有奖励：底部放对勾（在窗口内作为引导）+ 领取按钮
+        // 有奖励：对勾 + 领取按钮同处一个居中的底部区块
         const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
-        // 窗口内的迷你对勾（仅装饰，引导用户）
-        const innerCheck = document.createElement('div'); innerCheck.className='reward-inner-check';
-        innerCheck.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5" opacity="0.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2" opacity="0.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        bottomArea.appendChild(innerCheck);
+        bottomArea.appendChild(checkWrap);
         DOM.rewardDetails.appendChild(bottomArea);
     }
     DOM.rewardClaimBtn.dataset.taskId=taskId;
     openModal('rewardModal');
-    // 把外部对勾挂到窗口下方（仅未领取时显示可点击的对勾）
-    if(!isClaimedFlag(task.reward_claimed) && hasReward){
-        const oldCheck = document.querySelector('.reward-external-check'); if(oldCheck) oldCheck.remove();
-        document.body.appendChild(checkWrap);
-        requestAnimationFrame(() => {
-            const modalEl = document.querySelector('#rewardModal .modal');
-            if(modalEl){ const r = modalEl.getBoundingClientRect();
-                checkWrap.style.cssText = 'position:fixed;top:'+(r.bottom+30)+'px;left:'+(r.left+r.width/2-26)+'px;z-index:100;';
-            }
-        });
-    }
 }
 
 async function claimReward(){

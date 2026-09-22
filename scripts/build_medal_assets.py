@@ -30,8 +30,12 @@ CACHE = os.path.join(ROOT, "assets-source", "_medal_src")
 DST = os.path.join(ROOT, "static", "img", "medal")
 
 SIDE = 256           # 输出画布边长
-TAKE_ACTIVITY = 110
-TAKE_STORY = 93
+# R33：蚀刻章条目大幅扩充，池子必须跟着放大 —— 否则 _alloc_art_block() 会越界回绕，
+# 两枚不同的章共用到同一张图。这里把 activity / story 两段从"各取一段"改成"全量取"：
+#   medal_activity 332 枚、medal_story 180 枚 → 池子 382 → 691 枚，全部独一无二。
+# （medalGroup* 那批是"套组外框"而不是单枚章，刻意不收。）
+TAKE_ACTIVITY = None
+TAKE_STORY = None
 
 # 语义分组（顺序 = 池顺序 = 分配顺序）
 GROUPS = [

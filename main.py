@@ -343,6 +343,200 @@ ACHIEVEMENT_FAMILIES = [
      "thresholds": (1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000),
      "names": "千玉 五千玉 万玉 两万五千玉 五万玉 十万玉 廿五万玉 五十万玉",
      "icons": "fa-circle-dot fa-circle fa-ring fa-bahai fa-yin-yang fa-spinner fa-compact-disc fa-record-vinyl"},
+
+    # ==========================================================
+    #  R33：蚀刻章再扩充 —— 用户：「在现有内容基础上尽可能多地补充蚀刻章条目，
+    #  凡可加入的全部纳入。」
+    #
+    #  与 R23 那批的区别：R23 是把**同一批数据**切成更多档（量的问题）；
+    #  这一批是把**从前没被点亮过的维度**变成条件（面的问题）——
+    #  按任务的形状（计数型 / 手动 / 自动 / 日常 / 战役 / 子任务 / 父任务 /
+    #  归档 / 回收站 / 标签 / 掉落 / 重复）、专注的形态（单次最长 / 有记录的天数 /
+    #  长时段次数）、番茄钟的休息段、经济的支出端与仓库/招募，各给一串。
+    #
+    #  全部条件都在 cumulative_achievement_values() 里有对应的 SQL，
+    #  所以每一枚都是**真的能点亮**的，不会出现"挂在墙上永远不亮的章"。
+    # ==========================================================
+
+    # ── 记录奖章 · 低优先级任务（磨刀不误砍柴工）────
+    {"type": "task_count_completed_low", "color": "#8ab4d8",
+     "thresholds": (1, 3, 5, 10, 15, 20, 30, 50, 75, 100, 150, 200),
+     "names": "顺手为之 三件小事 五件小事 十件小事 十五件小事 二十件小事 三十件小事 五十件小事 七十五件小事 百件小事 百五小事 两百小事",
+     "icons": "fa-feather fa-feather-pointed fa-leaf fa-seedling fa-sprout fa-clover fa-holly-berry fa-wheat-awn fa-plant-wilt fa-tree-city fa-tree-deciduous fa-spa"},
+
+    # ── 成长奖章 · 计数型任务 ───────────────────────
+    {"type": "task_count_completed_count_mode", "color": "#4a90e0",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100, 150, 200),
+     "names": "计数开始 三次数满 五次数满 十次数满 二十次数满 三十次数满 五十次数满 七十五次数满 百次数满 百五次数满 两百次数满",
+     "icons": "fa-list-ol fa-list-numeric fa-calculator fa-sort-numeric-up fa-table-list fa-square-poll-vertical fa-ranking-star fa-chart-bar fa-hashtag fa-bars-progress fa-check-double"},
+
+    # ── 成长奖章 · 手动进度任务 ─────────────────────
+    {"type": "task_count_completed_manual", "color": "#22b3c9",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100, 150, 200),
+     "names": "亲手推进 三次手推 五次手推 十次手推 二十次手推 三十次手推 五十次手推 七十五次手推 百次手推 百五次手推 两百次手推",
+     "icons": "fa-hand fa-hand-peace fa-hand-point-up fa-hand-fist fa-hand-scissors fa-hand-lizard fa-hand-spock fa-hand-back-fist fa-hands-asl-interpreting fa-hand-holding-heart fa-hand-holding-hand"},
+
+    # ── 成长奖章 · 自动进度任务 ─────────────────────
+    {"type": "task_count_completed_auto", "color": "#7fbf7f",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "自动汇总 三次汇总 五次汇总 十次汇总 二十次汇总 三十次汇总 五十次汇总 七十五次汇总 百次汇总",
+     "icons": "fa-gears fa-gear fa-robot fa-arrows-rotate fa-diagram-project fa-sitemap fa-share-nodes fa-code-branch fa-cubes"},
+
+    # ── 履历奖章 · 日常任务 ─────────────────────────
+    {"type": "task_count_completed_daily", "color": "#6fbf9f",
+     "thresholds": (1, 5, 10, 25, 50, 100, 200, 300, 500, 750, 1000),
+     "names": "日常起步 日常五次 日常十次 日常廿五 日常五十 日常百次 日常两百 日常三百 日常五百 日常七百五 日常千次",
+     "icons": "fa-calendar-day fa-calendar-days fa-calendar-week fa-calendar-check fa-calendar-plus fa-calendar-minus fa-calendar-xmark fa-clock fa-stopwatch fa-repeat fa-list-check"},
+
+    # ── 章节奖章 · 战役任务 ─────────────────────────
+    {"type": "task_count_completed_campaign", "color": "#e8b818",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100, 150, 200),
+     "names": "初战 三战 五战 十战 二十战 三十战 五十战 七十五战 百战 百五战 两百战",
+     "icons": "fa-trophy fa-chess-rook fa-chess-knight fa-chess-bishop fa-chess-queen fa-chess-king fa-chess-board fa-chess-pawn fa-chess fa-shield-halved fa-bullseye"},
+
+    # ── 基建奖章 · 完成子任务 ───────────────────────
+    {"type": "subtask_completed", "color": "#7fbf7f",
+     "thresholds": (1, 3, 5, 10, 25, 50, 75, 100, 150, 200, 300, 500),
+     "names": "第一块砖 三砖 五砖 十砖 廿五砖 五十砖 七十五砖 百砖 百五砖 两百砖 三百砖 五百砖",
+     "icons": "fa-brick fa-cubes fa-layer-group fa-cubes-stacked fa-cube fa-shapes fa-object-group fa-object-ungroup fa-columns fa-table-cells fa-grip fa-border-all"},
+
+    # ── 基建奖章 · 完成父任务（统筹）────────────────
+    {"type": "parent_task_completed", "color": "#a080c8",
+     "thresholds": (1, 2, 3, 5, 10, 15, 20, 30, 50, 75, 100),
+     "names": "统筹一役 双线统筹 三线统筹 五线统筹 十线统筹 十五线统筹 二十线统筹 三十线统筹 五十线统筹 七十五线统筹 百线统筹",
+     "icons": "fa-diagram-predecessor fa-diagram-project fa-diagram-successor fa-diagram-next fa-diagram-lean-canvas fa-folder-tree fa-folder-open fa-sitemap fa-network-wired fa-share-nodes fa-bars-staggered"},
+
+    # ── 成长奖章 · 领取奖励次数 ─────────────────────
+    {"type": "reward_claimed_count", "color": "#e8b818",
+     "thresholds": (1, 5, 10, 25, 50, 100, 200, 300, 500),
+     "names": "第一次结算 五次结算 十次结算 廿五次结算 五十次结算 百次结算 两百次结算 三百次结算 五百次结算",
+     "icons": "fa-gift fa-gifts fa-hand-holding-dollar fa-sack-dollar fa-coins fa-wallet fa-piggy-bank fa-vault fa-scale-balanced"},
+
+    # ── 记录奖章 · 归档整理 ─────────────────────────
+    {"type": "task_count_archived", "color": "#8ab4d8",
+     "thresholds": (1, 5, 10, 25, 50, 75, 100, 150, 200, 300),
+     "names": "首次归档 五件归档 十件归档 廿五归档 五十归档 七十五归档 百件归档 百五归档 两百归档 三百归档",
+     "icons": "fa-box-archive fa-box fa-boxes-stacked fa-archive fa-folder-closed fa-folder fa-folder-open fa-compress fa-file-zipper fa-database"},
+
+    # ── 记录奖章 · 断舍离（回收站）──────────────────
+    {"type": "task_count_deleted", "color": "#e0703a",
+     "thresholds": (1, 5, 10, 25, 50, 75, 100, 150, 200, 300),
+     "names": "第一次删 五件删 十件删 廿五删 五十删 七十五删 百件删 百五删 两百删 三百删",
+     "icons": "fa-trash fa-trash-can fa-trash-arrow-up fa-broom fa-eraser fa-scissors fa-circle-minus fa-xmark fa-ban fa-recycle"},
+
+    # ── 记录奖章 · 分类有道（打标签）────────────────
+    {"type": "task_count_tagged", "color": "#a080c8",
+     "thresholds": (1, 5, 10, 25, 50, 75, 100, 150, 200, 300),
+     "names": "第一个标签 五标签 十标签 廿五标签 五十标签 七十五标签 百标签 百五标签 两百标签 三百标签",
+     "icons": "fa-tag fa-tags fa-bookmark fa-marker fa-highlighter fa-note-sticky fa-list-ul fa-list-check fa-thumbtack fa-paperclip"},
+
+    # ── 财富奖章 · 掉落规划 ─────────────────────────
+    {"type": "task_count_with_drops", "color": "#c9a227",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "掉落规划 三次掉落 五次掉落 十次掉落 二十次掉落 三十次掉落 五十次掉落 七十五次掉落 百次掉落",
+     "icons": "fa-dice fa-dice-d20 fa-dice-d6 fa-dice-five fa-dice-four fa-dice-three fa-dice-two fa-cookie-bite fa-gifts"},
+
+    # ── 履历奖章 · 日拱一卒（重复任务）──────────────
+    {"type": "repeat_task_count", "color": "#6fbf9f",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "日拱一卒 三例重复 五例重复 十例重复 二十例重复 三十例重复 五十例重复 七十五例重复 百例重复",
+     "icons": "fa-repeat fa-rotate fa-rotate-right fa-arrows-rotate fa-arrow-rotate-right fa-redo fa-infinity fa-arrows-spin fa-hourglass-start"},
+
+    # ── 成长奖章 · 单次最长专注 ─────────────────────
+    {"type": "tracking_longest_session_min", "color": "#22b3c9",
+     "thresholds": (15, 25, 45, 60, 90, 120, 180, 240, 300, 480),
+     "names": "一刻钟 廿五分 三刻钟 一小时整 一个半钟 两小时整 三小时整 四小时整 五小时整 八小时整",
+     "icons": "fa-stopwatch fa-stopwatch-20 fa-hourglass-start fa-hourglass-half fa-hourglass-end fa-hourglass fa-clock fa-clock-rotate-left fa-gauge-simple-high fa-gauge-high"},
+
+    # ── 成长奖章 · 有专注记录的天数 ─────────────────
+    {"type": "tracking_days_count", "color": "#22b3c9",
+     "thresholds": (1, 3, 7, 14, 30, 60, 90, 180, 365),
+     "names": "专注首日 专注三日 专注七日 专注半月 专注一月 专注两月 专注一季 专注半年 专注一年",
+     "icons": "fa-sun fa-calendar-day fa-calendar-week fa-calendar-days fa-moon fa-calendar-check fa-calendar-plus fa-calendar-minus fa-sun-plant-wilt"},
+
+    # ── 成长奖章 · 长时段专注 ───────────────────────
+    {"type": "tracking_sessions_long", "color": "#22b3c9",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "一次长专注 三次长专注 五次长专注 十次长专注 二十次长专注 三十次长专注 五十次长专注 七十五次长专注 百次长专注",
+     "icons": "fa-hourglass-end fa-hourglass fa-business-time fa-fire fa-mountain fa-gauge-high fa-snowflake fa-wind fa-droplet"},
+
+    # ── 成长奖章 · 劳逸结合（休息段）────────────────
+    {"type": "pomodoro_break_count", "color": "#6fbf9f",
+     "thresholds": (1, 3, 5, 10, 25, 50, 75, 100, 150, 200),
+     "names": "第一次休息 三次休息 五次休息 十次休息 廿五次休息 五十次休息 七十五次休息 百次休息 百五次休息 两百次休息",
+     "icons": "fa-mug-hot fa-mug-saucer fa-bed fa-couch fa-spa fa-leaf fa-tree fa-cloud-sun fa-wind fa-snowflake"},
+
+    # ── 成长奖章 · 番茄钟总数（含休息）──────────────
+    {"type": "pomodoro_all_count", "color": "#6fbf9f",
+     "thresholds": (1, 10, 25, 50, 100, 250, 500, 1000),
+     "names": "番茄首颗 十颗番茄 廿五颗番茄 五十颗番茄 百颗番茄 两百五十颗 五百颗番茄 千颗番茄",
+     "icons": "fa-apple-whole fa-lemon fa-carrot fa-pepper-hot fa-drumstick-bite fa-bowl-food fa-utensils fa-plate-wheat"},
+
+    # ── 财富奖章 · 资源流水笔数 ─────────────────────
+    {"type": "resource_tx_count", "color": "#c9a227",
+     "thresholds": (10, 50, 100, 250, 500, 1000, 2000, 5000),
+     "names": "十笔流水 五十笔 百笔流水 两百五十笔 五百笔 千笔流水 两千笔 五千笔",
+     "icons": "fa-receipt fa-file-invoice fa-file-invoice-dollar fa-book-bookmark fa-clipboard-list fa-table-list fa-chart-simple fa-coins"},
+
+    # ── 财富奖章 · 累计获得经验 ─────────────────────
+    {"type": "exp_earned", "color": "#6AB0E8",
+     "thresholds": (1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000, 1000000),
+     "names": "千点经验 五千经验 万点经验 两万五千经验 五万经验 十万经验 廿五万经验 五十万经验 百万经验",
+     "icons": "fa-chart-line fa-chart-area fa-arrow-trend-up fa-square-poll-vertical fa-bolt fa-award fa-crown fa-dragon fa-meteor"},
+
+    # ── 财富奖章 · 累计获得源石 ─────────────────────
+    {"type": "source_stone_earned", "color": "#ffd76a",
+     "thresholds": (1, 5, 10, 25, 50, 100, 200, 500, 1000),
+     "names": "第一颗源石 五颗源石 十颗源石 廿五颗源石 五十颗源石 百颗源石 两百颗源石 五百颗源石 千颗源石",
+     "icons": "fa-gem fa-diamond fa-crown fa-ring fa-star fa-certificate fa-award fa-medal fa-trophy"},
+
+    # ── 财富奖章 · 累计获得理智 ─────────────────────
+    {"type": "sanity_earned", "color": "#60C890",
+     "thresholds": (10, 50, 100, 250, 500, 1000, 2000, 5000),
+     "names": "十点理智 五十理智 百点理智 两百五十点 五百理智 千点理智 两千理智 五千理智",
+     "icons": "fa-bolt-lightning fa-bolt fa-battery-half fa-battery-full fa-heart-pulse fa-droplet fa-seedling fa-leaf"},
+
+    # ── 财富奖章 · 花出去的合成玉 ───────────────────
+    {"type": "orundum_spent", "color": "#d43028",
+     "thresholds": (1000, 5000, 10000, 25000, 50000, 100000, 250000, 500000),
+     "names": "千玉之出 五千玉之出 万玉之出 两万五千玉之出 五万玉之出 十万玉之出 廿五万玉之出 五十万玉之出",
+     "icons": "fa-arrow-trend-down fa-caret-down fa-circle-down fa-square-caret-down fa-arrow-down fa-angles-down fa-chevron-down fa-download"},
+
+    # ── 财富奖章 · 花出去的龙门币 ───────────────────
+    {"type": "lungmen_spent", "color": "#c9a227",
+     "thresholds": (10000, 50000, 100000, 250000, 500000, 1000000, 2500000),
+     "names": "万贯之出 五万贯之出 十万贯之出 廿五万贯之出 五十万贯之出 百万贯之出 两百五十万贯之出",
+     "icons": "fa-money-bill-trend-up fa-money-bill-wave fa-money-bill-transfer fa-cart-shopping fa-basket-shopping fa-bag-shopping fa-store"},
+
+    # ── 记录奖章 · 仓库素材总量 ─────────────────────
+    {"type": "warehouse_total_qty", "color": "#8ab4d8",
+     "thresholds": (10, 50, 100, 250, 500, 1000, 2500, 5000, 10000),
+     "names": "十件库存 五十件库存 百件库存 两百五十件库存 五百件库存 千件库存 两千五百件库存 五千件库存 万件库存",
+     "icons": "fa-warehouse fa-boxes-stacked fa-cubes-stacked fa-dungeon fa-building fa-archive fa-industry fa-factory fa-landmark"},
+
+    # ── 活动奖章 · 低星干员 ─────────────────────────
+    {"type": "operator_low_rarity_owned", "color": "#7fa8d8",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 80, 100),
+     "names": "首位低星 三位低星 五位低星 十位低星 二十位低星 三十位低星 五十位低星 八十位低星 百位低星",
+     "icons": "fa-user-large fa-user-tie fa-user-clock fa-user-astronaut fa-user-ninja fa-user-shield fa-user-graduate fa-user-doctor fa-user-gear"},
+
+    # ── 活动奖章 · 干员潜能 ─────────────────────────
+    {"type": "operator_copies_total", "color": "#7fa8d8",
+     "thresholds": (1, 2, 5, 10, 20, 50, 100, 200),
+     "names": "第一份潜能 两份潜能 五份潜能 十份潜能 二十份潜能 五十份潜能 百份潜能 两百份潜能",
+     "icons": "fa-clone fa-copy fa-layer-group fa-square-plus fa-circle-plus fa-plus fa-dice-d6 fa-cubes"},
+
+    # ── 记录奖章 · 现实奖励 ─────────────────────────
+    {"type": "reality_reward_done", "color": "#a080c8",
+     "thresholds": (1, 3, 5, 10, 20, 30, 50, 75, 100),
+     "names": "首个现实奖励 三项现实奖励 五项现实奖励 十项现实奖励 二十项现实奖励 三十项现实奖励 五十项现实奖励 七十五项现实奖励 百项现实奖励",
+     "icons": "fa-bullseye fa-crosshairs fa-thumbs-up fa-hand-holding-heart fa-heart fa-heart-circle-check fa-star fa-sun fa-sparkles"},
+
+    # ── 财富奖章 · 礼包消耗源石 ─────────────────────
+    {"type": "gift_pack_stone_spent", "color": "#c9a227",
+     "thresholds": (1, 6, 18, 30, 60, 120, 180, 300, 600),
+     "names": "一颗源石入袋 六颗源石入袋 十八颗源石入袋 三十颗源石入袋 六十颗源石入袋 百二十颗源石入袋 百八十颗源石入袋 三百颗源石入袋 六百颗源石入袋",
+     "icons": "fa-box-open fa-box fa-sack-dollar fa-coins fa-vault fa-dungeon fa-parachute-box fa-gifts fa-hand-holding-dollar"},
 ]
 
 # 图标兜底池：手写清单里撞车（或不够用）时，从这里按顺序取还没被占用的。
@@ -407,6 +601,37 @@ ACH_TYPE_META = {
     "notes_written":              ("填写任务备注", "则"),
     "lungmen_earned":             ("累计获得龙门币", ""),
     "orundum_earned":             ("累计获得合成玉", ""),
+    # ── R33 新增：把"任务的形状 / 专注的维度 / 经济的另一端"也变成可点亮的条件 ──
+    "task_count_completed_low":        ("完成低优先级任务", "个"),
+    "task_count_completed_count_mode": ("完成计数型任务", "个"),
+    "task_count_completed_manual":     ("完成手动进度任务", "个"),
+    "task_count_completed_auto":       ("完成自动进度任务", "个"),
+    "task_count_completed_daily":      ("完成日常任务", "个"),
+    "task_count_completed_campaign":   ("完成战役任务", "个"),
+    "subtask_completed":               ("完成子任务", "个"),
+    "parent_task_completed":           ("完成带子任务的父任务", "个"),
+    "reward_claimed_count":            ("领取任务奖励", "次"),
+    "task_count_archived":             ("归档任务", "个"),
+    "task_count_deleted":              ("删除任务", "个"),
+    "task_count_tagged":               ("给任务打标签", "个"),
+    "task_count_with_drops":           ("配置掉落的任务", "个"),
+    "repeat_task_count":               ("创建重复任务", "个"),
+    "tracking_longest_session_min":    ("单次最长追踪", "分钟"),
+    "tracking_days_count":             ("有追踪记录的天数", "天"),
+    "tracking_sessions_long":          ("单次 ≥1 小时的追踪", "次"),
+    "pomodoro_break_count":            ("完成休息段", "次"),
+    "pomodoro_all_count":              ("完成番茄钟（含休息）", "次"),
+    "resource_tx_count":               ("资源流水", "笔"),
+    "exp_earned":                      ("累计获得经验", ""),
+    "source_stone_earned":             ("累计获得源石", ""),
+    "sanity_earned":                   ("累计获得理智", ""),
+    "orundum_spent":                   ("累计消耗合成玉", ""),
+    "lungmen_spent":                   ("累计消耗龙门币", ""),
+    "warehouse_total_qty":             ("仓库素材总量", "件"),
+    "operator_low_rarity_owned":       ("拥有低星干员", "位"),
+    "operator_copies_total":           ("干员潜能合计", "份"),
+    "reality_reward_done":             ("达成现实奖励", "项"),
+    "gift_pack_stone_spent":           ("购买礼包消耗源石", ""),
 }
 
 
@@ -1406,6 +1631,42 @@ def cumulative_achievement_values(cur) -> dict:
         'notes_written':              _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 0 AND notes IS NOT NULL AND TRIM(notes) != ''"),
         'lungmen_earned':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'lungmen' AND amount > 0"),
         'orundum_earned':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'orundum' AND amount > 0"),
+
+        # ── R33 新增：按「任务的形状」分档（同一批任务，换一个维度再给一串章）──
+        'task_count_completed_low':        _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND priority <= 2 AND deleted = 0"),
+        'task_count_completed_count_mode': _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND progress_mode = 'count' AND deleted = 0"),
+        'task_count_completed_manual':     _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND progress_mode = 'manual' AND deleted = 0"),
+        'task_count_completed_auto':       _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND progress_mode = 'auto' AND deleted = 0"),
+        'task_count_completed_daily':      _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND track = 'daily' AND deleted = 0"),
+        'task_count_completed_campaign':   _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND track = 'campaign' AND deleted = 0"),
+        'subtask_completed':               _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE status = 'done' AND parent_id IS NOT NULL AND deleted = 0"),
+        'parent_task_completed':           _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks t WHERE t.status = 'done' AND t.deleted = 0 AND EXISTS (SELECT 1 FROM tasks c WHERE c.parent_id = t.id AND c.deleted = 0)"),
+        'reward_claimed_count':            _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE reward_claimed = 1 AND deleted = 0"),
+        'task_count_archived':             _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE archived = 1 AND deleted = 0"),
+        'task_count_deleted':              _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 1"),
+        'task_count_tagged':               _scalar_or_zero(cur, "SELECT COUNT(DISTINCT tt.task_id) FROM task_tags tt JOIN tasks t ON t.id = tt.task_id WHERE t.deleted = 0"),
+        'task_count_with_drops':           _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 0 AND drop_config IS NOT NULL AND TRIM(drop_config) NOT IN ('', '[]', 'null')"),
+        'repeat_task_count':               _scalar_or_zero(cur, "SELECT COUNT(*) FROM tasks WHERE deleted = 0 AND repeat_type IS NOT NULL AND repeat_type != ''"),
+
+        # ── R33 新增：专注 / 番茄钟的「形态」维度 ──
+        'tracking_longest_session_min':    _scalar_or_zero(cur, "SELECT COALESCE(MAX(duration_seconds), 0) FROM tracking_sessions WHERE ended_at IS NOT NULL") / 60.0,
+        'tracking_days_count':             _scalar_or_zero(cur, "SELECT COUNT(DISTINCT substr(started_at, 1, 10)) FROM tracking_sessions"),
+        'tracking_sessions_long':          _scalar_or_zero(cur, "SELECT COUNT(*) FROM tracking_sessions WHERE ended_at IS NOT NULL AND duration_seconds >= 3600"),
+        'pomodoro_break_count':            _scalar_or_zero(cur, "SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed' AND kind = 'break'"),
+        'pomodoro_all_count':              _scalar_or_zero(cur, "SELECT COUNT(*) FROM pomodoro_sessions WHERE status = 'completed'"),
+
+        # ── R33 新增：经济的「另一端」与仓库 / 招募 ──
+        'resource_tx_count':               _scalar_or_zero(cur, "SELECT COUNT(*) FROM resource_transactions"),
+        'exp_earned':                      _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'exp' AND amount > 0"),
+        'source_stone_earned':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'source_stone' AND amount > 0"),
+        'sanity_earned':                   _scalar_or_zero(cur, "SELECT COALESCE(SUM(amount), 0) FROM resource_transactions WHERE resource_type = 'sanity' AND amount > 0"),
+        'orundum_spent':                   _scalar_or_zero(cur, "SELECT COALESCE(SUM(-amount), 0) FROM resource_transactions WHERE resource_type = 'orundum' AND amount < 0"),
+        'lungmen_spent':                   _scalar_or_zero(cur, "SELECT COALESCE(SUM(-amount), 0) FROM resource_transactions WHERE resource_type = 'lungmen' AND amount < 0"),
+        'warehouse_total_qty':             _scalar_or_zero(cur, "SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE qty > 0"),
+        'operator_low_rarity_owned':       _scalar_or_zero(cur, "SELECT COUNT(*) FROM operator_records WHERE rarity <= 4"),
+        'operator_copies_total':           _scalar_or_zero(cur, "SELECT COALESCE(SUM(copies), 0) FROM operator_records"),
+        'reality_reward_done':             _scalar_or_zero(cur, "SELECT COUNT(*) FROM reality_rewards WHERE status IN ('achieved', 'claimed')"),
+        'gift_pack_stone_spent':           _scalar_or_zero(cur, "SELECT COALESCE(SUM(cost_source_stone), 0) FROM gift_packs WHERE purchased = 1"),
     }
     try:
         vals['streak_days'] = calculate_streak_days(cur)
