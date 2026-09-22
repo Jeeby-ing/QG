@@ -8356,3 +8356,28 @@ body.theme-light .task-card.claimed:not(.claimable) {
 @media (prefers-reduced-motion: reduce) {
     .task-card.claim-just-done .task-claim-btn { animation: none !important; }
 }
+
+/* ============================================================
+ * §18.0  原版字体接入（R34）
+ * ------------------------------------------------------------
+ * 依据：客户端 APK（assets/arknights-hg-2771.apk）内一共只有 3 个字体文件，
+ *   其中承担 UI 正文的正是 assets/font/SourceHanSansCN-Medium.ttf
+ *   —— 「思源黑体 CN Medium」，也就是明日方舟真正在用的正文字体。
+ *   （另两个是 SourceHanSerifCN-Medium 装饰宋体、taptap 评分控件字体，与本项目无关。）
+ *
+ * 做法：scripts/build_fonts.py 从 APK 取出该字体 → 按语义切子集 → 转 WOFF2，
+ *   产出 static/fonts/ak-fonts.css（含 unicode-range，拉丁 / CJK 拆成两个文件按需下载）。
+ *   本节的职责只有一件事：把 'AK Sans CN' 排到字体栈最前面。
+ *   @font-face 本体在 ak-fonts.css，index.html 里于 style.css 之前引入。
+ *
+ * 想回滚：删掉本节，并移除 index.html 里的 ak-fonts.css 那一行即可。
+ * ============================================================ */
+:root {
+    /* 原版黑体排在最前：只要 ak-fonts.css 加载成功，全站正文即原版字形 */
+    --font-main: 'AK Sans CN', -apple-system, "SF Pro Text", "Segoe UI", "Helvetica Neue",
+                 "PingFang SC", "Microsoft YaHei", sans-serif;
+    /* 标题/标签一并交给原版黑体。方舟那种「宽字距」观感由既有的 letter-spacing 承担，
+       不再借道 Bahnschrift —— 那是自制替代品，不是游戏里的字体。 */
+    --font-display: 'AK Sans CN', "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei",
+                    var(--font-main);
+}

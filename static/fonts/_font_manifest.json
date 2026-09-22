@@ -1,0 +1,16 @@
+{
+  "family": "AK Sans CN",
+  "source": "assets/font/SourceHanSansCN-Medium.ttf",
+  "files": {
+    "ak-sans-latin": {
+      "bytes": 84904,
+      "glyphs": 1138,
+      "unicodeRange": "U+20-FF, U+100-24F, U+250-2AF, U+2B0-2FF, U+300-36F, U+370-3FF, U+400-4FF, U+2000-206F, U+2070-209F, U+20A0-20CF, U+2100-214F, U+2150-218F, U+2190-21FF, U+2200-22FF, U+2460-24FF, U+25A0-25FF, U+2600-27BF, U+3000-303F, U+FE10-FE1F, U+FF00-FFEF"
+    },
+    "ak-sans-cjk": {
+      "bytes": 4625660,
+      "glyphs": 27831,
+      "unicodeRange": "U+2E80-2EFF, U+31C0-31EF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+3231, U+32A3"
+    }
+  }
+}

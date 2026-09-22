@@ -1,0 +1,23 @@
+/* 自动生成 —— 请勿手改。
+ * 源: arknights-hg-2771.apk 里的 assets/font/SourceHanSansCN-Medium.ttf（明日方舟原版 UI 字体：思源黑体 CN Medium）
+ * 生成: scripts/build_fonts.py
+ * 拆分: unicode-range 把拉丁与 CJK 分开，浏览器按需下载。
+ */
+
+@font-face {
+  font-family: 'AK Sans CN';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('ak-sans-latin.woff2') format('woff2');
+  unicode-range: U+20-FF, U+100-24F, U+250-2AF, U+2B0-2FF, U+300-36F, U+370-3FF, U+400-4FF, U+2000-206F, U+2070-209F, U+20A0-20CF, U+2100-214F, U+2150-218F, U+2190-21FF, U+2200-22FF, U+2460-24FF, U+25A0-25FF, U+2600-27BF, U+3000-303F, U+FE10-FE1F, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'AK Sans CN';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('ak-sans-cjk.woff2') format('woff2');
+  unicode-range: U+2E80-2EFF, U+31C0-31EF, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+3231, U+32A3;
+}
