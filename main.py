@@ -13,6 +13,18 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+# ---------- 控制台编码（必须在任何会打印中文的业务代码之前生效） ----------
+# 从 .bat / launcher 启动时，子进程 stdout 可能被重定向成 cp1252（英文区域
+# Windows），此时任何 print(中文) 都会 UnicodeEncodeError；而本文件在 **import 期**
+# 就会打印中文警告 → 直接导致整个服务起不来（launcher 表现为卡在 "Starting server"）。
+# 统一把 stdout/stderr 切成 UTF-8；errors="replace" 保证绝不因编码再抛异常。
+try:
+    import sys as _sys
+    _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    _sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -3731,7 +3743,12 @@ def _load_character_meta() -> dict:
         with open(CHARACTER_TABLE_PATH, encoding="utf-8") as f:
             data = json.load(f)
     except Exception as e:
-        print(f"[warn] 干员表加载失败（将用仓库目录稀有度兜底）: {e}")
+        # 绝不因为一句警告把整个服务带崩（历史上 stdout 是 cp1252 时中文 print
+        # 会 UnicodeEncodeError，且发生在 import 期 → 服务直接起不来）。
+        try:
+            print(f"[warn] 干员表加载失败（将用仓库目录稀有度兜底）: {e}")
+        except Exception:
+            pass
         return {}
     meta = {}
     for v in data.values():

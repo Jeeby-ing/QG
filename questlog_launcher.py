@@ -175,9 +175,16 @@ def start_server():
     server_owned = True
     log("Starting server...")
     err_log = os.path.join(_HERE, "launcher_error.log")
+    # 强制子进程用 UTF-8 控制台：Windows 英文区域默认 cp1252，
+    # 服务里任何 print(中文) 都会 UnicodeEncodeError 且在 import 期就把服务带崩
+    # （表现为 launcher 卡在 "Starting server..."）。这里给子进程钉死编码。
+    child_env = dict(os.environ)
+    child_env["PYTHONUTF8"] = "1"
+    child_env["PYTHONIOENCODING"] = "utf-8"
     server_proc = subprocess.Popen(
         [SERVER_PY, APP_PY],
         cwd=_HERE,
+        env=child_env,
         stdout=subprocess.DEVNULL,
         stderr=open(err_log, "w", encoding="utf-8", errors="replace"),
     )
