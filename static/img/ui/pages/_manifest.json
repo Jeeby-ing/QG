@@ -1,0 +1,5524 @@
+[
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_backbutton",
+  "w": 168,
+  "h": 72,
+  "content": [
+   157,
+   68
+  ],
+  "contentBox": [
+   4,
+   0,
+   161,
+   68
+  ],
+  "alpha": 0.867,
+  "colors": [
+   "#303030(95%)",
+   "#202020(2%)",
+   "#F0F0F0(1%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_backbutton.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_backbutton$0",
+  "w": 163,
+  "h": 69,
+  "content": [
+   157,
+   66
+  ],
+  "contentBox": [
+   3,
+   0,
+   160,
+   66
+  ],
+  "alpha": 0.907,
+  "colors": [
+   "#303030(94%)",
+   "#202020(3%)",
+   "#F0F0F0(1%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_backbutton$0.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_icon_cancel",
+  "w": 40,
+  "h": 40,
+  "content": [
+   40,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   40,
+   40
+  ],
+  "alpha": 0.681,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_icon_cancel.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_icon_cancel$0",
+  "w": 37,
+  "h": 37,
+  "content": [
+   37,
+   37
+  ],
+  "contentBox": [
+   0,
+   0,
+   37,
+   37
+  ],
+  "alpha": 0.735,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_icon_cancel$0.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_icon_confirm",
+  "w": 44,
+  "h": 44,
+  "content": [
+   44,
+   44
+  ],
+  "contentBox": [
+   0,
+   0,
+   44,
+   44
+  ],
+  "alpha": 0.655,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_icon_confirm.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "btn_icon_confirm$0",
+  "w": 39,
+  "h": 39,
+  "content": [
+   39,
+   39
+  ],
+  "contentBox": [
+   0,
+   0,
+   39,
+   39
+  ],
+  "alpha": 0.751,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/btn_icon_confirm$0.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "transferarrow",
+  "w": 47,
+  "h": 72,
+  "content": [
+   47,
+   72
+  ],
+  "contentBox": [
+   0,
+   0,
+   47,
+   72
+  ],
+  "alpha": 0.437,
+  "colors": [
+   "#808080(100%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/transferarrow.png"
+ },
+ {
+  "page": "dynres",
+  "group": "item_use_confirm_float",
+  "name": "transferarrow$0",
+  "w": 52,
+  "h": 76,
+  "content": [
+   52,
+   76
+  ],
+  "contentBox": [
+   0,
+   0,
+   52,
+   76
+  ],
+  "alpha": 0.402,
+  "colors": [
+   "#808080(100%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/stage/dynres/item_use_confirm_float/transferarrow$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "default_common",
+  "name": "split_line",
+  "w": 28,
+  "h": 52,
+  "content": [
+   18,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   18,
+   52
+  ],
+  "alpha": 0.593,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/default_common/split_line.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "default_common",
+  "name": "split_line$0",
+  "w": 26,
+  "h": 50,
+  "content": [
+   17,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   17,
+   50
+  ],
+  "alpha": 0.602,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/default_common/split_line$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "down_part",
+  "w": 256,
+  "h": 68,
+  "content": [
+   247,
+   64
+  ],
+  "contentBox": [
+   4,
+   0,
+   251,
+   64
+  ],
+  "alpha": 0.9,
+  "colors": [
+   "#F0F0F0(100%)",
+   "#E0E0E0(0%)",
+   "#C0C0C0(0%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/down_part.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "down_part$0",
+  "w": 253,
+  "h": 63,
+  "content": [
+   247,
+   60
+  ],
+  "contentBox": [
+   3,
+   0,
+   250,
+   60
+  ],
+  "alpha": 0.921,
+  "colors": [
+   "#F0F0F0(98%)",
+   "#E0E0E0(2%)",
+   "#D0D0D0(0%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/down_part$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "icon_diamond",
+  "w": 51,
+  "h": 45,
+  "content": [
+   45,
+   45
+  ],
+  "contentBox": [
+   3,
+   0,
+   48,
+   45
+  ],
+  "alpha": 0.745,
+  "colors": [
+   "#F0F0F0(42%)",
+   "#D0A000(12%)",
+   "#E0B020(5%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/icon_diamond.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "icon_diamond$0",
+  "w": 60,
+  "h": 48,
+  "content": [
+   45,
+   48
+  ],
+  "contentBox": [
+   6,
+   0,
+   51,
+   48
+  ],
+  "alpha": 0.61,
+  "colors": [
+   "#F0F0F0(42%)",
+   "#D0A000(12%)",
+   "#E0B020(5%)"
+  ],
+  "kb": 2.2,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/icon_diamond$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "icon_lock",
+  "w": 92,
+  "h": 92,
+  "content": [
+   47,
+   59
+  ],
+  "contentBox": [
+   21,
+   17,
+   68,
+   76
+  ],
+  "alpha": 0.231,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/icon_lock.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "icon_lock$0",
+  "w": 51,
+  "h": 63,
+  "content": [
+   47,
+   59
+  ],
+  "contentBox": [
+   2,
+   2,
+   49,
+   61
+  ],
+  "alpha": 0.61,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/icon_lock$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "offset_part",
+  "w": 75,
+  "h": 74,
+  "content": [
+   74,
+   73
+  ],
+  "contentBox": [
+   1,
+   0,
+   75,
+   73
+  ],
+  "alpha": 0.493,
+  "colors": [
+   "#508000(100%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/offset_part.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "offset_part$0",
+  "w": 80,
+  "h": 76,
+  "content": [
+   78,
+   74
+  ],
+  "contentBox": [
+   2,
+   0,
+   80,
+   74
+  ],
+  "alpha": 0.505,
+  "colors": [
+   "#508000(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/offset_part$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "roundrect",
+  "w": 42,
+  "h": 24,
+  "content": [
+   42,
+   24
+  ],
+  "contentBox": [
+   0,
+   0,
+   42,
+   24
+  ],
+  "alpha": 0.914,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/roundrect.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "roundrect$0",
+  "w": 44,
+  "h": 28,
+  "content": [
+   44,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   44,
+   28
+  ],
+  "alpha": 0.855,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/roundrect$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "sold_out_image",
+  "w": 235,
+  "h": 102,
+  "content": [
+   235,
+   102
+  ],
+  "contentBox": [
+   0,
+   0,
+   235,
+   102
+  ],
+  "alpha": 0.525,
+  "colors": [
+   "#700020(54%)",
+   "#700010(12%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 10.0,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/sold_out_image.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "sold_out_image$0",
+  "w": 240,
+  "h": 104,
+  "content": [
+   240,
+   104
+  ],
+  "contentBox": [
+   0,
+   0,
+   240,
+   104
+  ],
+  "alpha": 0.515,
+  "colors": [
+   "#700020(55%)",
+   "#700010(12%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 9.0,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/sold_out_image$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "sprite_track_point_center",
+  "w": 23,
+  "h": 23,
+  "content": [
+   19,
+   19
+  ],
+  "contentBox": [
+   2,
+   2,
+   21,
+   21
+  ],
+  "alpha": 0.49,
+  "colors": [
+   "#F06000(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/sprite_track_point_center.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "sprite_track_point_frame",
+  "w": 39,
+  "h": 39,
+  "content": [
+   35,
+   35
+  ],
+  "contentBox": [
+   2,
+   2,
+   37,
+   37
+  ],
+  "alpha": 0.454,
+  "colors": [
+   "#F06000(97%)",
+   "#C05000(2%)",
+   "#A04000(1%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/sprite_track_point_frame.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "up_part",
+  "w": 253,
+  "h": 441,
+  "content": [
+   247,
+   441
+  ],
+  "contentBox": [
+   3,
+   0,
+   250,
+   441
+  ],
+  "alpha": 0.975,
+  "colors": [
+   "#303030(34%)",
+   "#404040(14%)",
+   "#505050(12%)"
+  ],
+  "kb": 13.5,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/up_part.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "up_part$0",
+  "w": 256,
+  "h": 444,
+  "content": [
+   247,
+   444
+  ],
+  "contentBox": [
+   4,
+   0,
+   251,
+   444
+  ],
+  "alpha": 0.963,
+  "colors": [
+   "#303030(34%)",
+   "#404040(14%)",
+   "#505050(12%)"
+  ],
+  "kb": 14.0,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/up_part$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/white_sprite.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "gp_shop_obj",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/giftpackageshop/gp_shop_obj/white_sprite$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "confirm_buy",
+  "w": 33,
+  "h": 29,
+  "content": [
+   33,
+   29
+  ],
+  "contentBox": [
+   0,
+   0,
+   33,
+   29
+  ],
+  "alpha": 0.631,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/confirm_buy.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "confirm_buy$0",
+  "w": 36,
+  "h": 32,
+  "content": [
+   36,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   32
+  ],
+  "alpha": 0.557,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/confirm_buy$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "month_card_bg",
+  "w": 994,
+  "h": 500,
+  "content": [
+   994,
+   500
+  ],
+  "contentBox": [
+   0,
+   0,
+   994,
+   500
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#202020(29%)",
+   "#901030(10%)",
+   "#901040(7%)"
+  ],
+  "kb": 79.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/month_card_bg.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "month_card_buy_btn",
+  "w": 228,
+  "h": 62,
+  "content": [
+   228,
+   62
+  ],
+  "contentBox": [
+   0,
+   0,
+   228,
+   62
+  ],
+  "alpha": 0.947,
+  "colors": [
+   "#0090D0(99%)",
+   "#0090E0(1%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/month_card_buy_btn.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "month_card_buy_btn$0",
+  "w": 232,
+  "h": 64,
+  "content": [
+   232,
+   64
+  ],
+  "contentBox": [
+   0,
+   0,
+   232,
+   64
+  ],
+  "alpha": 0.93,
+  "colors": [
+   "#0090D0(99%)",
+   "#0090E0(1%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/month_card_buy_btn$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "month_card_remain_time",
+  "w": 172,
+  "h": 36,
+  "content": [
+   172,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   172,
+   36
+  ],
+  "alpha": 0.969,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/month_card_remain_time.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "month_card",
+  "name": "month_card_remain_time$0",
+  "w": 170,
+  "h": 33,
+  "content": [
+   170,
+   33
+  ],
+  "contentBox": [
+   0,
+   0,
+   170,
+   33
+  ],
+  "alpha": 0.981,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/month_card/month_card_remain_time$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "monthly_sub_obj",
+  "name": "down_part",
+  "w": 256,
+  "h": 68,
+  "content": [
+   247,
+   64
+  ],
+  "contentBox": [
+   4,
+   0,
+   251,
+   64
+  ],
+  "alpha": 0.9,
+  "colors": [
+   "#F0F0F0(100%)",
+   "#E0E0E0(0%)",
+   "#C0C0C0(0%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/giftpackageshop/monthly_sub_obj/down_part.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "monthly_sub_obj",
+  "name": "down_part$0",
+  "w": 253,
+  "h": 63,
+  "content": [
+   247,
+   60
+  ],
+  "contentBox": [
+   3,
+   0,
+   250,
+   60
+  ],
+  "alpha": 0.921,
+  "colors": [
+   "#F0F0F0(98%)",
+   "#E0E0E0(2%)",
+   "#D0D0D0(0%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/giftpackageshop/monthly_sub_obj/down_part$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "monthly_sub_obj",
+  "name": "price_white_back",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 0.904,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/giftpackageshop/monthly_sub_obj/price_white_back.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "monthly_sub_obj",
+  "name": "price_white_back$0",
+  "w": 34,
+  "h": 33,
+  "content": [
+   34,
+   33
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   33
+  ],
+  "alpha": 0.944,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/giftpackageshop/monthly_sub_obj/price_white_back$0.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "recommend",
+  "name": "split_line",
+  "w": 28,
+  "h": 52,
+  "content": [
+   18,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   18,
+   52
+  ],
+  "alpha": 0.593,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/recommend/split_line.png"
+ },
+ {
+  "page": "giftpackageshop",
+  "group": "recommend",
+  "name": "split_line$0",
+  "w": 26,
+  "h": 50,
+  "content": [
+   17,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   17,
+   50
+  ],
+  "alpha": 0.602,
+  "colors": [],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/giftpackageshop/recommend/split_line$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "handbook_line",
+  "w": 116,
+  "h": 32,
+  "content": [
+   89,
+   22
+  ],
+  "contentBox": [
+   0,
+   5,
+   89,
+   27
+  ],
+  "alpha": 0.424,
+  "colors": [
+   "#F0E0E0(98%)",
+   "#F0F0E0(2%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/handbook_line.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "handbook_line$0",
+  "w": 113,
+  "h": 30,
+  "content": [
+   88,
+   22
+  ],
+  "contentBox": [
+   0,
+   4,
+   88,
+   26
+  ],
+  "alpha": 0.459,
+  "colors": [
+   "#F0E0E0(100%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/handbook_line$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "locked",
+  "w": 232,
+  "h": 252,
+  "content": [
+   217,
+   245
+  ],
+  "contentBox": [
+   7,
+   0,
+   224,
+   245
+  ],
+  "alpha": 0.897,
+  "colors": [
+   "#505050(25%)",
+   "#404040(21%)",
+   "#808080(18%)"
+  ],
+  "kb": 8.3,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/locked.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "locked$0",
+  "w": 229,
+  "h": 249,
+  "content": [
+   217,
+   243
+  ],
+  "contentBox": [
+   6,
+   0,
+   223,
+   243
+  ],
+  "alpha": 0.913,
+  "colors": [
+   "#505050(26%)",
+   "#404040(20%)",
+   "#808080(16%)"
+  ],
+  "kb": 8.4,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/locked$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "normal_back",
+  "w": 232,
+  "h": 252,
+  "content": [
+   217,
+   245
+  ],
+  "contentBox": [
+   7,
+   0,
+   224,
+   245
+  ],
+  "alpha": 0.897,
+  "colors": [
+   "#404040(25%)",
+   "#E0E0E0(20%)",
+   "#303030(13%)"
+  ],
+  "kb": 10.6,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/normal_back.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "normal_back$0",
+  "w": 229,
+  "h": 249,
+  "content": [
+   217,
+   243
+  ],
+  "contentBox": [
+   6,
+   0,
+   223,
+   243
+  ],
+  "alpha": 0.913,
+  "colors": [
+   "#404040(25%)",
+   "#E0E0E0(17%)",
+   "#303030(13%)"
+  ],
+  "kb": 10.8,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/normal_back$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "number_back",
+  "w": 84,
+  "h": 28,
+  "content": [
+   84,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   84,
+   28
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(86%)",
+   "#F0C000(6%)",
+   "#404040(3%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/number_back.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "number_back$0",
+  "w": 80,
+  "h": 25,
+  "content": [
+   80,
+   25
+  ],
+  "contentBox": [
+   0,
+   0,
+   80,
+   25
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(85%)",
+   "#F0C000(5%)",
+   "#404040(3%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/number_back$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "shadow_back",
+  "w": 256,
+  "h": 245,
+  "content": [
+   256,
+   243
+  ],
+  "contentBox": [
+   0,
+   2,
+   256,
+   245
+  ],
+  "alpha": 0.696,
+  "colors": [
+   "#000000(100%)"
+  ],
+  "kb": 3.9,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/shadow_back.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "shadow_back$0",
+  "w": 260,
+  "h": 260,
+  "content": [
+   260,
+   244
+  ],
+  "contentBox": [
+   0,
+   16,
+   260,
+   260
+  ],
+  "alpha": 0.651,
+  "colors": [
+   "#000000(100%)"
+  ],
+  "kb": 4.1,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/shadow_back$0.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "sprite_selected",
+  "w": 247,
+  "h": 270,
+  "content": [
+   241,
+   267
+  ],
+  "contentBox": [
+   3,
+   0,
+   244,
+   267
+  ],
+  "alpha": 0.352,
+  "colors": [
+   "#F0F0F0(96%)",
+   "#A0A0A0(1%)",
+   "#909090(1%)"
+  ],
+  "kb": 2.8,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/sprite_selected.png"
+ },
+ {
+  "page": "handbookv2",
+  "group": "hand_book_card",
+  "name": "sprite_selected$0",
+  "w": 252,
+  "h": 272,
+  "content": [
+   241,
+   268
+  ],
+  "contentBox": [
+   4,
+   0,
+   245,
+   268
+  ],
+  "alpha": 0.346,
+  "colors": [
+   "#F0F0F0(95%)",
+   "#D0D0D0(1%)",
+   "#A0A0A0(1%)"
+  ],
+  "kb": 2.7,
+  "src": "assets/AB/Android/ui/handbookv2/hand_book_card/sprite_selected$0.png"
+ },
+ {
+  "page": "medal",
+  "group": "[pack]group",
+  "name": "bkg_diy_token",
+  "w": 150,
+  "h": 168,
+  "content": [
+   140,
+   159
+  ],
+  "contentBox": [
+   5,
+   4,
+   145,
+   163
+  ],
+  "alpha": 0.679,
+  "colors": [
+   "#303030(94%)",
+   "#202020(6%)"
+  ],
+  "kb": 3.6,
+  "src": "assets/AB/Android/ui/medal/[pack]group/bkg_diy_token.png"
+ },
+ {
+  "page": "medal",
+  "group": "[pack]group",
+  "name": "bkg_diy_token$0",
+  "w": 172,
+  "h": 172,
+  "content": [
+   140,
+   159
+  ],
+  "contentBox": [
+   16,
+   6,
+   156,
+   165
+  ],
+  "alpha": 0.578,
+  "colors": [
+   "#303030(96%)",
+   "#202020(4%)"
+  ],
+  "kb": 4.1,
+  "src": "assets/AB/Android/ui/medal/[pack]group/bkg_diy_token$0.png"
+ },
+ {
+  "page": "medal",
+  "group": "[uc]diyframe",
+  "name": "img_edit_mesh",
+  "w": 1020,
+  "h": 436,
+  "content": [
+   1020,
+   436
+  ],
+  "contentBox": [
+   0,
+   0,
+   1020,
+   436
+  ],
+  "alpha": 0.781,
+  "colors": [
+   "#303030(94%)",
+   "#202020(6%)"
+  ],
+  "kb": 58.2,
+  "src": "assets/AB/Android/ui/medal/[uc]diyframe/img_edit_mesh.png"
+ },
+ {
+  "page": "medal",
+  "group": "[uc]diyframe",
+  "name": "img_edit_mesh$0",
+  "w": 1020,
+  "h": 435,
+  "content": [
+   1020,
+   434
+  ],
+  "contentBox": [
+   0,
+   1,
+   1020,
+   435
+  ],
+  "alpha": 0.783,
+  "colors": [
+   "#303030(94%)",
+   "#202020(6%)"
+  ],
+  "kb": 40.7,
+  "src": "assets/AB/Android/ui/medal/[uc]diyframe/img_edit_mesh$0.png"
+ },
+ {
+  "page": "medal",
+  "group": "[uc]diyframe",
+  "name": "img_entry_mesh",
+  "w": 840,
+  "h": 325,
+  "content": [
+   840,
+   325
+  ],
+  "contentBox": [
+   0,
+   0,
+   840,
+   325
+  ],
+  "alpha": 0.649,
+  "colors": [
+   "#808080(66%)",
+   "#707070(23%)",
+   "#606060(6%)"
+  ],
+  "kb": 63.6,
+  "src": "assets/AB/Android/ui/medal/[uc]diyframe/img_entry_mesh.png"
+ },
+ {
+  "page": "medal",
+  "group": "[uc]diyframe",
+  "name": "img_entry_mesh$0",
+  "w": 840,
+  "h": 328,
+  "content": [
+   840,
+   328
+  ],
+  "contentBox": [
+   0,
+   0,
+   840,
+   328
+  ],
+  "alpha": 0.646,
+  "colors": [
+   "#808080(67%)",
+   "#707070(23%)",
+   "#606060(6%)"
+  ],
+  "kb": 62.3,
+  "src": "assets/AB/Android/ui/medal/[uc]diyframe/img_entry_mesh$0.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "act_icon",
+  "w": 18,
+  "h": 18,
+  "content": [
+   18,
+   18
+  ],
+  "contentBox": [
+   0,
+   0,
+   18,
+   18
+  ],
+  "alpha": 0.528,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/act_icon.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "act_icon$0",
+  "w": 20,
+  "h": 20,
+  "content": [
+   20,
+   20
+  ],
+  "contentBox": [
+   0,
+   0,
+   20,
+   20
+  ],
+  "alpha": 0.53,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/act_icon$0.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "act_selected",
+  "w": 224,
+  "h": 72,
+  "content": [
+   214,
+   68
+  ],
+  "contentBox": [
+   4,
+   0,
+   218,
+   68
+  ],
+  "alpha": 0.889,
+  "colors": [
+   "#303030(94%)",
+   "#F0D000(4%)",
+   "#202020(2%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/act_selected.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "act_selected$0",
+  "w": 220,
+  "h": 70,
+  "content": [
+   214,
+   67
+  ],
+  "contentBox": [
+   3,
+   0,
+   217,
+   67
+  ],
+  "alpha": 0.918,
+  "colors": [
+   "#303030(96%)",
+   "#F0D000(4%)",
+   "#202020(0%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/act_selected$0.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "pure_arrow",
+  "w": 15,
+  "h": 12,
+  "content": [
+   15,
+   12
+  ],
+  "contentBox": [
+   0,
+   0,
+   15,
+   12
+  ],
+  "alpha": 0.594,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/pure_arrow.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "pure_arrow$0",
+  "w": 20,
+  "h": 16,
+  "content": [
+   20,
+   16
+  ],
+  "contentBox": [
+   0,
+   0,
+   20,
+   16
+  ],
+  "alpha": 0.559,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/pure_arrow$0.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "sprite_track_point_center",
+  "w": 23,
+  "h": 23,
+  "content": [
+   19,
+   19
+  ],
+  "contentBox": [
+   2,
+   2,
+   21,
+   21
+  ],
+  "alpha": 0.49,
+  "colors": [
+   "#F06000(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/sprite_track_point_center.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "sprite_track_point_frame",
+  "w": 39,
+  "h": 39,
+  "content": [
+   35,
+   35
+  ],
+  "contentBox": [
+   2,
+   2,
+   37,
+   37
+  ],
+  "alpha": 0.454,
+  "colors": [
+   "#F06000(97%)",
+   "#C05000(2%)",
+   "#A04000(1%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/sprite_track_point_frame.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "tab_icon_daily",
+  "w": 44,
+  "h": 44,
+  "content": [
+   44,
+   34
+  ],
+  "contentBox": [
+   0,
+   6,
+   44,
+   40
+  ],
+  "alpha": 0.224,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/tab_icon_daily.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "tab_icon_daily$0",
+  "w": 40,
+  "h": 38,
+  "content": [
+   40,
+   34
+  ],
+  "contentBox": [
+   0,
+   2,
+   40,
+   36
+  ],
+  "alpha": 0.279,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/tab_icon_daily$0.png"
+ },
+ {
+  "page": "missiontab",
+  "group": "act_mission_img",
+  "name": "tab_unselected",
+  "w": 49,
+  "h": 70,
+  "content": [
+   43,
+   67
+  ],
+  "contentBox": [
+   3,
+   0,
+   46,
+   67
+  ],
+  "alpha": 0.782,
+  "colors": [
+   "#E0E0E0(96%)",
+   "#303030(4%)",
+   "#D0D0D0(0%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/mission/missiontab/act_mission_img/tab_unselected.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "button_back",
+  "w": 262,
+  "h": 77,
+  "content": [
+   256,
+   74
+  ],
+  "contentBox": [
+   3,
+   0,
+   259,
+   74
+  ],
+  "alpha": 0.931,
+  "colors": [
+   "#303030(87%)",
+   "#F0F0F0(7%)",
+   "#404040(2%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/button_back.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "button_back$0",
+  "w": 264,
+  "h": 80,
+  "content": [
+   256,
+   76
+  ],
+  "contentBox": [
+   4,
+   0,
+   260,
+   76
+  ],
+  "alpha": 0.912,
+  "colors": [
+   "#303030(86%)",
+   "#F0F0F0(10%)",
+   "#808080(2%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/button_back$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "buy",
+  "w": 44,
+  "h": 38,
+  "content": [
+   44,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   44,
+   38
+  ],
+  "alpha": 0.59,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/buy.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "buy$0",
+  "w": 48,
+  "h": 40,
+  "content": [
+   48,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   48,
+   40
+  ],
+  "alpha": 0.534,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/buy$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "buy_state_alpha_mask",
+  "w": 4,
+  "h": 481,
+  "content": [
+   4,
+   449
+  ],
+  "contentBox": [
+   0,
+   16,
+   4,
+   465
+  ],
+  "alpha": 0.926,
+  "colors": [],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/buy_state_alpha_mask.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "cancel",
+  "w": 41,
+  "h": 41,
+  "content": [
+   41,
+   41
+  ],
+  "contentBox": [
+   0,
+   0,
+   41,
+   41
+  ],
+  "alpha": 0.722,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/cancel.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "cancel$0",
+  "w": 44,
+  "h": 44,
+  "content": [
+   44,
+   44
+  ],
+  "contentBox": [
+   0,
+   0,
+   44,
+   44
+  ],
+  "alpha": 0.667,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/cancel$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "confirm",
+  "w": 41,
+  "h": 41,
+  "content": [
+   41,
+   41
+  ],
+  "contentBox": [
+   0,
+   0,
+   41,
+   41
+  ],
+  "alpha": 0.731,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/confirm.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "confirm$0",
+  "w": 44,
+  "h": 44,
+  "content": [
+   44,
+   44
+  ],
+  "contentBox": [
+   0,
+   0,
+   44,
+   44
+  ],
+  "alpha": 0.675,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/confirm$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "confirm_buy_round",
+  "w": 232,
+  "h": 50,
+  "content": [
+   232,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   232,
+   50
+  ],
+  "alpha": 0.96,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/confirm_buy_round.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "confirm_buy_round$0",
+  "w": 236,
+  "h": 52,
+  "content": [
+   236,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   236,
+   52
+  ],
+  "alpha": 0.944,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/confirm_buy_round$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "deco_icon",
+  "w": 40,
+  "h": 32,
+  "content": [
+   40,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   40,
+   32
+  ],
+  "alpha": 0.332,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/deco_icon.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "deco_icon$0",
+  "w": 38,
+  "h": 28,
+  "content": [
+   38,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   38,
+   28
+  ],
+  "alpha": 0.337,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/deco_icon$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "deco_static",
+  "w": 40,
+  "h": 40,
+  "content": [
+   40,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   40,
+   40
+  ],
+  "alpha": 0.127,
+  "colors": [
+   "#303030(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/deco_static.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "deco_static$0",
+  "w": 35,
+  "h": 35,
+  "content": [
+   35,
+   35
+  ],
+  "contentBox": [
+   0,
+   0,
+   35,
+   35
+  ],
+  "alpha": 0.158,
+  "colors": [
+   "#303030(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/deco_static$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "gray_line",
+  "w": 66,
+  "h": 6,
+  "content": [
+   54,
+   6
+  ],
+  "contentBox": [
+   0,
+   0,
+   54,
+   6
+  ],
+  "alpha": 0.833,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/gray_line.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "right_tri",
+  "w": 18,
+  "h": 16,
+  "content": [
+   18,
+   16
+  ],
+  "contentBox": [
+   0,
+   0,
+   18,
+   16
+  ],
+  "alpha": 0.566,
+  "colors": [
+   "#20B0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/right_tri.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "right_tri$0",
+  "w": 20,
+  "h": 20,
+  "content": [
+   20,
+   20
+  ],
+  "contentBox": [
+   0,
+   0,
+   20,
+   20
+  ],
+  "alpha": 0.482,
+  "colors": [
+   "#20B0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/right_tri$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "skin_back",
+  "w": 30,
+  "h": 34,
+  "content": [
+   27,
+   30
+  ],
+  "contentBox": [
+   2,
+   2,
+   29,
+   32
+  ],
+  "alpha": 0.546,
+  "colors": [
+   "#F0F0F0(91%)",
+   "#E0E0E0(2%)",
+   "#C0C0C0(2%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/skin_back.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "skin_back$0",
+  "w": 32,
+  "h": 36,
+  "content": [
+   27,
+   30
+  ],
+  "contentBox": [
+   3,
+   3,
+   30,
+   33
+  ],
+  "alpha": 0.484,
+  "colors": [
+   "#F0F0F0(91%)",
+   "#E0E0E0(2%)",
+   "#C0C0C0(2%)"
+  ],
+  "kb": 0.7,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/skin_back$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "skin_head_back",
+  "w": 1,
+  "h": 80,
+  "content": [
+   1,
+   75
+  ],
+  "contentBox": [
+   0,
+   5,
+   1,
+   80
+  ],
+  "alpha": 0.95,
+  "colors": [
+   "#000000(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/skin_head_back.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "split_line",
+  "w": 516,
+  "h": 4,
+  "content": [
+   494,
+   4
+  ],
+  "contentBox": [
+   9,
+   0,
+   503,
+   4
+  ],
+  "alpha": 0.961,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/split_line.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "split_line$0",
+  "w": 512,
+  "h": 2,
+  "content": [
+   494,
+   2
+  ],
+  "contentBox": [
+   8,
+   0,
+   502,
+   2
+  ],
+  "alpha": 0.969,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/split_line$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "sprite_white",
+  "w": 2,
+  "h": 2,
+  "content": [
+   2,
+   2
+  ],
+  "contentBox": [
+   0,
+   0,
+   2,
+   2
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.0,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/sprite_white.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "sprite_white$0",
+  "w": 4,
+  "h": 4,
+  "content": [
+   4,
+   4
+  ],
+  "contentBox": [
+   0,
+   0,
+   4,
+   4
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.0,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/sprite_white$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "white_back",
+  "w": 4,
+  "h": 348,
+  "content": [
+   4,
+   335
+  ],
+  "contentBox": [
+   0,
+   13,
+   4,
+   348
+  ],
+  "alpha": 0.958,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/white_back.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "white_decro",
+  "w": 136,
+  "h": 108,
+  "content": [
+   136,
+   108
+  ],
+  "contentBox": [
+   0,
+   0,
+   136,
+   108
+  ],
+  "alpha": 0.816,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/white_decro.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "white_decro$0",
+  "w": 132,
+  "h": 106,
+  "content": [
+   132,
+   106
+  ],
+  "contentBox": [
+   0,
+   0,
+   132,
+   106
+  ],
+  "alpha": 0.827,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/white_decro$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "white_sprite",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/white_sprite.png"
+ },
+ {
+  "page": "pages",
+  "group": "skin_select_page",
+  "name": "white_sprite$0",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/skin_select_page/white_sprite$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "achieved_skin_mask",
+  "w": 12,
+  "h": 12,
+  "content": [
+   12,
+   12
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   12
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#303030(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/achieved_skin_mask.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "achieved_skin_mask$0",
+  "w": 10,
+  "h": 10,
+  "content": [
+   10,
+   10
+  ],
+  "contentBox": [
+   0,
+   0,
+   10,
+   10
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#303030(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/achieved_skin_mask$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "empty_tips",
+  "w": 59,
+  "h": 60,
+  "content": [
+   59,
+   60
+  ],
+  "contentBox": [
+   0,
+   0,
+   59,
+   60
+  ],
+  "alpha": 0.535,
+  "colors": [
+   "#909090(100%)"
+  ],
+  "kb": 1.2,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/empty_tips.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "empty_tips$0",
+  "w": 64,
+  "h": 64,
+  "content": [
+   64,
+   64
+  ],
+  "contentBox": [
+   0,
+   0,
+   64,
+   64
+  ],
+  "alpha": 0.472,
+  "colors": [
+   "#909090(100%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/empty_tips$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "has_got_bg",
+  "w": 116,
+  "h": 32,
+  "content": [
+   116,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   116,
+   32
+  ],
+  "alpha": 0.918,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/has_got_bg.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "has_got_bg$0",
+  "w": 111,
+  "h": 27,
+  "content": [
+   111,
+   27
+  ],
+  "contentBox": [
+   0,
+   0,
+   111,
+   27
+  ],
+  "alpha": 0.96,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/has_got_bg$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_backBorad",
+  "w": 76,
+  "h": 80,
+  "content": [
+   66,
+   75
+  ],
+  "contentBox": [
+   5,
+   0,
+   71,
+   75
+  ],
+  "alpha": 0.751,
+  "colors": [
+   "#D0D0D0(100%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_backBorad.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_backBorad$0",
+  "w": 74,
+  "h": 75,
+  "content": [
+   66,
+   71
+  ],
+  "contentBox": [
+   4,
+   0,
+   70,
+   71
+  ],
+  "alpha": 0.787,
+  "colors": [
+   "#D0D0D0(100%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_backBorad$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_check_btn",
+  "w": 52,
+  "h": 52,
+  "content": [
+   52,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   52,
+   52
+  ],
+  "alpha": 0.51,
+  "colors": [
+   "#0020F0(89%)",
+   "#F0F0F0(5%)",
+   "#7080F0(1%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_check_btn.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_check_btn$0",
+  "w": 50,
+  "h": 50,
+  "content": [
+   50,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   50,
+   50
+  ],
+  "alpha": 0.51,
+  "colors": [
+   "#0020F0(88%)",
+   "#F0F0F0(5%)",
+   "#7080F0(1%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_check_btn$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_gradient_bg",
+  "w": 20,
+  "h": 149,
+  "content": [
+   20,
+   139
+  ],
+  "contentBox": [
+   0,
+   10,
+   20,
+   149
+  ],
+  "alpha": 0.939,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.6,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_gradient_bg.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_gradient_bg$0",
+  "w": 24,
+  "h": 152,
+  "content": [
+   24,
+   140
+  ],
+  "contentBox": [
+   0,
+   12,
+   24,
+   152
+  ],
+  "alpha": 0.926,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_gradient_bg$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_scroll_bar",
+  "w": 12,
+  "h": 56,
+  "content": [
+   12,
+   56
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   56
+  ],
+  "alpha": 0.927,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_scroll_bar.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_scroll_bar$0",
+  "w": 7,
+  "h": 51,
+  "content": [
+   7,
+   51
+  ],
+  "contentBox": [
+   0,
+   0,
+   7,
+   51
+  ],
+  "alpha": 0.989,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_scroll_bar$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_scroll_bar_bg",
+  "w": 12,
+  "h": 112,
+  "content": [
+   12,
+   112
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   112
+  ],
+  "alpha": 0.964,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_scroll_bar_bg.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "img_scroll_bar_bg$0",
+  "w": 7,
+  "h": 107,
+  "content": [
+   7,
+   107
+  ],
+  "contentBox": [
+   0,
+   0,
+   7,
+   107
+  ],
+  "alpha": 0.995,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/img_scroll_bar_bg$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "rule_scroll_bar",
+  "w": 12,
+  "h": 28,
+  "content": [
+   12,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   28
+  ],
+  "alpha": 0.875,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/rule_scroll_bar.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "rule_scroll_bar$0",
+  "w": 7,
+  "h": 24,
+  "content": [
+   7,
+   24
+  ],
+  "contentBox": [
+   0,
+   0,
+   7,
+   24
+  ],
+  "alpha": 0.976,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/rule_scroll_bar$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "rule_scroll_bar_bg",
+  "w": 12,
+  "h": 28,
+  "content": [
+   12,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   28
+  ],
+  "alpha": 0.875,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/rule_scroll_bar_bg.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "rule_scroll_bar_bg$0",
+  "w": 7,
+  "h": 24,
+  "content": [
+   7,
+   24
+  ],
+  "contentBox": [
+   0,
+   0,
+   7,
+   24
+  ],
+  "alpha": 0.976,
+  "colors": [],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/rule_scroll_bar_bg$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "sprite_gray",
+  "w": 50,
+  "h": 50,
+  "content": [
+   50,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   50,
+   50
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#101010(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/sprite_gray.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "sprite_gray$0",
+  "w": 52,
+  "h": 52,
+  "content": [
+   52,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   52,
+   52
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#101010(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/sprite_gray$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "sprite_white",
+  "w": 50,
+  "h": 50,
+  "content": [
+   50,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   50,
+   50
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/sprite_white.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "sprite_white$0",
+  "w": 52,
+  "h": 52,
+  "content": [
+   52,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   52,
+   52
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/sprite_white$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "tips_deco",
+  "w": 68,
+  "h": 68,
+  "content": [
+   68,
+   68
+  ],
+  "contentBox": [
+   0,
+   0,
+   68,
+   68
+  ],
+  "alpha": 0.41,
+  "colors": [
+   "#404040(100%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/tips_deco.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "tips_deco$0",
+  "w": 65,
+  "h": 65,
+  "content": [
+   65,
+   65
+  ],
+  "contentBox": [
+   0,
+   0,
+   65,
+   65
+  ],
+  "alpha": 0.425,
+  "colors": [
+   "#404040(100%)"
+  ],
+  "kb": 1.3,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/tips_deco$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_btn",
+  "w": 324,
+  "h": 72,
+  "content": [
+   311,
+   58
+  ],
+  "contentBox": [
+   6,
+   8,
+   317,
+   66
+  ],
+  "alpha": 0.764,
+  "colors": [
+   "#F0F0F0(29%)",
+   "#C0C0F0(15%)",
+   "#C0C0E0(8%)"
+  ],
+  "kb": 4.5,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_btn.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_btn$0",
+  "w": 321,
+  "h": 67,
+  "content": [
+   311,
+   58
+  ],
+  "contentBox": [
+   5,
+   4,
+   316,
+   62
+  ],
+  "alpha": 0.829,
+  "colors": [
+   "#F0F0F0(30%)",
+   "#C0C0F0(15%)",
+   "#C0C0E0(8%)"
+  ],
+  "kb": 4.2,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_btn$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_v2_btn",
+  "w": 321,
+  "h": 67,
+  "content": [
+   311,
+   58
+  ],
+  "contentBox": [
+   5,
+   4,
+   316,
+   62
+  ],
+  "alpha": 0.829,
+  "colors": [
+   "#F0F0F0(37%)",
+   "#E0C0C0(11%)",
+   "#E0E0E0(6%)"
+  ],
+  "kb": 3.8,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_v2_btn.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_v2_btn$0",
+  "w": 324,
+  "h": 72,
+  "content": [
+   311,
+   58
+  ],
+  "contentBox": [
+   6,
+   8,
+   317,
+   66
+  ],
+  "alpha": 0.764,
+  "colors": [
+   "#F0F0F0(37%)",
+   "#E0C0C0(11%)",
+   "#E0E0E0(7%)"
+  ],
+  "kb": 4.0,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_v2_btn$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_v2_updating",
+  "w": 116,
+  "h": 88,
+  "content": [
+   116,
+   88
+  ],
+  "contentBox": [
+   0,
+   0,
+   116,
+   88
+  ],
+  "alpha": 0.32,
+  "colors": [],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_v2_updating.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_v2_updating$0",
+  "w": 112,
+  "h": 85,
+  "content": [
+   112,
+   85
+  ],
+  "contentBox": [
+   0,
+   0,
+   112,
+   85
+  ],
+  "alpha": 0.339,
+  "colors": [],
+  "kb": 1.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_v2_updating$0.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_valid_time",
+  "w": 36,
+  "h": 32,
+  "content": [
+   36,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   32
+  ],
+  "alpha": 0.979,
+  "colors": [
+   "#909090(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_valid_time.png"
+ },
+ {
+  "page": "pages",
+  "group": "voucher_skin_page",
+  "name": "voucher_skin_valid_time$0",
+  "w": 32,
+  "h": 30,
+  "content": [
+   32,
+   30
+  ],
+  "contentBox": [
+   0,
+   0,
+   32,
+   30
+  ],
+  "alpha": 0.996,
+  "colors": [
+   "#909090(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/pages/voucher_skin_page/voucher_skin_valid_time$0.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_display_state",
+  "name": "level_bg",
+  "w": 84,
+  "h": 84,
+  "content": [
+   73,
+   78
+  ],
+  "contentBox": [
+   5,
+   2,
+   78,
+   80
+  ],
+  "alpha": 0.644,
+  "colors": [
+   "#303030(72%)",
+   "#F0D000(19%)",
+   "#E0C000(1%)"
+  ],
+  "kb": 3.2,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_display_state/level_bg.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_display_state",
+  "name": "level_bg$0",
+  "w": 104,
+  "h": 104,
+  "content": [
+   73,
+   78
+  ],
+  "contentBox": [
+   15,
+   21,
+   88,
+   99
+  ],
+  "alpha": 0.42,
+  "colors": [
+   "#303030(66%)",
+   "#F0D000(16%)",
+   "#202030(3%)"
+  ],
+  "kb": 3.7,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_display_state/level_bg$0.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_display_state",
+  "name": "white_sprite",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_display_state/white_sprite.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_display_state",
+  "name": "white_sprite$0",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_display_state/white_sprite$0.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_item",
+  "name": "avatar_foreward",
+  "w": 172,
+  "h": 172,
+  "content": [
+   159,
+   167
+  ],
+  "contentBox": [
+   5,
+   0,
+   164,
+   167
+  ],
+  "alpha": 0.182,
+  "colors": [
+   "#F0F0F0(69%)",
+   "#E0E0E0(16%)",
+   "#D0D0D0(15%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_item/avatar_foreward.png"
+ },
+ {
+  "page": "playeravatar",
+  "group": "player_avatar_item",
+  "name": "avatar_foreward$0",
+  "w": 167,
+  "h": 169,
+  "content": [
+   159,
+   165
+  ],
+  "contentBox": [
+   4,
+   0,
+   163,
+   165
+  ],
+  "alpha": 0.18,
+  "colors": [
+   "#F0F0F0(82%)",
+   "#706060(9%)",
+   "#706070(9%)"
+  ],
+  "kb": 0.9,
+  "src": "assets/AB/Android/ui/playeravatar/player_avatar_item/avatar_foreward$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "recommend_template_atlas#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(39%)",
+   "#F0F0F0(36%)",
+   "#303030(7%)"
+  ],
+  "kb": 12.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/recommend_template_atlas#0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "recommend_template_atlas#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(65%)",
+   "#F0F0F0(8%)",
+   "#101010(7%)"
+  ],
+  "kb": 25.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/recommend_template_atlas#0a.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_1",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_1/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "recommend_template_atlas#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(39%)",
+   "#F0F0F0(36%)",
+   "#303030(7%)"
+  ],
+  "kb": 12.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/recommend_template_atlas#0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "recommend_template_atlas#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(65%)",
+   "#F0F0F0(8%)",
+   "#101010(7%)"
+  ],
+  "kb": 25.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/recommend_template_atlas#0a.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_2",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_2/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "bottom_back",
+  "w": 25,
+  "h": 128,
+  "content": [
+   25,
+   128
+  ],
+  "contentBox": [
+   0,
+   0,
+   25,
+   128
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#202020(98%)",
+   "#303030(1%)",
+   "#101010(1%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/bottom_back.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "bottom_back$0",
+  "w": 28,
+  "h": 132,
+  "content": [
+   28,
+   132
+  ],
+  "contentBox": [
+   0,
+   0,
+   28,
+   132
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#202020(98%)",
+   "#303030(1%)",
+   "#101010(1%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/bottom_back$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "recommend_template_atlas#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(39%)",
+   "#F0F0F0(36%)",
+   "#303030(7%)"
+  ],
+  "kb": 12.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/recommend_template_atlas#0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "recommend_template_atlas#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(65%)",
+   "#F0F0F0(8%)",
+   "#101010(7%)"
+  ],
+  "kb": 25.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/recommend_template_atlas#0a.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_3",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_3/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "ShopNumFont",
+  "w": 256,
+  "h": 256,
+  "content": [
+   223,
+   252
+  ],
+  "contentBox": [
+   0,
+   4,
+   223,
+   256
+  ],
+  "alpha": 0.312,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 5.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/ShopNumFont.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "recommend_template_atlas#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(39%)",
+   "#F0F0F0(36%)",
+   "#303030(7%)"
+  ],
+  "kb": 12.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/recommend_template_atlas#0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "recommend_template_atlas#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(65%)",
+   "#F0F0F0(8%)",
+   "#101010(7%)"
+  ],
+  "kb": 25.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/recommend_template_atlas#0a.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_1_4",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_1_4/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_3",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_3/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_3",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_3/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_3",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_3/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_3",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_3/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_1",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_1/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_1",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_1/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_1",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_1/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_1",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_1/white_sprite$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_2",
+  "name": "sold_out_target",
+  "w": 108,
+  "h": 40,
+  "content": [
+   108,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   108,
+   40
+  ],
+  "alpha": 0.991,
+  "colors": [
+   "#700020(73%)",
+   "#700010(6%)",
+   "#F0F0F0(2%)"
+  ],
+  "kb": 2.5,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_2/sold_out_target.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_2",
+  "name": "sold_out_target$0",
+  "w": 105,
+  "h": 38,
+  "content": [
+   105,
+   38
+  ],
+  "contentBox": [
+   0,
+   0,
+   105,
+   38
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#700020(71%)",
+   "#700010(6%)",
+   "#F0F0F0(3%)"
+  ],
+  "kb": 2.4,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_2/sold_out_target$0.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_2",
+  "name": "white_sprite",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_2/white_sprite.png"
+ },
+ {
+  "page": "recommendshop",
+  "group": "block_4_2",
+  "name": "white_sprite$0",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/recommendshop/block_4_2/white_sprite$0.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_button",
+  "name": "setting_inlight",
+  "w": 180,
+  "h": 52,
+  "content": [
+   180,
+   52
+  ],
+  "contentBox": [
+   0,
+   0,
+   180,
+   52
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#606060(59%)",
+   "#505050(10%)",
+   "#404040(10%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/home/setting/setting_button/setting_inlight.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_button",
+  "name": "setting_inlight$0",
+  "w": 175,
+  "h": 50,
+  "content": [
+   175,
+   50
+  ],
+  "contentBox": [
+   0,
+   0,
+   175,
+   50
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#606060(60%)",
+   "#505050(10%)",
+   "#404040(9%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/home/setting/setting_button/setting_inlight$0.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_slider",
+  "name": "setting_slider",
+  "w": 380,
+  "h": 5,
+  "content": [
+   380,
+   5
+  ],
+  "contentBox": [
+   0,
+   0,
+   380,
+   5
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#101010(61%)",
+   "#201010(20%)",
+   "#202020(20%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/home/setting/setting_slider/setting_slider.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_slider",
+  "name": "setting_slider$0",
+  "w": 384,
+  "h": 8,
+  "content": [
+   384,
+   8
+  ],
+  "contentBox": [
+   0,
+   0,
+   384,
+   8
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#101010(63%)",
+   "#202020(24%)",
+   "#201010(12%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/home/setting/setting_slider/setting_slider$0.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_tab",
+  "name": "setting_button",
+  "w": 207,
+  "h": 84,
+  "content": [
+   197,
+   79
+  ],
+  "contentBox": [
+   5,
+   0,
+   202,
+   79
+  ],
+  "alpha": 0.86,
+  "colors": [
+   "#F0F0F0(87%)",
+   "#E0E0E0(8%)",
+   "#D0D0D0(3%)"
+  ],
+  "kb": 2.0,
+  "src": "assets/AB/Android/ui/home/setting/setting_tab/setting_button.png"
+ },
+ {
+  "page": "setting",
+  "group": "setting_tab",
+  "name": "setting_button$0",
+  "w": 212,
+  "h": 88,
+  "content": [
+   197,
+   82
+  ],
+  "contentBox": [
+   6,
+   0,
+   203,
+   82
+  ],
+  "alpha": 0.83,
+  "colors": [
+   "#F0F0F0(88%)",
+   "#E0E0E0(8%)",
+   "#D0D0D0(3%)"
+  ],
+  "kb": 2.1,
+  "src": "assets/AB/Android/ui/home/setting/setting_tab/setting_button$0.png"
+ },
+ {
+  "page": "skillrange",
+  "group": "common_skill_range_button_black",
+  "name": "btn_bg_black",
+  "w": 88,
+  "h": 40,
+  "content": [
+   83,
+   35
+  ],
+  "contentBox": [
+   2,
+   3,
+   85,
+   38
+  ],
+  "alpha": 0.746,
+  "colors": [
+   "#000000(88%)",
+   "#F0F0F0(5%)",
+   "#101010(1%)"
+  ],
+  "kb": 1.2,
+  "src": "assets/AB/Android/ui/skillrange/common_skill_range_button_black/btn_bg_black.png"
+ },
+ {
+  "page": "skillrange",
+  "group": "common_skill_range_button_black",
+  "name": "btn_bg_black$0",
+  "w": 85,
+  "h": 37,
+  "content": [
+   83,
+   35
+  ],
+  "contentBox": [
+   1,
+   1,
+   84,
+   36
+  ],
+  "alpha": 0.835,
+  "colors": [
+   "#000000(88%)",
+   "#F0F0F0(5%)",
+   "#101010(1%)"
+  ],
+  "kb": 1.2,
+  "src": "assets/AB/Android/ui/skillrange/common_skill_range_button_black/btn_bg_black$0.png"
+ },
+ {
+  "page": "skillrange",
+  "group": "common_skill_range_button_white",
+  "name": "btn_bg_white",
+  "w": 81,
+  "h": 36,
+  "content": [
+   77,
+   34
+  ],
+  "contentBox": [
+   2,
+   1,
+   79,
+   35
+  ],
+  "alpha": 0.827,
+  "colors": [
+   "#F0F0F0(88%)",
+   "#000000(5%)",
+   "#E0E0E0(1%)"
+  ],
+  "kb": 1.1,
+  "src": "assets/AB/Android/ui/skillrange/common_skill_range_button_white/btn_bg_white.png"
+ },
+ {
+  "page": "skillrange",
+  "group": "common_skill_range_button_white",
+  "name": "btn_bg_white$0",
+  "w": 84,
+  "h": 40,
+  "content": [
+   77,
+   34
+  ],
+  "contentBox": [
+   3,
+   4,
+   80,
+   38
+  ],
+  "alpha": 0.718,
+  "colors": [
+   "#F0F0F0(88%)",
+   "#000000(5%)",
+   "#E0E0E0(1%)"
+  ],
+  "kb": 1.1,
+  "src": "assets/AB/Android/ui/skillrange/common_skill_range_button_white/btn_bg_white$0.png"
+ },
+ {
+  "page": "skinselect",
+  "group": "skin_preview_panel",
+  "name": "btn_back",
+  "w": 168,
+  "h": 73,
+  "content": [
+   160,
+   69
+  ],
+  "contentBox": [
+   4,
+   0,
+   164,
+   69
+  ],
+  "alpha": 0.883,
+  "colors": [
+   "#303030(92%)",
+   "#202020(5%)",
+   "#F0F0F0(1%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/skinselect/skin_preview_panel/btn_back.png"
+ },
+ {
+  "page": "skinselect",
+  "group": "skin_preview_panel",
+  "name": "preview_bg",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(42%)",
+   "#E0E0E0(26%)",
+   "#D0D0D0(15%)"
+  ],
+  "kb": 5.8,
+  "src": "assets/AB/Android/ui/skinselect/skin_preview_panel/preview_bg.png"
+ },
+ {
+  "page": "skinselect",
+  "group": "skin_preview_panel",
+  "name": "skin_select_atlas#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(68%)",
+   "#303030(10%)",
+   "#404040(4%)"
+  ],
+  "kb": 13.2,
+  "src": "assets/AB/Android/ui/skinselect/skin_preview_panel/skin_select_atlas#0.png"
+ },
+ {
+  "page": "skinselect",
+  "group": "skin_preview_panel",
+  "name": "skin_select_atlas#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(75%)",
+   "#F0F0F0(11%)",
+   "#909090(3%)"
+  ],
+  "kb": 5.4,
+  "src": "assets/AB/Android/ui/skinselect/skin_preview_panel/skin_select_atlas#0a.png"
+ },
+ {
+  "page": "stage",
+  "group": "panel_reward_item",
+  "name": "drop_tag",
+  "w": 48,
+  "h": 28,
+  "content": [
+   48,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   48,
+   28
+  ],
+  "alpha": 0.964,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/stage/panel_reward_item/drop_tag.png"
+ },
+ {
+  "page": "stage",
+  "group": "panel_reward_item",
+  "name": "drop_tag$0",
+  "w": 43,
+  "h": 23,
+  "content": [
+   43,
+   23
+  ],
+  "contentBox": [
+   0,
+   0,
+   43,
+   23
+  ],
+  "alpha": 0.996,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/stage/panel_reward_item/drop_tag$0.png"
+ },
+ {
+  "page": "stage",
+  "group": "panel_reward_item",
+  "name": "image_blue_round",
+  "w": 72,
+  "h": 28,
+  "content": [
+   72,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   72,
+   28
+  ],
+  "alpha": 0.983,
+  "colors": [
+   "#00B0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/stage/panel_reward_item/image_blue_round.png"
+ },
+ {
+  "page": "stage",
+  "group": "panel_reward_item",
+  "name": "image_blue_round$0",
+  "w": 69,
+  "h": 23,
+  "content": [
+   69,
+   23
+  ],
+  "contentBox": [
+   0,
+   0,
+   69,
+   23
+  ],
+  "alpha": 0.997,
+  "colors": [
+   "#00B0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/stage/panel_reward_item/image_blue_round$0.png"
+ },
+ {
+  "page": "stage",
+  "group": "record_reward_item",
+  "name": "battle_node_detail#0",
+  "w": 1024,
+  "h": 1024,
+  "content": [
+   1024,
+   1024
+  ],
+  "contentBox": [
+   0,
+   0,
+   1024,
+   1024
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(31%)",
+   "#D0B080(7%)",
+   "#D0C090(6%)"
+  ],
+  "kb": 49.3,
+  "src": "assets/AB/Android/ui/stage/record_reward_item/battle_node_detail#0.png"
+ },
+ {
+  "page": "stage",
+  "group": "record_reward_item",
+  "name": "battle_node_detail#0a",
+  "w": 1024,
+  "h": 1024,
+  "content": [
+   1024,
+   1024
+  ],
+  "contentBox": [
+   0,
+   0,
+   1024,
+   1024
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(46%)",
+   "#F0F0F0(12%)",
+   "#202020(5%)"
+  ],
+  "kb": 77.3,
+  "src": "assets/AB/Android/ui/stage/record_reward_item/battle_node_detail#0a.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "bottom_little_mask_h",
+  "w": 70,
+  "h": 7,
+  "content": [
+   68,
+   7
+  ],
+  "contentBox": [
+   2,
+   0,
+   70,
+   7
+  ],
+  "alpha": 0.971,
+  "colors": [
+   "#000000(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/bottom_little_mask_h.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "confirm_button",
+  "w": 60,
+  "h": 48,
+  "content": [
+   60,
+   48
+  ],
+  "contentBox": [
+   0,
+   0,
+   60,
+   48
+  ],
+  "alpha": 0.274,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.4,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/confirm_button.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "confirm_button$0",
+  "w": 58,
+  "h": 44,
+  "content": [
+   58,
+   44
+  ],
+  "contentBox": [
+   0,
+   0,
+   58,
+   44
+  ],
+  "alpha": 0.304,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/confirm_button$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "dontHave_icon",
+  "w": 34,
+  "h": 35,
+  "content": [
+   34,
+   35
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   35
+  ],
+  "alpha": 0.576,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/dontHave_icon.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "dontHave_icon$0",
+  "w": 36,
+  "h": 40,
+  "content": [
+   36,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   40
+  ],
+  "alpha": 0.503,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.5,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/dontHave_icon$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "effect_bar",
+  "w": 120,
+  "h": 90,
+  "content": [
+   120,
+   90
+  ],
+  "contentBox": [
+   0,
+   0,
+   120,
+   90
+  ],
+  "alpha": 0.264,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/effect_bar.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "effect_bar$0",
+  "w": 124,
+  "h": 92,
+  "content": [
+   124,
+   92
+  ],
+  "contentBox": [
+   0,
+   0,
+   124,
+   92
+  ],
+  "alpha": 0.259,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.8,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/effect_bar$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "effect_mask",
+  "w": 12,
+  "h": 9,
+  "content": [
+   12,
+   9
+  ],
+  "contentBox": [
+   0,
+   0,
+   12,
+   9
+  ],
+  "alpha": 0.574,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/effect_mask.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "effect_mask$0",
+  "w": 12,
+  "h": 9,
+  "content": [
+   11,
+   8
+  ],
+  "contentBox": [
+   0,
+   1,
+   11,
+   9
+  ],
+  "alpha": 0.481,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/effect_mask$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "gift_tag",
+  "w": 104,
+  "h": 44,
+  "content": [
+   104,
+   44
+  ],
+  "contentBox": [
+   0,
+   0,
+   104,
+   44
+  ],
+  "alpha": 0.746,
+  "colors": [
+   "#0020F0(98%)",
+   "#101080(1%)",
+   "#102080(1%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/gift_tag.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "gift_tag$0",
+  "w": 99,
+  "h": 41,
+  "content": [
+   99,
+   41
+  ],
+  "contentBox": [
+   0,
+   0,
+   99,
+   41
+  ],
+  "alpha": 0.75,
+  "colors": [
+   "#0020F0(98%)",
+   "#102080(1%)",
+   "#101080(1%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/gift_tag$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "head_little_mask_h",
+  "w": 71,
+  "h": 7,
+  "content": [
+   69,
+   7
+  ],
+  "contentBox": [
+   0,
+   0,
+   69,
+   7
+  ],
+  "alpha": 0.972,
+  "colors": [
+   "#000000(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/head_little_mask_h.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "on_sale_bar",
+  "w": 61,
+  "h": 61,
+  "content": [
+   61,
+   61
+  ],
+  "contentBox": [
+   0,
+   0,
+   61,
+   61
+  ],
+  "alpha": 0.508,
+  "colors": [
+   "#0020F0(74%)",
+   "#F0F0F0(14%)",
+   "#B0C0F0(1%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/on_sale_bar.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "on_sale_bar$0",
+  "w": 64,
+  "h": 64,
+  "content": [
+   64,
+   64
+  ],
+  "contentBox": [
+   0,
+   0,
+   64,
+   64
+  ],
+  "alpha": 0.509,
+  "colors": [
+   "#0020F0(76%)",
+   "#F0F0F0(13%)",
+   "#B0C0F0(1%)"
+  ],
+  "kb": 1.0,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/on_sale_bar$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "point_back",
+  "w": 184,
+  "h": 176,
+  "content": [
+   184,
+   176
+  ],
+  "contentBox": [
+   0,
+   0,
+   184,
+   176
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(93%)",
+   "#E0E0E0(5%)",
+   "#D0D0D0(2%)"
+  ],
+  "kb": 2.1,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/point_back.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "point_back$0",
+  "w": 180,
+  "h": 173,
+  "content": [
+   180,
+   173
+  ],
+  "contentBox": [
+   0,
+   0,
+   180,
+   173
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(93%)",
+   "#E0E0E0(5%)",
+   "#D0D0D0(2%)"
+  ],
+  "kb": 2.1,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/point_back$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "wardrobe_holder#0",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(69%)",
+   "#E0E0E0(17%)",
+   "#D0D0D0(8%)"
+  ],
+  "kb": 9.6,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/wardrobe_holder#0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "wardrobe_holder#0a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(45%)",
+   "#101010(8%)",
+   "#202020(7%)"
+  ],
+  "kb": 4.0,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/wardrobe_holder#0a.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "wardrobe_holder#1",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(44%)",
+   "#0020F0(25%)",
+   "#F0F0F0(18%)"
+  ],
+  "kb": 3.7,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/wardrobe_holder#1.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "wardrobe_holder#1a",
+  "w": 512,
+  "h": 512,
+  "content": [
+   512,
+   512
+  ],
+  "contentBox": [
+   0,
+   0,
+   512,
+   512
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#000000(78%)",
+   "#F0F0F0(6%)",
+   "#101010(3%)"
+  ],
+  "kb": 15.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/wardrobe_holder#1a.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_point",
+  "w": 16,
+  "h": 16,
+  "content": [
+   16,
+   16
+  ],
+  "contentBox": [
+   0,
+   0,
+   16,
+   16
+  ],
+  "alpha": 0.797,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_point.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_point$0",
+  "w": 14,
+  "h": 14,
+  "content": [
+   14,
+   14
+  ],
+  "contentBox": [
+   0,
+   0,
+   14,
+   14
+  ],
+  "alpha": 0.878,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_point$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_round_back",
+  "w": 126,
+  "h": 37,
+  "content": [
+   126,
+   37
+  ],
+  "contentBox": [
+   0,
+   0,
+   126,
+   37
+  ],
+  "alpha": 0.948,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_round_back.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_round_back$0",
+  "w": 128,
+  "h": 40,
+  "content": [
+   128,
+   40
+  ],
+  "contentBox": [
+   0,
+   0,
+   128,
+   40
+  ],
+  "alpha": 0.928,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.3,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_round_back$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_sprite",
+  "w": 36,
+  "h": 36,
+  "content": [
+   36,
+   36
+  ],
+  "contentBox": [
+   0,
+   0,
+   36,
+   36
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_sprite.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_sprite$0",
+  "w": 34,
+  "h": 32,
+  "content": [
+   34,
+   32
+  ],
+  "contentBox": [
+   0,
+   0,
+   34,
+   32
+  ],
+  "alpha": 1.0,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.1,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_sprite$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_tri",
+  "w": 267,
+  "h": 231,
+  "content": [
+   267,
+   231
+  ],
+  "contentBox": [
+   0,
+   0,
+   267,
+   231
+  ],
+  "alpha": 0.505,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 1.6,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_tri.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "white_tri$0",
+  "w": 272,
+  "h": 236,
+  "content": [
+   272,
+   236
+  ],
+  "contentBox": [
+   0,
+   0,
+   272,
+   236
+  ],
+  "alpha": 0.502,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 1.6,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/white_tri$0.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "year_mask",
+  "w": 84,
+  "h": 23,
+  "content": [
+   84,
+   23
+  ],
+  "contentBox": [
+   0,
+   0,
+   84,
+   23
+  ],
+  "alpha": 0.875,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/year_mask.png"
+ },
+ {
+  "page": "wardrobe",
+  "group": "wardrobe_holder",
+  "name": "year_mask$0",
+  "w": 88,
+  "h": 28,
+  "content": [
+   88,
+   28
+  ],
+  "contentBox": [
+   0,
+   0,
+   88,
+   28
+  ],
+  "alpha": 0.843,
+  "colors": [
+   "#F0F0F0(100%)"
+  ],
+  "kb": 0.2,
+  "src": "assets/AB/Android/ui/luaui/wardrobe/wardrobe_holder/year_mask$0.png"
+ }
+]
