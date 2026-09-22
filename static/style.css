@@ -8494,3 +8494,83 @@ body.theme-light .task-card.claimed:not(.claimable) {
     .top-nav .resource-item { padding: 2px 5px; gap: 3px; }
     .top-nav .sanity-nav-values { display: none; }
 }
+
+/* ============================================================
+ * §18.2  礼包卡「原版还原」（R35）
+ * ------------------------------------------------------------
+ * 依据不是印象，是 R34b 从客户端 APK 解出来的 giftpackageshop 图集实测值
+ * （static/img/ui/pages/_manifest.json，汇总脚本 ql_page_colors.py）：
+ *
+ *   up_part.webp            253x441   #303030(34%) #404040(14%) #505050(12%)
+ *        → 礼包卡体是**中性深灰**，不是紫灰
+ *   month_card_buy_btn.webp 228x62    #0090D0(99%)
+ *        → 原版购买按钮是**青蓝 #0090D0**，整块 99% 纯度，不是金色
+ *   ShopNumFont.webp        256x256   #F0F0F0(100%)
+ *        → 原版数字用**纯白**，我们的 #FFF080 偏金
+ *   sold_out_target.webp    108x40    #700020(73%)   → 售罄是暗红
+ *   gift_tag.webp           104x44    #0020F0(98%)   → 「赠」标是纯蓝
+ *
+ * 改前三处都偏离：卡体 linear-gradient(158deg, #2E2C3A, #17171B) 偏紫、
+ * 数字 #FFF080 偏金、购买条文字用 --highlight-gold-1 也是金。
+ *
+ * 范围：只动「礼包卡」这一个组件，**不碰全局 .btn-primary 的金色体系**
+ * （那是 R31 的全局决定，要不要一起改成原版青蓝是另一个话题）。
+ * 想回滚：删掉本节即可。
+ * ============================================================ */
+
+/* ① 卡体：还原 up_part 的中性深灰（保留一点透明度以延续全站的玻璃质感） */
+.gift-pack-card {
+    background:
+        linear-gradient(180deg, rgba(80,80,80,0.22), rgba(0,0,0,0) 38%),
+        linear-gradient(180deg, rgba(72,72,72,0.97) 0%, rgba(48,48,48,0.98) 46%, rgba(38,38,38,0.98) 100%);
+    border-color: rgba(255,255,255,0.10);
+}
+.gift-pack-card:hover {
+    border-color: rgba(0,144,208,0.58);          /* 原版强调色，取代金色描边 */
+    box-shadow: 0 14px 30px rgba(0,0,0,0.52);
+}
+
+/* ② 数字：还原 ShopNumFont 的纯白 */
+.gp-chip b { color: #F0F0F0; }
+
+/* ③ 购买条：底色换成原版 month_card_buy_btn 的青蓝，并直接铺上原版贴图
+      （贴图 99% 是同一色，拉伸到通栏不会露出接缝；底下的 color 只是兜底） */
+.gp-buy {
+    color: #F0F0F0;
+    background-color: #0090D0;
+    background-image: url("img/ui/pages/giftpackageshop/month_card_buy_btn.webp");
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-top-color: rgba(0,0,0,0.34);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+}
+.gp-buy-sep { background: rgba(255,255,255,0.30); }
+.gp-buy:hover {
+    background-color: #00A6EF;
+    border-top-color: rgba(255,255,255,0.30);
+    color: #FFFFFF;
+}
+.gp-buy:active { background-color: #0079AF; }
+/* 买不起 / 已售罄：撤掉原版贴图，回到静音灰，与原版 sold_out 的「不可点」语义一致 */
+.gp-buy.gp-buy-locked,
+.gp-buy:disabled {
+    background-color: rgba(255,255,255,0.03);
+    background-image: none;
+    border-top-color: rgba(255,255,255,0.07);
+    color: var(--text-muted-3);
+    text-shadow: none;
+}
+
+/* ④ 浅色主题：卡片给浅灰，青蓝购买条两个主题共用（原版按钮不随主题变） */
+body.theme-light .gift-pack-card {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0) 40%),
+        linear-gradient(180deg, #FFFFFF 0%, #F0F0F0 46%, #E6E6E6 100%);
+    border-color: rgba(0,0,0,0.10);
+}
+body.theme-light .gift-pack-card:hover { border-color: rgba(0,117,168,0.55); }
+body.theme-light .gp-chip b { color: #1A1A1A; }
+body.theme-light .gp-buy { text-shadow: 0 1px 2px rgba(0,0,0,0.35); }
+body.theme-light .gp-buy.gp-buy-locked,
+body.theme-light .gp-buy:disabled { color: var(--text-muted-3); }
