@@ -82,6 +82,12 @@ TIER_METAL = {
     "diamond": "#8fd0ff",
 }
 
+# R37 难度平衡：蚀刻章解锁阈值整体放大倍数。手写表（PRESET）与家族表（EXTENDED）
+# 在 init_db 的播种循环里统一按此倍数抬高（"初次/达到等级"两类除外，前者是入门章、
+# 后者由更陡的等级曲线自然变难），描述也按新阈值重新生成，避免"写 5 个却要 15 个"的错位。
+# 因为播种循环每次启动都会无条件 UPDATE condition_value，改这里重启即对所有（含历史）库生效。
+ACH_THRESHOLD_MULT = 3
+
 PRESET_ACHIEVEMENTS = [
     # ── 基建奖章 · 创建任务 ─────────────────────────────
     ("first_task",  "初次启程",   "创建第一个任务",     "task_count_created", 1,   10,  0,   "fa-seedling",        "#7fbf7f", "bronze"),
@@ -958,6 +964,10 @@ def init_db():
             task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL
         );
 
+        -- 热路径索引：check_achievement / handle_task_completion 等每次判定都要
+        -- SELECT ... FROM achievement_unlocks WHERE achievement_id = ?，缺索引会全表扫描。
+        CREATE INDEX IF NOT EXISTS idx_ach_unlocks_ach ON achievement_unlocks(achievement_id);
+
         CREATE TABLE IF NOT EXISTS tracking_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
@@ -1063,7 +1073,21 @@ def init_db():
         # 预置蚀刻章：先 INSERT OR IGNORE 保住解锁记录，再无条件 UPDATE 把定义刷新成最新
         # （老库里这批章的 badge_config 是 NULL → 渲染成全站同一个 fa-award，必须刷）
         # R23：这里换成 ALL_PRESET_ACHIEVEMENTS = R21 手写老表 + 家族生成的新章（约 350 枚）。
+        # R37：统一抬高阈值（除"初次/达到等级"类），描述按新阈值重生成，并按 (条件, 阈值)
+        # 去重，避免手写表与家族表缩放后撞出两枚同要求的章。
+        _seeded_pairs = set()
         for (aid, name, desc, ctype, cval, exp, lm, icon, color, tier) in ALL_PRESET_ACHIEVEMENTS:
+            # R37 难度平衡：抬高阈值
+            if ctype == 'level_reached' or cval <= 1:
+                eff_cval = cval
+                eff_desc = desc
+            else:
+                eff_cval = max(2, round(cval * ACH_THRESHOLD_MULT))
+                label, unit = ACH_TYPE_META.get(ctype, (ctype, ""))
+                eff_desc = f"{label} {eff_cval} {unit}".strip() if unit else f"{label} {eff_cval}"
+            if (ctype, eff_cval) in _seeded_pairs:
+                continue
+            _seeded_pairs.add((ctype, eff_cval))
             conf = json.dumps({"icon": icon, "color": color, "tier": tier,
                                "metal": TIER_METAL.get(tier, TIER_METAL["bronze"]),
                                "art": ACH_ART.get(aid, "")},
@@ -1076,13 +1100,13 @@ def init_db():
                 (id, name, description, condition_type, condition_value,
                  reward_exp, reward_lungmen, reward_source_stone, reward_orundum, badge_config, hidden)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 0)
-            """, (aid, name, desc, ctype, cval, exp, lm_grant, conf))
+            """, (aid, name, eff_desc, ctype, eff_cval, exp, lm_grant, conf))
             cur.execute("""
                 UPDATE achievements
                 SET name = ?, description = ?, condition_type = ?, condition_value = ?,
                     reward_exp = ?, reward_lungmen = ?, badge_config = ?
                 WHERE id = ?
-            """, (name, desc, ctype, cval, exp, lm_grant, conf, aid))
+            """, (name, eff_desc, ctype, eff_cval, exp, lm_grant, conf, aid))
 
         generate_weekly_packs(cur)
 
@@ -1328,24 +1352,21 @@ def app_version_info() -> dict:
 
 
 # ---------- 等级 / 经验曲线（与前端 static/app.js 保持一致） ----------
-# 明日方舟真实「升级所需声望」曲线；SCALE 越小升级越快，FLOOR 为单级最低经验。
-_AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000]
 # 二次曲线：need(L) = BASE + LIN*(L-1) + QUAD*(L-1)^2
 # 必须与前端 static/app.js 的 LEVEL_BASE / LEVEL_LIN / LEVEL_QUAD / LEVEL_ROUND / LEVEL_FLOOR 完全一致，
 # 否则前后端算出的等级会不一致（升级检测在后端、等级显示在前端）。
 #
 # R36（用户："现在升级太容易了，把我的等级适当回退一些"）：LIN 20→50、QUAD 1.0→2.5，
-# 即把**每级所需经验整体提到约 2.4 倍**（BASE / ROUND / FLOOR 都不动，
-# 保住前几级"做一两个任务就升级"的新手爽感，越到后期越陡）。
-# 对当前这档真实存档（exp=22043）的计量后果：
-#     等级 32 → 23（回退 9 级），理智上限 117 → 108（见 sanity_cap）。
-#   单级需求：L2 80→115 / L10 320→715 / L20 800→1915 / L30 1480→3615 / L50 3440→8515
-#   累计门槛：Lv10 1465→2860(x1.95) / Lv20 6670→14985(x2.25) / Lv32 20615→48785(x2.37)
+# R37 难度平衡：在 R36 的 2.4 倍基础上再把曲线整体抬高约 2.6 倍，
+# 让"未做实质内容就 23 级"的存档回到 ~12 级。BASE / LIN / QUAD 同时放大，
+# 越到后期越陡，单级需求显著高于旧值：
+#   对当前这档真实存档（exp=22043）的计量后果：等级 23 → 12（理智上限随 sanity_cap 同步下降）。
+#   单级需求：L2 115→345 / L10 715→3160 / L20 1915→（累计 ~3.6 万）/ L30 3615→（累计 ~8 万）
 # 等级本身不落库（纯由 exp 推导），所以改完常量重启即完成重定标；
 # 理智上限由 sanity_cap(level) 推导，启动时那次 sync_sanity_cap 会自动跟着降下来。
-_LEVEL_BASE = 60
-_LEVEL_LIN = 50
-_LEVEL_QUAD = 2.5
+_LEVEL_BASE = 160
+_LEVEL_LIN = 170
+_LEVEL_QUAD = 13
 _LEVEL_ROUND = 5
 _LEVEL_FLOOR = 50
 
@@ -1358,16 +1379,23 @@ def _level_exp_for_level(level: int) -> int:
 
 
 def calculate_level(exp: float) -> int:
+    # 防御：非有限值（NaN / ±inf）一律按 0 经验处理，
+    # 否则下方 while 在 exp 为 NaN 时会无限循环（NaN 与任何值比较都为 False）。
+    if exp is None or exp != exp or exp in (float("inf"), float("-inf")):
+        return 1
     if exp < 0:
         exp = 0
     level = 1
     total = 0
-    while True:
+    # 防御性硬上限：等级曲线随等级二次增长且无自然封顶，
+    # exp 异常巨大（如被注入极大值）时循环会无限进行，这里用等级硬上限兜底。
+    while level <= 999:
         need = _level_exp_for_level(level)
         if exp < total + need:
             return level
         total += need
         level += 1
+    return 999
 
 
 # ---------- 理智上限：对齐明日方舟原版的「博士等级 → 理智上限」曲线 ----------
@@ -1491,7 +1519,7 @@ def add_drops_to_inventory(cur, drop_config: Optional[str]):
 
 def get_reality_reward_progress(cur, reward) -> float:
     """根据目标类型计算当前进度。"""
-    target_type = reward["target_type"] if isinstance(reward, dict) else reward["target_type"]
+    target_type = reward["target_type"]
     if target_type == 'level':
         return float(calculate_level(get_resource(cur, 'exp')))
     if target_type == 'exp':
@@ -1504,7 +1532,7 @@ def get_reality_reward_progress(cur, reward) -> float:
     if target_type == 'tracking_hours':
         cur.execute("SELECT COALESCE(SUM(duration_seconds), 0) FROM tracking_sessions WHERE ended_at IS NOT NULL")
         return float(cur.fetchone()[0]) / 3600.0
-    return float(reward["current_value"] if isinstance(reward, dict) else reward["current_value"])
+    return float(reward["current_value"])
 
 
 def close_open_pomodoro(cur):
@@ -1874,9 +1902,6 @@ def _build_level_pack_content(level: int) -> dict:
     }
 
 
-# 信物（干员信物等收集品）：仅高星任务极小概率额外掉落
-WAREHOUSE_TOKENS = [it['key'] for it in WAREHOUSE_CATALOG if it.get('cat') == '信物']
-
 # 基础货币掉落（龙门币/合成玉/源石），按档位配置数量与权重
 # R24：原版关卡掉落根本不掉源石（源石只来自首通 / 大版本补偿 / 充值），
 # 所以把 source_stone 从常规掉落池里整个拿掉，只保留后面「极小概率惊喜掉落」那一条。
@@ -2188,90 +2213,6 @@ def advance_repeat_schedule(cur, task_id: int):
         return
     nxt = next_reset_at(task["repeat_type"], task["repeat_interval"])
     cur.execute("UPDATE tasks SET repeat_next_date = ? WHERE id = ?", (nxt.isoformat(), task_id))
-
-
-def _legacy_create_repeat_copy(cur, task_id: int):
-    """【已停用】旧的「完成即生成副本」实现，保留仅为兼容历史数据。
-    新逻辑见 advance_repeat_schedule + sweep_repeat_tasks。"""
-    cur.execute("SELECT * FROM tasks WHERE id = ?", (task_id,))
-    task = cur.fetchone()
-    if task["repeat_next_date"]:
-        try:
-            if datetime.fromisoformat(task["repeat_next_date"]) > datetime.now(timezone.utc):
-                return
-        except:
-            pass
-    repeat_type = task["repeat_type"]
-    base_date = datetime.now(timezone.utc)
-    if task["repeat_next_date"]:
-        base_date = datetime.fromisoformat(task["repeat_next_date"])
-    if repeat_type == 'daily':
-        next_date = base_date + timedelta(days=1)
-    elif repeat_type == 'weekly':
-        next_date = base_date + timedelta(weeks=1)
-    elif repeat_type == 'monthly':
-        month = base_date.month + 1
-        year = base_date.year
-        if month > 12:
-            month = 1
-            year += 1
-        next_date = base_date.replace(year=year, month=month)
-    elif repeat_type == 'custom':
-        interval = task["repeat_interval"] or 1
-        next_date = base_date + timedelta(days=interval)
-    else:
-        return
-    # 副本不继承父任务和前置依赖
-    # R30：龙门币 / 源石 / 合成玉统一走 auto_reward_*，不再内联写公式
-    reward_exp = task["priority"] * 50 * (1.3 if task["task_line"] == 'main' else 1.0)
-    reward_lungmen = auto_reward_lungmen(task["priority"], task["task_line"])
-    # R19：周期副本同样要能产出源石 —— 原来这里直接透传 task 的 0，
-    # 于是「重复任务」永远给不出源石（这也是用户觉得源石不够用的原因之一）
-    reward_source_stone = task["reward_source_stone"] or auto_reward_source_stone(
-        task["priority"], task["task_line"])
-    reward_orundum = task["reward_orundum"] or auto_reward_orundum(
-        task["priority"], task["task_line"])
-    cur.execute("""
-        INSERT INTO tasks (
-            parent_id, title, description, priority, task_line, status, progress_mode, progress,
-            target_value, current_value, prerequisite_id, planned_start, planned_end, due_date,
-            repeat_type, repeat_interval, repeat_next_date, created_at, updated_at,
-            is_tracked, reward_exp, reward_lungmen, reward_source_stone, reward_orundum,
-            drop_config, notes, sort_order, archived, deleted
-        ) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
-    """, (
-        task["title"],
-        task["description"],
-        task["priority"],
-        task["task_line"],
-        'todo',
-        'manual' if task["progress_mode"] == 'auto' else task["progress_mode"],
-        0,
-        task["target_value"],
-        0 if task["progress_mode"] == 'count' else None,
-        task["planned_start"],
-        task["planned_end"],
-        task["due_date"],
-        repeat_type,
-        task["repeat_interval"],
-        now_iso(),
-        now_iso(),
-        0,
-        reward_exp,
-        reward_lungmen,
-        reward_source_stone,
-        reward_orundum,
-        task["notes"],
-        0,
-        0,
-        0
-    ))
-    new_task_id = cur.lastrowid
-    cur.execute("SELECT tag_id FROM task_tags WHERE task_id = ?", (task_id,))
-    tag_ids = [row["tag_id"] for row in cur.fetchall()]
-    for tag_id in tag_ids:
-        cur.execute("INSERT INTO task_tags (task_id, tag_id) VALUES (?, ?)", (new_task_id, tag_id))
-    cur.execute("UPDATE tasks SET repeat_next_date = ? WHERE id = ?", (next_date.isoformat(), task_id))
 
 
 def get_task_with_tags(cur, task_id: int):
@@ -4560,15 +4501,35 @@ def build_skins_for_operator(op: dict) -> list:
     return skins
 
 
+def _skin_owner_meta(cid: str, skin_rarity: int = 0) -> dict:
+    """反查一件皮肤「属于谁」—— 干员名 + 星级（带数据源兜底链）。
+
+    ⚠️ 本机缺 assets-source/gamedata/excel/character_table.json ⇒ CHARACTER_BY_ID_ALL 为空。
+    若只认它，SKIN_BUCKETS 会整表清空 ⇒ 时装目录/货架全空（R37 自证抓到的回归）。
+    优先序：OPERATOR_POOL（仓库目录，420 名，最可靠）→ CHARACTER_BY_ID_ALL（官方表）
+            → 皮肤自身元数据里的 rarity 兜底。
+    """
+    op = OPERATOR_POOL_BY_CHAR.get(cid)
+    meta = CHARACTER_BY_ID_ALL.get(cid) or {}
+    name = (op or {}).get("name") or meta.get("name") or ""
+    rarity = (op or {}).get("rarity") or meta.get("rarity") or (skin_rarity or 0)
+    return {"name": name, "rarity": int(rarity or 0)}
+
+
 def _build_skin_buckets() -> dict:
-    """按星级把皮肤分桶 —— 货架要按星级配额取货，1~6 星每档都得有东西。"""
+    """按星级把皮肤分桶 —— 货架要按星级配额取货，1~6 星每档都得有东西。
+
+    rarity 走 _skin_owner_meta 的兜底链，不再强依赖 character_table.json。
+    """
     buckets: dict = {}
     for sid, s in SKIN_ASSETS.items():
-        cid = s.get("charId") or ""
-        meta = CHARACTER_BY_ID_ALL.get(cid)
-        if not meta or not s.get("file"):
+        if not s.get("file"):
             continue
-        buckets.setdefault(meta["rarity"], []).append(sid)
+        cid = s.get("charId") or ""
+        r = _skin_owner_meta(cid, s.get("rarity") or 0)["rarity"]
+        if not r:
+            continue
+        buckets.setdefault(r, []).append(sid)
     for r in buckets:
         buckets[r].sort()
     return buckets
@@ -4580,18 +4541,23 @@ SKIN_BUCKETS = _build_skin_buckets()
 # 星级桶是空的。这里用他们自己的立绘补一档「默认服装」，
 # 保证货架 1~6 星六个档位齐全，而不是永远只有 3/4/5/6 星。
 STAR2_SKINS: list = []
-for _cid, _meta in CHARACTER_BY_ID.items():
-    if _meta["rarity"] != 2:
+_seen_star2: set = set()
+for _op in OPERATOR_POOL:
+    if _op.get("rarity") != 2:
         continue
+    _cid = _op.get("char_id") or ""
+    if not _cid or _cid in _seen_star2:
+        continue
+    _seen_star2.add(_cid)
     _asset = CHAR_ASSETS.get(_cid) or {}
     STAR2_SKINS.append({
         "skin_id": f"{_cid}@default#1",
-        "operator_id": (OPERATOR_POOL_BY_CHAR.get(_cid) or {}).get("id") or f"mat_p_{_cid}",
-        "operator_name": _meta["name"],
+        "operator_id": _op["id"],
+        "operator_name": _op["name"],
         "rarity": 2,
         "skin_name": "默认服装",
         "series": "",
-        "image": _asset.get("portrait"),
+        "image": _asset.get("portrait") or _op.get("portrait"),
         "tier_label": SKIN_TIER_LABEL[9],
         "cost": 9,
     })
@@ -4604,17 +4570,16 @@ def _skin_shop_entry(sid: str, owned_op_ids: set) -> dict:
     """把一条皮肤记录包装成货架条目（含价格档位 / 是否限定 / 是否可下单）。"""
     s = SKIN_ASSETS.get(sid) or {}
     cid = s.get("charId") or ""
-    # CHARACTER_BY_ID_ALL 含 1★ 干员（Lancet-2 / Castle-3 / THRM-EX …），
-    # 少了它们货架上就没有一星档位
-    meta = CHARACTER_BY_ID_ALL.get(cid) or {}
+    # 干员名/星级走兜底链（含 1★ 干员 Lancet-2 / Castle-3 / THRM-EX …，缺了就没有 1★ 档）
+    om = _skin_owner_meta(cid, s.get("rarity") or 0)
     op = OPERATOR_POOL_BY_CHAR.get(cid)
-    rarity = meta.get("rarity") or 0
+    rarity = om["rarity"]
     tiers = SKIN_TIERS_BY_RARITY.get(rarity, [15, 18])
     price = tiers[_stable_index(f"{sid}:price", len(tiers))]
     return {
         "skin_id": sid,
         "operator_id": (op or {}).get("id") or f"mat_p_{cid}",
-        "operator_name": meta.get("name") or "",
+        "operator_name": om["name"] or cid,
         "rarity": rarity,
         "skin_name": s.get("name") or "时装",
         "series": s.get("group") or "",
@@ -4671,7 +4636,8 @@ def limited_skin_pool(n: int = 8) -> list:
     week = _daily_key("skinlimited")
     ids = [sid for sid in sorted(SKIN_ASSETS.keys())
            if (SKIN_ASSETS.get(sid) or {}).get("file")
-           and CHARACTER_BY_ID_ALL.get((SKIN_ASSETS.get(sid) or {}).get("charId") or "")]
+           and _skin_owner_meta((SKIN_ASSETS.get(sid) or {}).get("charId") or "",
+                                (SKIN_ASSETS.get(sid) or {}).get("rarity") or 0)["rarity"]]
     picks = []
     for sid in _rotate(ids, week, len(ids)):
         entry = _skin_shop_entry(sid, set())
@@ -4687,7 +4653,6 @@ def limited_skin_pool(n: int = 8) -> list:
 @app.get("/api/skins")
 async def list_skins():
     """时装商店：已持有干员的时装可下单；再附一条每日轮换的货架做预览。"""
-    pool_by_id = {op["id"]: op for op in OPERATOR_POOL}
     with db_cursor() as cur:
         owned_ops = cur.execute(
             "SELECT operator_id, name, rarity, copies FROM operator_records WHERE copies > 0"
@@ -4695,21 +4660,27 @@ async def list_skins():
         owned_skins = {r["skin_id"] for r in cur.execute("SELECT skin_id FROM skins_owned").fetchall()}
         stone = get_resource(cur, "source_stone")
     owned_ids = {r["operator_id"] for r in owned_ops}
-    skins = []
-    for r in owned_ops:
-        op = pool_by_id.get(r["operator_id"]) or {
-            "id": r["operator_id"], "name": r["name"], "rarity": r["rarity"], "profession": ""}
-        for s in build_skins_for_operator(op):
-            s["owned"] = s["skin_id"] in owned_skins
-            s["unlocked"] = True
-            skins.append(s)
-    # 限定时装不进直购清单：原版买不到，只能从礼包随机奖励里出
-    skins = [s for s in skins if not s.get("limited")]
-    owned_skin_ids = {s["skin_id"] for s in skins}
-    skins.sort(key=lambda s: (-s["rarity"], -s["cost"], s["operator_name"]))
-    # 货架里剔掉已经在「可购买」区出现过的，避免同一件皮肤出现两次
+    # R37：时装兑换界面必须列出**所有**干员的每一件非限定皮肤（含未持有干员），
+    #     未持有干员的皮肤 unlocked=False，前端只给预览不给下单。
+    #     旧版只返回「已持有干员」的时装，未持有干员的皮肤只在 24 件轮换货架里偶尔出现，
+    #     导致绝大多数皮肤根本看不到。这里直接摊平 SKIN_BUCKETS（全星级全干员）。
+    catalog = []
+    for rarity in sorted(SKIN_BUCKETS.keys(), reverse=True):
+        for sid in SKIN_BUCKETS[rarity]:
+            e = _skin_shop_entry(sid, owned_ids)
+            if e["limited"]:
+                continue                      # 限定皮走礼包池，不进直购目录
+            e["owned"] = e["skin_id"] in owned_skins
+            catalog.append(e)
+    # 二星档用干员自身立绘补「默认服装」
+    for base in STAR2_SKINS:
+        catalog.append(dict(base, owned=base["skin_id"] in owned_skins,
+                            unlocked=base["operator_id"] in owned_ids, limited=False))
+    catalog.sort(key=lambda x: (-x["rarity"], -x["cost"], x["operator_name"], x["skin_name"]))
+    owned_skin_ids = {s["skin_id"] for s in catalog if s["owned"]}
+    # 货架：从完整目录里挑每周轮换的预览子集（仅未持有、未拥有的），作「本周推荐」展示
     shop = [s for s in build_skin_shop(owned_ids) if s["skin_id"] not in owned_skin_ids]
-    return {"data": {"skins": skins, "shop": shop, "source_stone": stone,
+    return {"data": {"skins": catalog, "shop": shop, "source_stone": stone,
                      "limited_pool": limited_skin_pool(8),
                      "owned_count": len(owned_skins), "operator_count": len(owned_ops)}}
 
@@ -5027,13 +4998,9 @@ async def import_data(data: ImportData):
         # 导入后不再强制校验「已完成但父/前置未完成」，避免导入失败；聚合进度会自行修正
         pass
 
-        cur.execute("""
-            SELECT id FROM tasks 
-            WHERE status = 'done' AND repeat_type IS NOT NULL AND deleted = 0
-        """)
-        repeat_done_tasks = [row["id"] for row in cur.fetchall()]
-        for tid in repeat_done_tasks:
-            create_repeat_copy(cur, tid)
+        # 重复任务的归位不再「生成副本」，统一交给 sweep_repeat_tasks 按周期边界就地处理
+        # （原 create_repeat_copy 已废弃且引用了不存在的函数，导入含已完成重复任务的数据会 500）。
+        sweep_repeat_tasks(cur)
 
         cur.execute("SELECT DISTINCT parent_id FROM tasks WHERE deleted = 0 AND parent_id IS NOT NULL")
         parent_ids = [row["parent_id"] for row in cur.fetchall()]

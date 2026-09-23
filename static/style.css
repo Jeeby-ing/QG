@@ -546,27 +546,9 @@ body.wallpaper-image .bg-layer.bg-particles { opacity: 0; }
 .icon-btn:hover { background:rgba(255,255,255,0.15); color:var(--text-primary); transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,0.3); }
 .icon-btn:active { transform:translateY(0) scale(0.95); }
 
-/* ===== 远程地址按钮（内嵌顶栏） ===== */
-.remote-url-btn {
-    display:flex; align-items:center; gap:6px;
-    background:var(--glass-2); border:1px solid rgba(100,200,255,0.15);
-    color:#64c8ff; padding:4px 10px; border-radius:20px;
-    cursor:pointer; font-size:11px; max-width:220px;
-    backdrop-filter:blur(6px); transition:all 0.2s ease;
-    flex-shrink:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;
-    opacity:0.5;
-}
-.remote-url-btn.connected { opacity:1; border-color:rgba(100,200,255,0.4); }
-.remote-url-btn:hover { background:rgba(100,200,255,0.12); border-color:rgba(100,200,255,0.4); opacity:1 !important; }
-.remote-url-btn:active { transform:scale(0.96); }
-.remote-url-btn .remote-url-text { font-family:'Consolas','Courier New',monospace; letter-spacing:0.3px; opacity:0.9; }
-.remote-url-btn.copied { border-color:#4ade80; color:#4ade80; }
-.remote-url-btn.copied .remote-url-text::after { content:' \2713'; margin-left:3px; }
-
-/* 移动端不显示远程地址按钮（桌面端才有隧道） */
-@media (max-width: 768px) {
-    .remote-url-btn { display: none !important; }
-}
+/* L127 清理：原「远程地址按钮（.remote-url-btn）」规则已删除 —— 该按钮 DOM 早已移除，
+   全项目零引用（style.css 之外的命中皆为 Edge 缓存残留）。如需恢复 cpolar 远程地址入口，
+   重写按钮 HTML 时一并补回样式即可。 */
 
 /* ===== 通用按钮 ===== */
 .btn {
@@ -1902,10 +1884,7 @@ body.focus-mode .tracking-expanded {
     0%, 100% { opacity: 0.55; transform: scale(0.98); }
     50% { opacity: 0.85; transform: scale(1.05); }
 }
-@keyframes rewardShine {
-    0%, 100% { opacity: 0.45; transform: translateX(-1px) scale(0.96); }
-    50% { opacity: 1; transform: translateX(1px) scale(1.04); }
-}
+/* L127 清理：@keyframes rewardShine 已删除（全项目无任何 animation 引用它）。 */
 
 /* 内圈：放图标（在圆心） */
 .reward-icon-wrap {
@@ -7503,30 +7482,9 @@ body.theme-light .wh-cat-head { color: var(--ak-color-primary-deep, #8A6200); bo
    新增均为叠加层，不改动前面 1~13.4 的任何规则；想回滚删这一节即可。
    ============================================================ */
 
-/* ① 主按钮 .btn-primary 收敛到方舟蓝（深 / 浅两套主题） */
-.btn-primary {
-    background: linear-gradient(135deg, var(--ak-color-primary, #FFD028), #2f8fd0);
-    border-color: var(--ak-color-primary, #FFD028);
-    box-shadow: 0 4px 12px rgba(232,184,24,0.40), inset 0 1px 0 rgba(255,255,255,0.20);
-}
-.btn-primary:hover {
-    background: linear-gradient(135deg, #5cb8f0, #2f8fd0);
-    box-shadow: 0 6px 16px rgba(232,184,24,0.60), inset 0 1px 0 rgba(255,255,255,0.20);
-    transform: translateY(-2px);
-}
-.btn-primary:active {
-    transform: translateY(1px) scale(0.96);
-    box-shadow: 0 2px 6px rgba(232,184,24,0.30);
-}
-body.theme-light .btn-primary {
-    background: linear-gradient(135deg, var(--ak-color-primary, #FFD028), #0075a8);
-    border-color: var(--ak-color-primary-deep, #8A6200);
-    box-shadow: 0 4px 12px rgba(0,117,168,0.30), inset 0 1px 0 rgba(255,255,255,0.25);
-}
-body.theme-light .btn-primary:hover {
-    background: linear-gradient(135deg, #5cb8f0, #0075a8);
-    box-shadow: 0 6px 16px rgba(0,117,168,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
-}
+/* ① 主按钮（R37 蓝色玻璃）——「.btn-primary」实际生效规则已迁到文件末尾 §19.0。
+   说明：R37 初版把这块放在此处，但同特异性下会被后文的 §15.1（金）/ §18.3（原版青蓝）
+   以「后者胜」压住而从未生效（R37 自证探针抓出）。现整体迁到文件末尾作最终生效层。 */
 
 /* ② 现实奖励卡 hover：通用白边 -> 方舟蓝描边 + 青蓝外发光（深 / 浅） */
 .reality-reward-card:hover {
@@ -7559,12 +7517,12 @@ body.theme-light .gacha-result { border: 1px solid rgba(0,117,168,0.14); }
 /* ---- ① 关闭按钮：弃用偏移的 btn_close.webp，恢复居中叉号 ---- */
 .modal .modal-close {
     background-image: none;                    /* 弃用画布偏心的原版贴图 */
-    border-color: rgba(232,184,24,0.35);
-    color: var(--ak-color-primary, #FFD028);
+    border-color: rgba(0,150,214,0.50);
+    color: rgba(150,215,255,0.95);
 }
 .modal .modal-close i { display: block; font-size: 15px; line-height: 1; }
-.modal .modal-close:hover { color: #fff; border-color: rgba(232,184,24,0.7); }
-body.theme-light .modal .modal-close { color: var(--ak-color-primary-deep, #8A6200); border-color: rgba(0,117,168,0.35); }
+.modal .modal-close:hover { color: #fff; border-color: rgba(0,170,232,0.85); }
+body.theme-light .modal .modal-close { color: rgba(0,117,168,0.95); border-color: rgba(0,117,168,0.45); }
 body.theme-light .modal .modal-close:hover { color: #fff; }
 
 /* ---- ② 结算弹窗去框化 + 磨砂：移除四周硬边框（含底部那条），仅呈现奖励内容 ---- */
@@ -7585,14 +7543,17 @@ body.theme-light .reward-settlement-modal {
 .reward-settlement-modal .reward-bottom-area,
 .reward-settlement-modal .reward-details { border-top: none; }
 
-/* ---- ③ 资源光环统一方舟蓝（覆盖 app.js 内联的 --ring-color） ---- */
-.reward-settlement-modal .reward-ring { --ring-color: var(--ak-color-primary, #FFD028) !important; }
-body.theme-light .reward-settlement-modal .reward-ring { --ring-color: var(--ak-color-primary-deep, #8A6200) !important; }
+/* ---- ③ 资源光环：移除「统一金色」覆盖（R37） ----
+   原 ③ 用 !important 把所有结算光环强行染成金色，抹平了 app.js 按奖励类型
+   / 稀有度写入的上下文色（资源圈 / 掉落圈 / 时装紫圈 / 仓库圈各有其色，
+   对应原游戏按稀有度发光的做法）。现删除该覆盖，让 app.js 内联的
+   --ring-color 生效；.reward-ring 基类已带 rgba(255,255,255,0.5) 等兜底色，
+   DOM/JS 零改动即恢复「按类型着色」。 */
 
 /* 数量角标：暖金 → 方舟蓝 */
 .reward-settlement-modal .reward-num-badge {
     background: linear-gradient(135deg, #1d2b3a, #14202c);
-    border-color: rgba(232,184,24,0.55);
+    border-color: rgba(0,150,214,0.55);
     color: #cfeaff;
 }
 body.theme-light .reward-settlement-modal .reward-num-badge {
@@ -7603,36 +7564,36 @@ body.theme-light .reward-settlement-modal .reward-num-badge {
 
 /* 随机掉落块：暖金底 → 方舟蓝底 */
 .reward-settlement-modal .random-drop {
-    background: rgba(232,184,24,0.06);
-    border-color: rgba(232,184,24,0.12);
+    background: rgba(0,150,214,0.06);
+    border-color: rgba(0,150,214,0.14);
 }
-.reward-settlement-modal .random-drop h4 { color: var(--ak-color-primary, #FFD028); }
+.reward-settlement-modal .random-drop h4 { color: #7fd0ff; }
 body.theme-light .reward-settlement-modal .random-drop {
     background: rgba(0,117,168,0.05);
     border-color: rgba(0,117,168,0.12);
 }
-body.theme-light .reward-settlement-modal .random-drop h4 { color: var(--ak-color-primary-deep, #8A6200); }
+body.theme-light .reward-settlement-modal .random-drop h4 { color: #0075a8; }
 
 /* ---- ④ 底部对勾（挂在窗口外，全局类）：绿 → 方舟蓝 ---- */
 .reward-external-check {
     background: rgba(24,58,86,0.50);
-    border-color: rgba(232,184,24,0.50);
-    box-shadow: 0 0 16px rgba(232,184,24,0.25), 0 4px 12px rgba(0,0,0,0.4);
+    border-color: rgba(0,150,214,0.50);
+    box-shadow: 0 0 16px rgba(0,150,214,0.25), 0 4px 12px rgba(0,0,0,0.4);
     animation: extCheckPulseAk 1.8s ease-in-out infinite;
 }
 .reward-external-check:hover {
     background: rgba(24,58,86,0.68);
-    box-shadow: 0 0 24px rgba(232,184,24,0.45), 0 6px 16px rgba(0,0,0,0.5);
+    box-shadow: 0 0 24px rgba(0,150,214,0.45), 0 6px 16px rgba(0,0,0,0.5);
 }
 .reward-external-check.claimed {
     background: rgba(24,58,86,0.25);
-    border-color: rgba(232,184,24,0.22);
+    border-color: rgba(0,150,214,0.22);
 }
 /* SVG 描边用的是表示属性，任意 CSS 规则都能盖过它 → 直接改描边色 */
 .reward-external-check svg circle,
-.reward-external-check svg path { stroke: var(--ak-color-primary, #FFD028); }
+.reward-external-check svg path { stroke: #7fd0ff; }
 @keyframes extCheckPulseAk {
-    0%, 100% { box-shadow: 0 0 14px rgba(232,184,24,0.20); transform: scale(1); }
+    0%, 100% { box-shadow: 0 0 14px rgba(0,150,214,0.20); transform: scale(1); }
     50%      { box-shadow: 0 0 28px rgba(232,184,24,0.45); transform: scale(1.05); }
 }
 .reward-claimed-note { color: rgba(120,190,240,0.85); }
@@ -8196,47 +8157,45 @@ body.theme-light .nav-tab.active {
    本节全部是后写覆盖，前面规则一行没改；想回滚删掉这一节即可。
    ========================================================================== */
 
-/* ---- 17.0.1 承载行：独占卡片一整行并水平居中 ----
-   前提：卡片本身要允许换行。.task-card 默认是 nowrap 的单行 flex，
-   直接塞 flex-basis:100% 会把右边那排元素挤扁 —— 所以这里补一条 flex-wrap。
-   其余子项（.task-indent / .task-main / .task-progress / .task-actions）的
-   flex-basis 加起来远小于卡片宽，自由空间全部给 .task-main 吸收，
-   开 wrap 不会让它们另起一行（已用无头探针实测：卡片行数仍是 1）。 */
+/* ---- 17.0.1 承载行：独占卡片一整行（R37 复位为右下角常态） ----
+   R33 曾把按钮强制居中霸屏；R37 改回 flex-end —— 复位到卡片右下角的正常位置，
+   尺寸随文案自适应，不再是一枚拉满整行的大金块。
+   前提：卡片本身要允许换行（见下方 .task-card 补的 flex-wrap），
+   否则 flex-basis:100% 会把右边那排元素挤扁。 */
 .task-card { flex-wrap: wrap; }
 
 .task-claim-row {
-    flex: 1 1 100%;              /* 100% 基准宽 → 强制换行，拿到自己的一整行 */
+    flex: 1 1 100%;              /* 独占卡片一整行，避免挤占右侧操作图标 */
     display: flex;
-    justify-content: center;     /* 就是它把按钮放到"界面中间" */
+    justify-content: flex-end;    /* 复位到右下角常态，不再居中霸屏 */
     align-items: center;
-    padding: 5px 0 2px;
+    padding: 3px 2px 0;
     min-width: 0;
     position: relative;
     z-index: 2;
 }
 
-/* ---- 17.0.2 按钮本体：可领取 = 金色实心大按钮 ---- */
+/* ---- 17.0.2 按钮本体：R37 复位为常规尺寸（不再 152px 强制宽） ---- */
 .task-claim-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-    min-width: 152px;
-    min-height: 34px;
-    padding: 7px 26px;
+    gap: 6px;
+    min-width: 0;                /* 去掉 152px 强制宽度 */
+    min-height: 30px;
+    padding: 6px 18px;
     border: 1px solid rgba(255, 207, 77, 0.55);
-    border-radius: 10px;
-    background: linear-gradient(180deg, rgba(255, 207, 77, 0.20), rgba(30, 25, 12, 0.72));
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(255, 207, 77, 0.18), rgba(30, 25, 12, 0.68));
     color: var(--highlight-gold-1, #ffcf4d);
     font-family: inherit;
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     white-space: nowrap;
     cursor: pointer;
     -webkit-appearance: none; appearance: none;
-    /* 静态 + hover 两态，**不做无尽脉动**（R25 明确否掉了"一直发光"的金色徽章） */
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.08);
     transition: transform 0.15s ease, border-color 0.15s ease,
                 background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
@@ -8244,17 +8203,17 @@ body.theme-light .nav-tab.active {
 .task-claim-btn:hover {
     color: #fff6d6;
     border-color: rgba(255, 220, 130, 0.90);
-    background: linear-gradient(180deg, rgba(255, 207, 77, 0.34), rgba(40, 33, 16, 0.80));
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.42), 0 0 18px rgba(255, 196, 60, 0.34),
-                inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    transform: translateY(-2px);
+    background: linear-gradient(180deg, rgba(255, 207, 77, 0.32), rgba(40, 33, 16, 0.78));
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.38), 0 0 12px rgba(255, 196, 60, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
 }
 .task-claim-btn:active {
     transform: translateY(1px) scale(0.97);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.40);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.38);
 }
 .task-claim-btn:focus-visible {
-    outline: 2px solid var(--ak-color-primary, #FFD028);
+    outline: 2px solid rgba(255, 207, 77, 0.80);
     outline-offset: 3px;
 }
 
@@ -8725,4 +8684,52 @@ body.theme-light .skin-filter-btn.active {
     background: rgba(0,166,239,0.30);
     color: #04303F;
     font-weight: 700;
+}
+
+/* ==========================================================================
+   19.0  主按钮 · 统一蓝色玻璃质感（R37 #132 · 最终生效层）
+   --------------------------------------------------------------------------
+   为什么放这里：本篇之前有多层 .btn-primary 定义（§13.5 金蓝混色、§15.1 全金、
+   §18.3 原版青蓝 #0090D0）。CSS 同特异性下**文件末尾者胜**，R37 初版误置于 §13.x
+   区域 ⇒ 一直被 §18.3 覆盖、从未真正渲染（由 R37 自证探针 ql_r37_probe 抓出）。
+   现整体迁到末尾作最终生效层：深底 + 浅蓝描边 + 内高光，深 / 浅两套主题各一套，
+   四态只改「明度 + 位移 + 光晕」，尺寸 / 圆角 / 图标不受状态影响。
+   想回滚：删本节即可（主按钮会退回 §18.3 的原版青蓝）。
+   ========================================================================== */
+.btn-primary {
+    background: linear-gradient(135deg, rgba(0,150,214,0.96), rgba(0,96,160,0.96));
+    border-color: rgba(120,200,255,0.55);
+    color: #eaf6ff;
+    box-shadow: 0 4px 14px rgba(0,96,160,0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+    text-shadow: 0 1px 2px rgba(0,32,52,0.38);
+}
+.btn-primary:hover {
+    background: linear-gradient(135deg, rgba(0,170,232,1), rgba(0,112,184,1));
+    border-color: rgba(150,215,255,0.80);
+    box-shadow: 0 6px 18px rgba(0,96,160,0.60), inset 0 1px 0 rgba(255,255,255,0.30);
+    transform: translateY(-2px);
+}
+.btn-primary:active {
+    background: linear-gradient(135deg, rgba(0,128,190,0.98), rgba(0,84,142,0.98));
+    transform: translateY(1px) scale(0.97);
+    box-shadow: 0 2px 6px rgba(0,96,160,0.40);
+}
+.btn-primary:focus-visible {
+    outline: 2px solid rgba(120,200,255,0.85);
+    outline-offset: 2px;
+}
+body.theme-light .btn-primary {
+    background: linear-gradient(135deg, rgba(0,117,168,0.96), rgba(0,80,130,0.98));
+    border-color: rgba(0,117,168,0.60);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0,117,168,0.32), inset 0 1px 0 rgba(255,255,255,0.30);
+}
+body.theme-light .btn-primary:hover {
+    background: linear-gradient(135deg, rgba(0,140,196,1), rgba(0,100,160,1));
+    border-color: rgba(0,117,168,0.90);
+    box-shadow: 0 6px 16px rgba(0,117,168,0.45), inset 0 1px 0 rgba(255,255,255,0.30);
+}
+body.theme-light .btn-primary:active {
+    background: linear-gradient(135deg, rgba(0,100,150,0.98), rgba(0,72,118,0.98));
+    box-shadow: 0 2px 6px rgba(0,117,168,0.30);
 }

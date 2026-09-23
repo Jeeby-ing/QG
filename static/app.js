@@ -298,8 +298,6 @@ function cacheDOM() {
     DOM.gachaCloseHint = document.getElementById('gachaCloseHint');
     DOM.gachaOrundumBalance = document.getElementById('gachaOrundumBalance');
     DOM.operatorGachaBtn = document.getElementById('operatorGachaBtn');
-    // R20：干员寻访独立成视图，不再有弹窗（这里保留字段只为兼容旧引用）
-    DOM.operatorGachaModal = document.getElementById('operatorGachaModal');
     DOM.operatorGachaClose = document.getElementById('operatorGachaClose');
     DOM.shopTabBar = document.getElementById('shopTabBar');
     DOM.shopPanels = document.querySelectorAll('#view-shop .pc-panel');
@@ -1828,17 +1826,6 @@ function goldStars(rarity, extraClass = '') {
     return `<span class="g-stars">${html}</span>`;
 }
 
-function createStarElement() {
-    const star = document.createElement('span');
-    star.className = 'star';
-    star.textContent = '★';
-    star.style.transform = 'rotate(15deg)';
-    star.style.display = 'inline-block';
-    star.style.color = 'var(--highlight-gold-1)';
-    star.style.textShadow = '0 2px 4px rgba(0,0,0,0.6), 0 0 6px rgba(232,184,24,0.5)';
-    return star;
-}
-
 function createTaskCard(task) {
     const card = document.createElement('div');
     card.className = `task-card status-${task.status} ${task.children && task.children.length ? 'parent-task' : 'child-task'} task-level-${task.level || 0}`;
@@ -2406,8 +2393,6 @@ async function processReorderQueue() {
 }
 
 function handleDragEnd() { draggedTaskId = null; }
-
-function seededRandom(seed) { return function() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }; }
 
 /* 图谱节点配色（R21）：每种状态一条自上而下渐变，顶亮底深，不用近黑底 + 外发光 */
 const GRAPH_NODE_COLORS = {
@@ -3394,14 +3379,14 @@ function updateUserInfo() {
      每级增量从 ~55 一路涨到 ~500+，后期越来越难，增速肉眼可见。
    调参：BASE↑ 整体更难；LIN↑ 中期更快变难；QUAD↑ 后期更陡。
    注意：改曲线会让既有经验对应的等级重新标定（等级数会下降），属正常现象。
-   R36 实测：exp=22043 这笔存档由 L32 重定标为 L23（理智上限 117→108，由后端 sanity_cap 推导）。 */
-const AK_EXP_TABLE = [500,800,1240,1320,1400,1480,1560,1640,1720,1800,1880,1960,2040,2120,2200,2280,2360,2440,2520,2600,2680,2760,2840,2920,3000,3080,3160,3240,3350,3460,3570,3680,3790,3900,4200,4500,4800,5100,5400,5700,6000,6300,6600,6900,7200,7500,7800,8100,8400,8700,9000,9500,10000,10500,11000,11500,12000,12500,13000,13500,14000,14500,15000,15500,16000,17000,18000,19000,20000,21000,22000,23000,24000,25000,26000,27000,28000,29000,30000,31000,32000,33000,34000,35000,36000,37000,38000,39000,40000,41000,42000,43000,44000,45000,46000,47000,48000,49000,50000,51000,52000,54000,56000,58000,60000,62000,64000,66000,68000,70000,73000,76000,79000,82000,85000,88000,91000,94000,97000,100000];
+   R37 难度平衡：曲线整体再抬高约 2.6 倍（BASE 60→160 / LIN 50→170 / QUAD 2.5→13），
+   exp=22043 这道存档由 L23 重定标为 L12。 */
 /* 曲线说明见上方「等级 / 经验曲线」注释块。
    改动这几个常量时必须同步 main.py 的 _LEVEL_BASE/_LEVEL_LIN/_LEVEL_QUAD/_LEVEL_ROUND/_LEVEL_FLOOR，
    否则前端显示等级与后端升级检测会不一致。 */
-const LEVEL_BASE = 60;
-const LEVEL_LIN = 50;   /* R36：20→50，必须与 main.py _LEVEL_LIN 一致 */
-const LEVEL_QUAD = 2.5; /* R36：1.0→2.5，必须与 main.py _LEVEL_QUAD 一致 */
+const LEVEL_BASE = 160;
+const LEVEL_LIN = 170;
+const LEVEL_QUAD = 13;
 const LEVEL_STEP = 5;
 const LEVEL_FLOOR = 50;
 function levelExpForLevel(level){
@@ -5797,8 +5782,12 @@ function renderSkins(){
             '<span>还没有可购买的时装——先去「干员寻访」抽到干员，他的时装就能下单了。下面的货架可以先看个眼缘。</span>';
         list.appendChild(hint);
     }
-    addSection('可购买', items.length ? `${items.length} 件属于已持有干员` : '', items, false);
-    addSection('商店货架 · 每周轮换', '未持有干员的时装只可预览，抽到干员后即可购买', shelf, true);
+    // R37：主列表现已摊平为「全部皮肤」（含未持有干员，仅预览），
+    //     故不再单独渲染「商店货架」（其内容与主列表完全重合，避免同一件皮肤出现两次）。
+    const buyableCount = items.filter(s => s.unlocked !== false && !s.owned && !s.limited).length;
+    addSection('全部皮肤',
+               buyableCount ? `${buyableCount} 件可直接购买 · 其余为未持有干员预览` : '全部为预览（需先抽到对应干员）',
+               items, false);
     /* R21：限定时装单独成区。原版里这批皮肤不能用源石直接兑换，
        所以这里没有购买按钮，只能靠带「限定时装」标记的礼包开出来。 */
     addSection('限定时装 · 只走礼包', '原版不可用源石兑换，仅从标注「限定时装」的礼包随机产出',
@@ -6557,7 +6546,6 @@ async function onCategoryFilterChange(){
         applyFilters();
     }
 }
-function updateTagFilter(){ /* 已废弃：分类改为受管下拉 filterCategory，由 renderCategoryFilter 渲染 */ }
 function updateTrackingPanelIfNeeded(){ if(state.trackingTaskId) updateTrackingPanel(); }
 function spawnLevelUpSparks(){
     const box = DOM.levelUpSparks; if (!box) return;
@@ -6591,7 +6579,7 @@ function checkLevelUp(){ const currentLevel=calculateLevel(state.resources.exp?.
         DOM.levelUpOverlay.classList.add('show');
         setTimeout(()=>DOM.levelUpOverlay.classList.remove('show'),3000); loadResources(); }
     else if(state.lastLevel===0) state.lastLevel=currentLevel; }
-function checkNewUnlocks(){ const storedIds=JSON.parse(localStorage.getItem('unlockedAchievementIds')||'[]');
+function checkNewUnlocks(){ let storedIds=[]; try{ const raw=JSON.parse(localStorage.getItem('unlockedAchievementIds')||'[]'); if(Array.isArray(raw)) storedIds=raw; }catch(e){ storedIds=[]; }
     const newUnlocks=state.unlockedAchievements.filter(u=>!storedIds.includes(achIdOf(u)));
     newUnlocks.forEach((u,index)=>{ setTimeout(()=>{ const ach=state.achievements.find(a=>a.id===achIdOf(u));
         if(ach){ DOM.badgeNotifName.textContent=ach.name; DOM.badgeNotification.classList.add('show'); setTimeout(()=>DOM.badgeNotification.classList.remove('show'),3000); } },index*3000); });
