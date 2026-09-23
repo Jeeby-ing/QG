@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260923-280">
+    <link rel="stylesheet" href="static/style.css?v=20260923-282">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -132,53 +132,120 @@
             </div>
         </header>
 
-        <!-- 追踪面板：窄条把手 + 展开面板 -->
+        <!-- 追踪面板：窄条把手 + 展开面板
+             R39：内部结构直接采用 static/vendor/ak-ui 的原生组件契约——
+               .ak-status（头部信号灯三件套） / .ak-tag + .ak-tag-group（父任务链）
+               .ak-divider（分区线） / .ak-notice--warning（空态） / .ak-loading-track（待机）
+               .ak-card（内容骨架） / .ak-choice（子任务勾选行） / .ak-progress（进度四件套）
+               .ak-slider（手动进度） / .ak-button 变体（操作按钮） / .ak-gauge（番茄钟八角仪表）
+               .ak-counter--compact（会话计时）
+             想整体回滚：恢复本段 HTML + 删掉 style.css §21 即可。 -->
         <aside class="tracking-panel" id="trackingPanel">
-                <div class="tracking-handle" id="trackingHandle" title="追踪面板">
-                    <i class="fa-solid fa-grip-vertical"></i>
-                </div>
+            <div class="tracking-handle" id="trackingHandle" title="追踪面板">
+                <i class="fa-solid fa-grip-vertical"></i>
+            </div>
             <div class="tracking-expanded" id="trackingExpanded">
-                <!-- 外观装饰层（纯视觉：角标/扫描线/顶部状态带。无 id、无事件、不参与布局。
-                     R38 终端化重做用；想整体回滚删掉这一行 + style.css §21 即可） -->
-                <div class="tp-frame" aria-hidden="true"></div>
                 <div class="drag-indicator" id="dragIndicator"><span></span></div>
                 <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
+
+                <!-- 头部：ak-ui .ak-status（signal / label / detail 三件套） -->
                 <div class="tracking-header">
-                    <!-- 左侧：TRACKING 装饰 -->
-                    <span class="tracking-decor">TRACKING</span>
-                    <!-- 中间：父任务链 -->
-                    <div class="tracking-parent-chain" id="trackingParentChain"></div>
-                    <!-- 右侧：FOCUS 装饰 + 专注按钮（FOCUS 在左） -->
-                    <div class="tracking-focus-group">
-                        <span class="tracking-focus-decor">FOCUS</span>
-                        <button class="tracking-focus-mini" id="trackingFocusBtn" title="专注模式"><i class="fa-solid fa-expand"></i></button>
+                    <div class="ak-status tracking-status" id="trackingStatus">
+                        <span class="ak-status__signal" aria-hidden="true"></span>
+                        <span class="ak-status__label" id="trackingStatusLabel">TRACKING</span>
+                        <span class="ak-status__detail" id="trackingStatusDetail">待命</span>
                     </div>
+                    <div class="ak-tag-group tracking-parent-chain" id="trackingParentChain"></div>
+                    <button class="ak-button ak-button--fab tracking-focus-mini" id="trackingFocusBtn" title="专注模式">
+                        <span class="ak-button__icon"><i class="fa-solid fa-expand"></i></span>
+                    </button>
                 </div>
+
+                <!-- 分区线：ak-ui .ak-divider（3px 白杠 + 居中标题） -->
+                <div class="ak-divider tracking-divider"><span>OPERATION</span></div>
+
                 <div class="tracking-body" id="trackingBody">
-                    <div class="tracking-empty" id="trackingEmpty"><div class="empty-diamond"><i class="fa-solid fa-diamond"></i></div><p>暂无追踪任务</p><p class="micro-text">选择任务开始追踪</p></div>
-                    <div class="tracking-content hidden" id="trackingContent">
-                        <div class="tracking-title-row"><div class="star-display" id="trackingStars"></div><span class="task-line-badge" id="trackingTaskLine"></span></div>
-                        <h2 class="tracking-title" id="trackingTitle"></h2>
-                        <p class="tracking-desc" id="trackingDesc"></p>
+                    <!-- 空态：ak-ui .ak-notice--warning + .ak-loading-track -->
+                    <div class="tracking-empty" id="trackingEmpty">
+                        <div class="ak-notice ak-notice--warning tracking-empty-notice">
+                            <div class="ak-notice__code">STANDBY</div>
+                            <div class="ak-notice__body">
+                                <span class="ak-notice__title">暂无追踪任务</span>
+                                <p class="ak-notice__message">在任务卡上点按「追踪」，PRTS 终端即开始记录该任务的实时进度。</p>
+                            </div>
+                        </div>
+                        <div class="ak-loading-track tracking-standby-track" aria-hidden="true">
+                            <span class="ak-loading-track__runner"></span>
+                            <span class="ak-loading-track__label">IDLE</span>
+                        </div>
+                    </div>
+
+                    <!-- 内容卡：ak-ui .ak-card 骨架 -->
+                    <div class="ak-card tracking-content hidden" id="trackingContent">
+                        <div class="tracking-title-row">
+                            <div class="star-display" id="trackingStars"></div>
+                            <span class="ak-tag ak-tag--advanced" id="trackingTaskLine"></span>
+                        </div>
+                        <h2 class="ak-card__title tracking-title" id="trackingTitle"></h2>
+                        <p class="ak-card__description tracking-desc" id="trackingDesc"></p>
+
+                        <div class="ak-divider tracking-divider tracking-divider--sub"><span>SUB TASKS</span></div>
+
                         <div class="tracking-subtasks" id="trackingSubtasks"></div>
-                        <div class="tracking-progress-section">
-                            <div class="progress-bar" id="trackingProgressBar"><div class="progress-fill" id="trackingProgressFill"></div><div class="progress-thumb" id="trackingProgressThumb"></div></div>
-                            <span class="progress-num" id="trackingProgressNum">0%</span>
+
+                        <!-- 进度：ak-ui .ak-progress 四件套（header / value / track / fill）
+                             manual 模式下 .ak-progress__track 隐藏、改用下面的 .ak-slider 原生滑块接管，
+                             两条 bar 绝不同时出现（避免重复设计）。 -->
+                        <div class="ak-progress tracking-progress" id="trackingProgress">
+                            <div class="ak-progress__header">
+                                <span class="ak-progress__caption">PROGRESS</span>
+                                <span class="ak-progress__value" id="trackingProgressNum">0%</span>
+                            </div>
+                            <div class="ak-progress__track" id="trackingProgressBar">
+                                <span class="ak-progress__fill" id="trackingProgressFill"></span>
+                            </div>
+                            <input type="range" class="ak-slider tracking-progress-slider hidden" id="trackingProgressSlider" min="0" max="100" step="1" value="0" aria-label="手动进度">
                         </div>
                     </div>
                 </div>
-                <!-- 操作按钮区：固定在卡片底部 -->
+
+                <!-- 操作区：ak-ui .ak-button 官方变体（outline / action / advanced） -->
                 <div class="tracking-actions">
-                    <button class="btn btn-diamond" id="trackingToggleBtn"><i class="fa-solid fa-stop"></i><span>停止追踪</span></button>
-                    <button class="btn btn-primary btn-large" id="trackingCompleteBtn"><i class="fa-solid fa-check"></i><span>完成任务</span></button>
-                    <button class="btn btn-primary btn-large hidden" id="trackingRewardBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                    <button class="ak-button ak-button--outline tracking-act" id="trackingToggleBtn">
+                        <span class="ak-button__icon"><i class="fa-solid fa-stop"></i></span>
+                        <span class="ak-button__label">停止追踪</span>
+                    </button>
+                    <button class="ak-button ak-button--action tracking-act" id="trackingCompleteBtn">
+                        <span class="ak-button__icon"><i class="fa-solid fa-check"></i></span>
+                        <span class="ak-button__label">完成任务</span>
+                    </button>
+                    <button class="ak-button ak-button--advanced tracking-act hidden" id="trackingRewardBtn">
+                        <span class="ak-button__icon"><i class="fa-solid fa-gift"></i></span>
+                        <span class="ak-button__label">领取奖励</span>
+                    </button>
                 </div>
+
+                <!-- 底部：ak-ui .ak-gauge 八角仪表（番茄钟） + .ak-counter--compact（会话计时） -->
                 <div class="tracking-footer">
-                    <div class="pomodoro-status hidden" id="pomodoroStatus"><span class="pomodoro-kind" id="pomodoroKind">专注</span><span class="pomodoro-countdown" id="pomodoroCountdown">25:00</span><span class="pomodoro-progress"><span id="pomodoroProgressFill"></span></span></div>
-                    <div class="pomodoro-controls hidden" id="pomodoroControls">
-                        <button class="icon-btn pomodoro-stop" id="pomodoroStopBtn" title="结束番茄钟"><i class="fa-solid fa-stop"></i></button>
+                    <!-- 番茄钟：ak-ui .ak-gauge 八角仪表（值 --ak-gauge-value，色调 --ak-gauge-signal）
+                         注意：刻意不再挂 .pomodoro-status / .pomodoro-kind / .pomodoro-countdown
+                         旧类，避免历史圆环规则与 ak-ui 组件互相打架。 -->
+                    <div class="ak-gauge tracking-gauge hidden" id="pomodoroStatus">
+                        <div class="ak-gauge__content">
+                            <span class="ak-gauge__label" id="pomodoroKind">FOCUS</span>
+                            <span class="ak-gauge__value" id="pomodoroCountdown">25:00</span>
+                            <span class="ak-gauge__unit" id="pomodoroUnit">专注</span>
+                        </div>
                     </div>
-                    <div class="tracking-timer" id="trackingTimer">00:00:00</div>
+                    <div class="pomodoro-controls hidden" id="pomodoroControls">
+                        <button class="ak-button ak-button--fab pomodoro-stop" id="pomodoroStopBtn" title="结束番茄钟">
+                            <span class="ak-button__icon"><i class="fa-solid fa-stop"></i></span>
+                        </button>
+                    </div>
+                    <div class="ak-counter ak-counter--compact tracking-counter">
+                        <span class="ak-counter__prefix" aria-hidden="true"><i class="fa-solid fa-clock"></i></span>
+                        <span class="ak-counter__content tracking-timer" id="trackingTimer">00:00:00</span>
+                    </div>
                 </div>
             </div>
         </aside>
@@ -873,6 +940,6 @@
     <script src="static/sfx.js?v=20260920-002"></script>
     <!-- 动态立绘：按需加载 Spine 3.8 runtime，本身只有索引与调度逻辑 -->
     <script src="static/dyn-portrait.js?v=20260921-004"></script>
-    <script src="static/app.js?v=20260923-267"></script>
+    <script src="static/app.js?v=20260923-269"></script>
 </body>
 </html>

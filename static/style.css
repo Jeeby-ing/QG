@@ -8818,640 +8818,461 @@ body.theme-light .skin-default-card .skin-art {
 }
 
 /* ==========================================================================
-   21.0  追踪面板 & 专注模式 · 终端化重做（R38）
+   21.0  追踪面板 & 专注模式 · ak-ui 原生组件挂载层（R39）
    --------------------------------------------------------------------------
-   设计语言来源：static/vendor/ak-ui（方舟 UI 组件库，MIT）
-     · .ak-gauge   八角仪表（conic-gradient + clip-path 八角）
-     · .ak-progress 刻度进度条（track::after 竖纹刻度 + 发光 fill）
-     · .ak-status  信号灯（脉冲小方点 + 等宽 eyebrow）
-     · .ak-san-container--terminal / .ak-divider / .ak-card--stripe 终端质感
+   用户 R39 反馈定调：「不要粗略模仿方舟 UI 的风格，尽可能直接沿用其组件与
+   设计规范」。所以本节**不再手写视觉**——面板内部结构已经在 index.html 里
+   换成 static/vendor/ak-ui 的原生组件契约，这里只补三件 ak-ui 本身不该
+   负责的事：
 
-   做法：**纯外观覆盖** —— 本节追加在整个文件末尾，靠"同特异性后者胜出"
-   压住旧规则；另在 index.html 的 .tracking-expanded 内插了 1 个纯装饰元素
-   .tp-frame（无 id / 无事件 / 不参与布局）。
-   ★ DOM 的 id、class、事件绑定一律未动 → 功能 100% 不变。
-   ★ 想整体回滚：删本节 + 删 index.html 里 <div class="tp-frame"> 那一行。
+     ① 令牌映射  把 ak-ui 的 --ak-signal-* 语义色接到项目 §15.0 的配色上；
+     ② 布局胶水  ak-ui 组件按 1200px 仪表盘设计，而本面板常态 504px 侧栏、
+                 专注态 760px 浮层，尺寸 / 容器查询基准必须重设；
+     ③ 主题桥接  ak-ui 的深色表面在浅色主题下换成浅表面。
 
-   配色仍遵守 §15.0：金 = 主强调（星级/标题条/仪表环）、蓝 = 科技信息
-   （终端 eyebrow/进度/角标）、绿 = 完成、红 = 危险。
+   顺带解决用户点名的两个毛病：
+     · 消除重复设计 —— 删掉旧版自造的角标 / 扫描线 / 菱形占位 / 圆环 /
+       胶囊徽标 / 假进度条；它们本来在 ak-ui 里就有对应组件（.ak-tag /
+       .ak-gauge / .ak-progress …），同一种形态只留一份。
+     · 配色去蓝色堆砌 —— 一色一义：金=主强调/进度、蓝=科技信息/状态、
+       橙=主线/高稀有度、绿=完成/休息、灰=中性待命。
+     · 想回滚：删掉本节 + 恢复 index.html 的旧 aside 段。
+
+   加载顺序（index.html）：ak-ui.min.css → style.css，所以本节同选择器即可
+   覆盖组件内部，无需堆 !important。唯二要提防的是历史上带 !important 的
+   `.progress-bar` / `.progress-fill` 规则——本层刻意**不再复用**这两个类名，
+   从根上避开那批 !important（进度改用 ak-ui .ak-progress__fill）。
    ========================================================================== */
 
+/* ---- 21.0.1  令牌映射：ak-ui 语义色 → 项目 §15.0 语义色 ----
+   ⚠️ 必须显式钉死。项目 §15.0 把 --ak-color-primary 重定义成了「金」，而 ak-ui
+   的组件全部走 var(--ak-signal-info, var(--ak-color-primary, #4aabea)) 取色——
+   不映射的话，挂上来的每个组件都会串成同一个金色（这正是上一版「单调」的根因）。
+   映射之后，ak-ui 原本的多彩语义在面板作用域内被恢复。 */
 .tracking-panel {
-    --tp-gold:  var(--ak-color-primary, #FFD028);
-    --tp-blue:  var(--ak-color-tech, #4aabea);
-    --tp-green: var(--ak-color-success, #5FBF7F);
-    --tp-red:   var(--ak-color-danger, #E4573D);
-    /* 八角形（与 ak-gauge 同比例） */
-    --tp-oct: polygon(16% 0, 84% 0, 100% 16%, 100% 84%, 84% 100%, 16% 100%, 0 84%, 0 16%);
-    /* 切角矩形（右上角 9px 倒角） */
-    --tp-cut: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+    --ak-signal-info:     var(--ak-color-tech, #4aabea);     /* info    → 科技蓝 */
+    --ak-signal-action:   var(--ak-color-primary, #FFD028);  /* action  → 主强调金 */
+    --ak-signal-accent:   #f6540e;                            /* accent  → 橙：主线 / 高稀有度 */
+    --ak-signal-success:  var(--ak-color-success, #5FBF7F);  /* success → 完成 / 休息 */
+    --ak-signal-danger:   var(--ak-color-danger, #E4573D);   /* danger  → 危险 / 取消 */
+    --ak-signal-disabled: #9c9c9c;                            /* disabled→ 中性待命 */
 }
 
-/* ---- 21.0.1  装饰层：四角 L 型角标 + 顶部状态带 + 扫描线 ---------------- */
-.tp-frame {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    --tp-c: rgba(74, 171, 234, 0.85);
-    background-image:
-        linear-gradient(var(--tp-c), var(--tp-c)), linear-gradient(var(--tp-c), var(--tp-c)),
-        linear-gradient(var(--tp-c), var(--tp-c)), linear-gradient(var(--tp-c), var(--tp-c)),
-        linear-gradient(var(--tp-c), var(--tp-c)), linear-gradient(var(--tp-c), var(--tp-c)),
-        linear-gradient(var(--tp-c), var(--tp-c)), linear-gradient(var(--tp-c), var(--tp-c));
-    background-size:
-        22px 2px, 2px 22px,
-        22px 2px, 2px 22px,
-        22px 2px, 2px 22px,
-        22px 2px, 2px 22px;
-    background-position:
-        left top, left top,
-        right top, right top,
-        left bottom, left bottom,
-        right bottom, right bottom;
-    background-repeat: no-repeat;
-}
-/* 顶部状态带（同时是专注模式里 "FOCUS SESSION" 的载体） */
-.tp-frame::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 38px;
-    background:
-        linear-gradient(90deg, rgba(74, 171, 234, 0.16), rgba(74, 171, 234, 0) 62%),
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 8px);
-    border-bottom: 1px solid rgba(74, 171, 234, 0.18);
-}
-/* 扫描线质感（极淡） */
-.tp-frame::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: repeating-linear-gradient(0deg,
-        rgba(255, 255, 255, 0.030) 0 1px, transparent 1px 4px);
-    opacity: 0.55;
-}
-/* 内容层统一抬到装饰层之上（.tracking-resize-handle 不在此列表，保留其 absolute/95） */
-.tracking-expanded > .drag-indicator,
-.tracking-expanded > .tracking-header,
-.tracking-expanded > .tracking-body,
-.tracking-expanded > .tracking-actions,
-.tracking-expanded > .tracking-footer {
-    position: relative;
-    z-index: 1;
+/* ak-ui 组件内部硬写的等宽字体栈，统一到项目等宽字体（风格一致性） */
+.tracking-status .ak-status__label,
+.tracking-progress .ak-progress__header,
+.tracking-progress .ak-progress__value,
+.tracking-divider span,
+.tracking-gauge .ak-gauge__label,
+.tracking-gauge .ak-gauge__value,
+.tracking-gauge .ak-gauge__unit,
+.tracking-counter .tracking-timer,
+.tracking-chain-sep {
+    font-family: var(--font-mono);
 }
 
-/* 顶部金色细线 → 冷色细线；底部环境光改由动画层承担 */
-.tracking-expanded::before {
-    height: 1px;
-    background: linear-gradient(90deg,
-        transparent, rgba(122, 200, 255, 0.55) 30%, rgba(122, 200, 255, 0.55) 70%, transparent);
-    opacity: 0.45;
-}
-.tracking-expanded::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    background:
-        radial-gradient(120% 60% at 50% 100%, rgba(74, 171, 234, 0.10), transparent 62%),
-        radial-gradient(90% 40% at 0% 0%, rgba(255, 208, 40, 0.05), transparent 60%);
-    animation: tpAmbient 6.5s ease-in-out infinite;
-}
-@keyframes tpAmbient { 0%, 100% { opacity: 0.72; } 50% { opacity: 1; } }
-
-/* ---- 21.0.2  头部终端条：等宽 eyebrow + 脉冲信号点 -------------------- */
+/* ---- 21.0.2  头部 · ak-ui .ak-status（signal / label / detail 三件套） ---- */
 .tracking-header {
-    padding: 9px 14px;
-    border-bottom: none;
-    background: linear-gradient(180deg, rgba(74, 171, 234, 0.06), rgba(74, 171, 234, 0));
-}
-.tracking-header::after {
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    height: 1px;
-    pointer-events: none;
-    background: linear-gradient(90deg,
-        rgba(74, 171, 234, 0.45), rgba(74, 171, 234, 0.10) 45%, transparent 80%);
-}
-.tracking-decor {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    letter-spacing: 3px;
-    font-weight: 700;
-    color: rgba(122, 200, 255, 0.75);
-    text-shadow: 0 0 10px rgba(74, 171, 234, 0.45);
-}
-.tracking-decor::before {
-    content: '';
-    width: 6px;
-    height: 6px;
-    flex: 0 0 6px;
-    background: var(--tp-blue);
-    box-shadow: 0 0 9px rgba(74, 171, 234, 0.9);
-    animation: tpSignalPulse 1.8s ease-in-out infinite;
-}
-@keyframes tpSignalPulse { 0%, 100% { opacity: 0.38; } 50% { opacity: 1; } }
-.tracking-focus-decor {
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    letter-spacing: 2.5px;
-    font-weight: 700;
-    color: rgba(255, 208, 40, 0.44);
-}
-.tracking-focus-mini {
-    width: 30px;
-    height: 30px;
-    border-radius: 0;
-    clip-path: var(--tp-cut);
-    background: rgba(74, 171, 234, 0.10);
-    border: 1px solid rgba(74, 171, 234, 0.30);
-    color: rgba(180, 220, 255, 0.85);
-    font-size: 12px;
-}
-.tracking-focus-mini:hover {
-    background: rgba(255, 208, 40, 0.16);
-    border-color: rgba(255, 208, 40, 0.45);
-    color: var(--tp-gold);
-    box-shadow: 0 0 14px rgba(255, 208, 40, 0.30);
-}
-.tracking-parent-chain { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.02em; }
-
-/* ---- 21.0.3  空态：终端待机显示 ------------------------------------- */
-.tracking-empty { color: var(--text-muted-1); }
-.empty-diamond {
-    display: grid;
-    place-items: center;
-    width: 104px;
-    height: 104px;
-    margin-bottom: 20px;
-    font-size: 38px;
-    border: none;
-    opacity: 1;
-    color: var(--tp-gold);
-    background:
-        radial-gradient(circle at 50% 42%, rgba(255, 208, 40, 0.18), transparent 62%),
-        linear-gradient(135deg, rgba(255, 208, 40, 0.10), rgba(74, 171, 234, 0.05));
-    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-    filter: drop-shadow(0 0 18px rgba(255, 208, 40, 0.24));
-}
-.tracking-empty p:first-of-type {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.22em;
-    color: var(--text-secondary-1);
-}
-.tracking-empty .micro-text {
-    margin-top: 6px;
-    font-size: 10.5px;
-    letter-spacing: 0.14em;
-    color: var(--text-muted-1);
-    opacity: 0.72;
-}
-
-/* ---- 21.0.4  内容区：标题行 / 任务线徽章 / 标题强调条 ----------------- */
-.tracking-title-row {
+    justify-content: flex-start;
     gap: 10px;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 10px 12px;
 }
-.tracking-panel .tracking-title-row .star-display .star {
-    text-shadow: 0 0 10px rgba(255, 208, 40, 0.70), 0 2px 4px rgba(0, 0, 0, 0.6);
+.tracking-status {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: .3rem .55rem;
+    background: none;                       /* 面板本身已是玻璃表面，不再叠一层深底 */
+    --ak-status-text: var(--text-primary);  /* 主题自适应（浅色主题里自动变深） */
+    grid-template-columns: auto minmax(0, 1fr);
 }
-.tracking-panel .task-line-badge {
+.tracking-status .ak-status__signal { width: .5rem; height: .5rem; }
+.tracking-status .ak-status__label { font-size: .5625rem; letter-spacing: .14em; }
+.tracking-status .ak-status__detail { margin-top: .1rem; font-size: .6875rem; line-height: 1.15; }
+
+/* ---- 21.0.3  父任务链与徽标 · ak-ui .ak-tag / .ak-tag-group ---- */
+.tracking-parent-chain {
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: .35rem;
+}
+.tracking-chain-chip {
+    min-height: 0;
+    padding: .22rem .5rem .22rem .6rem;
+    font-size: .625rem;
+    letter-spacing: .02em;
+    cursor: pointer;
+    transition: color var(--ak-motion-fast, 120ms) var(--ak-ease-standard, ease),
+                border-color var(--ak-motion-fast, 120ms) var(--ak-ease-standard, ease);
+}
+.tracking-chain-chip::before { width: .22rem; }
+.tracking-chain-chip:hover {
+    border-color: color-mix(in srgb, var(--ak-signal-accent) 72%, transparent);
+    color: var(--ak-signal-accent);
+}
+.tracking-chain-sep { flex: 0 0 auto; font-size: .625rem; line-height: 1; color: var(--text-muted-1); }
+
+#trackingTaskLine {
+    min-height: 0;
+    padding: .2rem .5rem .2rem .6rem;
+    font-size: .6875rem;
+    letter-spacing: .06em;
+}
+#trackingTaskLine::before { width: .22rem; }
+
+/* ---- 21.0.4  分区线 · ak-ui .ak-divider（两根 3px 白杠 + 居中标题） ----
+   横向留白必须与内容列对齐：内容列是 body 容器的 1rem 内边距（实测 [80,487]），
+   分区线原先写 .9rem(14.4px) → 端点比内容宽出 ~2px；.tracking-divider--sub 又在
+   卡片内额外缩 .2rem → 又比子任务行短 ~3px。同一列里两条线端点差 5px，
+   在金色 2px 细杠上肉眼可见「不齐」，这里统一到 1rem / 0。 */
+.tracking-divider { flex: 0 0 auto; margin: .5rem 1rem; }
+.tracking-divider::before,
+.tracking-divider::after {
+    width: auto;
+    flex: 1 1 auto;
+    height: 2px;
+}
+.tracking-divider::before { background-color: color-mix(in srgb, var(--ak-color-primary) 52%, transparent); }
+.tracking-divider::after  { background-color: color-mix(in srgb, var(--ak-color-primary) 20%, transparent); }
+.tracking-divider span {
+    width: auto;
+    padding: 0 .5rem;
+    color: var(--text-muted-1);
+    font-size: .625rem;
+    font-weight: 700;
+    letter-spacing: .22em;
+    filter: none;
+}
+.tracking-divider--sub { margin: .95rem 0 .55rem; }   /* 卡片内，侧向归零才与子任务行同宽 */
+.tracking-divider--sub span { color: var(--ak-color-primary); }
+.tracking-divider--sub::before { background-color: color-mix(in srgb, var(--ak-color-primary) 62%, transparent); }
+
+/* ---- 21.0.5  空态 · ak-ui .ak-notice--warning + .ak-loading-track ----
+   .ak-notice 是 ak-ui 里刻意保留的「纸卡」材质（与深色面板形成材质对比，
+   不是 bug），所以两种主题都保持它的原样，只收一下宽度与内边距。 */
+.tracking-empty { gap: 1.5rem; padding: 6px 0; container-type: inline-size; }
+.tracking-empty-notice {
+    width: 100%;
+    max-width: 25rem;
+    min-height: 0;
+    grid-template-columns: 5.2rem minmax(0, 1fr);
+}
+.tracking-empty-notice .ak-notice__code  { font-size: .5625rem; padding: 0 .7rem; }
+.tracking-empty-notice .ak-notice__title { font-size: .9375rem; font-weight: 800; }
+.tracking-empty-notice .ak-notice__message { margin-top: .3rem; }
+.tracking-standby-track {
+    --ak-loading-color: var(--ak-signal-action);       /* 待机扫描线走主强调金 */
+    --ak-loading-label-color: var(--text-muted-1);
+}
+.tracking-standby-track .ak-loading-track__label {
+    top: auto;
+    right: 0;
+    bottom: -1.4rem;
     font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.14em;
-    border-radius: 2px;
-    padding: 2px 9px;
+    font-size: .5625rem;
+    letter-spacing: .26em;
 }
-.tracking-panel .task-line-badge.main {
-    background: rgba(214, 140, 60, 0.16);
-    border-color: rgba(230, 160, 80, 0.42);
-    color: #EBA85C;
-}
-.tracking-panel .task-line-badge.side {
-    background: rgba(95, 191, 127, 0.14);
-    border-color: rgba(95, 191, 127, 0.40);
-    color: #7FD79C;
-}
-.tracking-title {
-    position: relative;
-    padding-left: 13px;
-    font-size: 23px;
-    font-weight: 800;
-    line-height: 1.28;
-    letter-spacing: 0.01em;
+
+/* ---- 21.0.6  内容骨架 · ak-ui .ak-card ---- */
+.tracking-content {
+    display: block;
+    width: 100%;
+    padding: 0;
+    box-shadow: none;
     color: var(--text-primary);
 }
-.tracking-title::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0.16em;
-    bottom: 0.16em;
-    width: 3px;
-    background: linear-gradient(180deg, var(--tp-gold), rgba(255, 208, 40, 0.08));
-    box-shadow: 0 0 10px rgba(255, 208, 40, 0.5);
-}
-.tracking-desc {
-    font-size: 13.5px;
-    line-height: 1.65;
-    color: var(--text-secondary-1);
-    margin-bottom: 14px;
-}
-
-/* ---- 21.0.5  子任务：终端列表行（左信号边 + 右上切角） ---------------- */
-.tracking-subtasks { margin: 14px 0; }
-.tracking-subtask-item {
-    gap: 9px;
-    padding: 8px 12px;
-    margin-bottom: 6px;
-    border-radius: 0;
-    clip-path: var(--tp-cut);
-    background: linear-gradient(90deg, rgba(74, 171, 234, 0.07), rgba(255, 255, 255, 0.018));
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-left: 2px solid rgba(74, 171, 234, 0.50);
-}
-.tracking-subtask-item:hover {
-    background: linear-gradient(90deg, rgba(74, 171, 234, 0.14), rgba(255, 255, 255, 0.03));
-    border-left-color: var(--tp-blue);
-    transform: translateX(3px);
-}
-.tracking-subtask-item.completed {
-    background: linear-gradient(90deg, rgba(95, 191, 127, 0.10), rgba(255, 255, 255, 0.015));
-    border-color: rgba(95, 191, 127, 0.18);
-    border-left-color: rgba(95, 191, 127, 0.55);
-    opacity: 0.72;
-}
-.subtask-status-icon { font-size: 15px; }
-.subtask-status-badge {
-    font-family: var(--font-mono);
-    font-size: 9.5px;
-    letter-spacing: 0.12em;
-    padding: 2px 7px;
-    border-radius: 2px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    color: rgba(200, 210, 225, 0.56);
-}
-.tracking-subtask-item.completed .subtask-status-badge {
-    background: rgba(95, 191, 127, 0.14);
-    border-color: rgba(95, 191, 127, 0.28);
-    color: var(--tp-green);
-}
-
-/* ---- 21.0.6  进度条 → 刻度进度（ak-progress 质感） ------------------- */
-/* ⚠️ 4200 行附近有一条既有的 `.progress-bar{height:6px !important}` 统一层把它压成
-   细线，所以这里的 height/min-height 必须同样带 !important 才能抬回刻度条尺寸。
-   填充色沿用既有 V6「真金流光」层（它是 !important，且是已被认可的改进），
-   故本节只改几何与轨道，不再抢填充颜色 —— 金=关键数值，与 §15.0 一致。 */
-.tracking-progress-section { gap: 14px; margin: 18px 0; }
-.tracking-progress-section .progress-bar {
-    height: 16px !important;
-    min-height: 16px !important;
-    flex: 1;
-    overflow: visible;             /* 让滑块可以比轨道高一点 */
-    border-radius: 2px;
-    border: 1px solid rgba(74, 171, 234, 0.20);
-    /* 轨道上叠一层「浅色」刻度线 —— 深色刻度铺满时在空轨道上看不见（0% 时条子会没细节），
-       浅线在暗轨道上可见、被金色填充盖住后又不抢眼；深色刻度交给 ::after 只压在填充上。 */
-    background:
-        repeating-linear-gradient(90deg, transparent 0 14px, rgba(255, 255, 255, 0.10) 14px 15px),
-        rgba(8, 10, 13, 0.72);
-    box-shadow: inset 0 2px 7px rgba(0, 0, 0, 0.70), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
-}
-/* 刻度竖纹（压在填充之上、滑块之下） */
-.tracking-progress-section .progress-bar::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background: repeating-linear-gradient(90deg,
-        transparent 0 14px, rgba(0, 0, 0, 0.45) 14px 15px);
-}
-/* 填充只改圆角（颜色由 V6 金色流光层 !important 决定） */
-.tracking-progress-section .progress-fill { border-radius: 0; }
-/* 滑块：只接管几何（12×26 竖条），配色沿用既有金色层 */
-.tracking-progress-section .progress-thumb {
-    width: 12px;
-    height: 26px;
-    border-radius: 3px;
-}
-.tracking-progress-section .progress-thumb:active {
-    transform: translate(-50%, -50%) scale(0.92);
-}
-.tracking-progress-section .progress-num {
-    min-width: 54px;
-    text-align: right;
-    font-family: var(--font-mono);
-    font-size: 18px;
+.tracking-title-row { gap: .5rem; margin-bottom: .5rem; }
+.tracking-title {
+    font-family: var(--font-display, var(--ak-font-sans));
+    font-size: 22px;
     font-weight: 800;
-    letter-spacing: 0.02em;
-    color: var(--tp-gold);
-    text-shadow: 0 0 14px rgba(255, 208, 40, 0.45);
+    line-height: 1.28;
+    letter-spacing: .01em;
+    margin: 0 0 .35rem;
 }
+.tracking-title:hover { color: var(--ak-color-primary); }
+.tracking-desc { margin-bottom: 0; font-size: .875rem; line-height: 1.6; }
 
-/* ---- 21.0.7  操作区 / 底部导轨 --------------------------------------- */
-.tracking-actions {
-    gap: 10px;
-    padding: 14px 16px 16px;
-    border-top: none;
-    background: linear-gradient(0deg, rgba(255, 255, 255, 0.022), rgba(255, 255, 255, 0));
+/* ---- 21.0.7  子任务 · ak-ui .ak-choice（官方勾选行） ----
+   checkbox 设为只读（pointer-events:none），整行点击进详情——保留组件形态，
+   又不制造「点了会勾上但其实没改」的假交互。 */
+.tracking-subtasks { display: grid; gap: .35rem; margin: 0; }
+.tracking-subtask {
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+    gap: .6rem;
+    padding: .45rem .55rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    background: rgba(255, 255, 255, .028);
+    clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+    transition: background var(--ak-motion-fast, 120ms) var(--ak-ease-standard, ease);
 }
-.tracking-actions::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 14%; right: 14%;
-    height: 1px;
+.tracking-subtask:hover { background: rgba(255, 255, 255, .065); }
+.tracking-subtask .ak-choice__input {
+    --ak-choice-fill: var(--ak-signal-success);     /* 完成 = 绿勾（不再是 ak-ui 默认的亮蓝） */
+    --ak-choice-signal: var(--ak-signal-success);
+    width: 1.25rem;
+    height: 1.25rem;
     pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(74, 171, 234, 0.40), transparent);
 }
-.tracking-footer {
-    border-top: none;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.16), rgba(0, 0, 0, 0.04));
-}
-.tracking-footer::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 14%; right: 14%;
-    height: 1px;
-    pointer-events: none;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.10), transparent);
-}
-.tracking-timer {
-    font-family: var(--font-mono);
-    font-size: 19px;
-    letter-spacing: 0.14em;
-    color: var(--text-secondary-1);
-}
-
-/* ---- 21.0.8  番茄钟 → 八角仪表（ak-gauge 质感） ---------------------- */
-.pomodoro-status {
-    width: 196px;
-    height: 196px;
-    border-radius: 0;
-    clip-path: var(--tp-oct);
-    border: none;
-    box-shadow: none;
-    background:
-        linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.20)),
-        rgba(122, 160, 190, 0.12);
-    filter: drop-shadow(0 0 16px rgba(255, 208, 40, 0.20)) drop-shadow(0 12px 26px rgba(0, 0, 0, 0.60));
-}
-/* 内层深色八角：把 conic 填充挖成"环" */
-.pomodoro-status::before {
-    content: '';
-    position: absolute;
-    inset: 14px;
-    z-index: 2;
-    border-radius: 0;
-    clip-path: var(--tp-oct);
-    background:
-        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.06), transparent 62%),
-        #14171b;
-    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.75);
-}
-/* conic 进度环：由 JS 写的 --pomodoro-progress（0-100）驱动 */
-.pomodoro-progress {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    border-radius: 0;
-    clip-path: var(--tp-oct);
-    pointer-events: none;
-    background: conic-gradient(from -90deg,
-        var(--pm-ring, var(--tp-gold)) calc(var(--pomodoro-progress, 0) * 1%),
-        rgba(122, 160, 190, 0.14) 0);
-    -webkit-mask: none;
-    mask: none;
-}
-/* 休息段：环与标签转绿 */
-.pomodoro-status:has(.pomodoro-kind.break) { --pm-ring: var(--tp-green); }
-.pomodoro-kind {
-    position: relative;
-    z-index: 3;
-    font-family: var(--font-mono);
-    font-size: 10.5px;
-    letter-spacing: 0.30em;
-    text-transform: uppercase;
-    color: rgba(243, 244, 239, 0.55);
-}
-.pomodoro-countdown {
-    position: relative;
-    z-index: 3;
-    font-family: var(--font-mono);
-    font-size: 38px;
-    font-weight: 800;
-    letter-spacing: 0.02em;
-    color: #F5F1E6;
-    text-shadow: 0 0 18px rgba(255, 208, 40, 0.28), 0 4px 12px rgba(0, 0, 0, 0.60);
-}
-.pomodoro-controls { margin-top: 14px; }
-.pomodoro-controls .icon-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 0;
-    clip-path: var(--tp-cut);
-    background: rgba(228, 87, 61, 0.12);
-    border: 1px solid rgba(228, 87, 61, 0.35);
-    color: #E88A78;
-}
-.pomodoro-controls .pomodoro-stop { color: #E88A78; }
-.pomodoro-controls .pomodoro-stop:hover {
-    background: rgba(228, 87, 61, 0.24);
-    border-color: rgba(228, 87, 61, 0.65);
-    color: #FFB4A2;
-    transform: translateY(-1px);
-}
-
-/* ---- 21.0.9  专注模式窗口 -------------------------------------------- */
-body.focus-mode .tracking-panel {
-    width: min(760px, calc(100vw - 36px)) !important;
-    border-radius: 3px;
-    border: 1px solid rgba(74, 171, 234, 0.22);
-    background:
-        radial-gradient(130% 90% at 50% -10%, rgba(74, 171, 234, 0.14), transparent 62%),
-        radial-gradient(90% 70% at 50% 120%, rgba(255, 208, 40, 0.07), transparent 60%),
-        var(--glass-1);
-    box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.04),
-        0 34px 90px rgba(0, 0, 0, 0.66),
-        0 0 130px rgba(74, 171, 234, 0.18);
-}
-body.focus-mode .tp-frame { --tp-c: rgba(122, 200, 255, 0.95); }
-body.focus-mode .tp-frame::before {
-    content: 'FOCUS SESSION';
+.tracking-subtask .ak-choice__input::after { width: .55rem; height: .3rem; }
+.tracking-subtask-label {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: .5rem;
+    min-width: 0;
+    font-family: var(--font-main);
+    font-size: .8125rem;
+    line-height: 1.35;
+}
+.tracking-subtask .subtask-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tracking-subtask .subtask-status-badge {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: .1rem .45rem .1rem .55rem;
+    font-size: .5625rem;
+    letter-spacing: .04em;
+    background: var(--ak-tag-surface);
+    color: var(--ak-tag-text);
+    --ak-tag-signal: var(--ak-signal-disabled);     /* 待办 = 中性灰 */
+}
+.tracking-subtask .subtask-status-badge::before { width: .16rem; }
+.tracking-subtask.is-done { background: rgba(95, 191, 127, .10); }
+.tracking-subtask.is-done .subtask-status-badge { --ak-tag-signal: var(--ak-signal-success); }
+.tracking-subtask.is-cancelled .subtask-status-badge { --ak-tag-signal: var(--ak-signal-danger); }
+.tracking-subtask.is-done .subtask-title,
+.tracking-subtask.is-cancelled .subtask-title { text-decoration: line-through; }
+.tracking-subtask.is-done .subtask-title { opacity: .58; }
+.tracking-subtask.is-cancelled .subtask-title { opacity: .42; }
+
+/* ---- 21.0.8  进度 · ak-ui .ak-progress 四件套 + .ak-slider ----
+   三段式配色（一色一义，彻底告别「一水儿蓝」）：
+     tree（子任务均值/默认）= 金  → 主强调
+     count（计数模式）      = 绿  → 完成度
+     manual（手动拖动）     = 蓝  → 可调参数
+   滑块与进度条互斥显示（由 JS 切 .hidden），两条 bar 绝不同时出现。 */
+.tracking-progress {
+    --ak-progress-signal: var(--ak-signal-action);
+    margin: 1rem 0 0;
+    padding: .7rem .85rem .8rem;
+    gap: .5rem;
+}
+.tracking-progress.count  { --ak-progress-signal: var(--ak-signal-success); }
+.tracking-progress.manual { --ak-progress-signal: var(--ak-signal-info); }
+.tracking-progress .ak-progress__header { font-size: .5625rem; letter-spacing: .16em; }
+.tracking-progress .ak-progress__value  { font-size: .8125rem; font-weight: 800; }
+.tracking-progress .ak-progress__track  { height: .75rem; }
+.tracking-progress .ak-progress__fill   { position: relative; overflow: hidden; }
+/* 保留全站认可的「流光」动感，但底色仍由 --ak-progress-signal 决定（不写死金色） */
+.tracking-progress .ak-progress__fill::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 18%, rgba(255, 255, 255, .42) 50%, transparent 82%);
+    background-size: 220% 100%;
+    animation: tpProgressSheen 2.6s linear infinite;
+    pointer-events: none;
+}
+@keyframes tpProgressSheen {
+    from { background-position: 220% 0; }
+    to   { background-position: 0 0; }
+}
+.tracking-progress-slider {
+    --ak-slider-accent: var(--ak-signal-info);
+    height: 30px;
+    margin: .1rem 0 0;
+}
+.tracking-progress-slider::-webkit-slider-thumb { width: 12px; height: 20px; margin-top: -7px; }
+.tracking-progress-slider::-moz-range-thumb     { width: 12px; height: 20px; }
+
+/* ---- 21.0.9  操作区 · ak-ui .ak-button 官方变体 ----
+   outline = 弱化的「停止」；action = 主操作（沿用全站蓝玻璃 #0090D0）；
+   advanced = 金（奖励语义，深色字保对比度）。 */
+/* 侧向 padding 用 1rem 而不是 14px —— 让按钮左右端点和内容列 [80,487] 严丝合缝 */
+.tracking-actions { gap: 8px; padding: 12px 1rem; }
+.tracking-actions .ak-button {
+    width: 100%;
     height: 44px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.46em;
-    text-indent: 0.46em;
-    color: rgba(122, 200, 255, 0.72);
-    text-shadow: 0 0 12px rgba(74, 171, 234, 0.50);
-    background: linear-gradient(180deg, rgba(74, 171, 234, 0.12), rgba(74, 171, 234, 0));
-    border-bottom: 1px solid rgba(74, 171, 234, 0.22);
+    gap: .5rem;
+    font-size: .9375rem;
+    letter-spacing: .04em;
 }
-body.focus-mode .tracking-body { padding: 60px 40px 30px; }
-body.focus-mode .tracking-title-row {
-    justify-content: center;
-    padding-bottom: 14px;
-    border-bottom: none;
+.tracking-actions .ak-button__icon,
+.tracking-focus-mini .ak-button__icon,
+.pomodoro-controls .ak-button__icon { width: auto; height: auto; }
+.tracking-actions .ak-button__icon i { font-size: 15px; }
+.tracking-actions .ak-button--outline {
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, .26);
+    color: var(--text-secondary-1);
+    background-color: rgba(255, 255, 255, .04);
+    box-shadow: none;
 }
-body.focus-mode .tracking-title {
-    font-size: 34px;
-    padding-left: 0;
+.tracking-actions .ak-button--outline:hover:not(:disabled) {
+    border-color: var(--ak-signal-accent);
+    color: var(--ak-signal-accent);
+}
+.tracking-actions .ak-button--action {
     text-align: center;
-    letter-spacing: 0.03em;
+    border: 1px solid rgba(120, 205, 255, .42);
+    color: #f2fbff;
+    background-color: transparent;
+    background-image:
+        linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, 0) 46%),
+        linear-gradient(160deg, #0f86c6, #0090D0 55%, #00689f);
+    box-shadow: 0 6px 18px rgba(0, 110, 170, .42), inset 0 1px 0 rgba(255, 255, 255, .30);
 }
-body.focus-mode .tracking-title::before { display: none; }
-body.focus-mode .tracking-progress-section { margin: 26px 0 22px; }
-body.focus-mode .tracking-progress-section .progress-bar {
-    height: 18px !important;
-    min-height: 18px !important;
+.tracking-actions .ak-button--advanced {
+    border: 1px solid rgba(255, 232, 140, .70);
+    color: #221d05;
+    background-color: rgba(255, 208, 40, .92);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, .50), rgba(255, 255, 255, 0) 52%);
+    box-shadow: 0 6px 18px rgba(200, 150, 10, .34), inset 0 1px 0 rgba(255, 255, 255, .60);
 }
-body.focus-mode .tracking-actions {
-    margin-top: 22px;
-    padding: 20px 0 4px;
-    background: none;
+body.theme-light .tracking-actions .ak-button--outline {
+    border-color: rgba(0, 0, 0, .22);
+    color: var(--text-secondary-1);
+    background-color: rgba(0, 0, 0, .035);
 }
-body.focus-mode .tracking-actions::before {
-    left: 26%; right: 26%;
-    background: linear-gradient(90deg, transparent, rgba(74, 171, 234, 0.50), transparent);
+.tracking-focus-mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .12);
+    color: var(--text-secondary-1);
+    background-color: rgba(255, 255, 255, .06);
+    box-shadow: none;
 }
-body.focus-mode .tracking-footer {
-    padding: 14px 0 0;
-    background: none;
+.tracking-focus-mini .ak-button__icon i { font-size: 13px; }
+.tracking-focus-mini:hover:not(:disabled) {
+    color: var(--ak-color-primary);
+    border-color: color-mix(in srgb, var(--ak-color-primary) 46%, transparent);
+    background-color: rgba(255, 224, 96, .12);
 }
-body.focus-mode .tracking-footer::before { display: none; }
+body.theme-light .tracking-focus-mini { border-color: rgba(0, 0, 0, .16); background-color: rgba(0, 0, 0, .04); }
 
-/* ---- 21.0.10  移动端适配 -------------------------------------------- */
-@media (max-width: 768px) {
-    /* 底部抽屉两端是圆角，角标整体内缩，避免被 border-radius 切掉 */
-    .tp-frame { inset: 10px; }
-    .tp-frame::before { height: 30px; }
-    .tracking-progress-section .progress-num { min-width: 44px; font-size: 16px; }
-    .tracking-progress-section .progress-thumb { width: 10px; height: 22px; }
-    .pomodoro-status { width: 168px; height: 168px; }
-    .pomodoro-status::before { inset: 12px; }
-    .pomodoro-countdown { font-size: 33px; }
-    body.focus-mode .tracking-panel { width: calc(100vw - 20px) !important; }
-    body.focus-mode .tracking-body { padding: 54px 20px 22px; }
-    body.focus-mode .tracking-title { font-size: 26px; }
-    body.focus-mode .tracking-title-row { flex-wrap: wrap; }
-    body.focus-mode .tracking-actions { padding: 16px 0 2px; }
-    body.focus-mode .tracking-actions .btn { min-width: 0; }
+/* ---- 21.0.10  番茄钟 · ak-ui .ak-gauge 八角仪表 + .ak-counter 会话计时 ----
+   刻意不再挂 .pomodoro-status / .pomodoro-progress / .pomodoro-kind 这些旧类，
+   让 ak-ui 的八角仪表（conic-gradient + clip-path）独立成立，不和历史圆环规则打架。
+   色调：focus → .ak-gauge--warning（金，JS 切换）；break → .is-break（绿）。 */
+.tracking-gauge {
+    width: 152px;
+    color: var(--text-primary);
 }
+.tracking-gauge .ak-gauge__label { font-size: .625rem; letter-spacing: .2em; }
+.tracking-gauge .ak-gauge__value { font-size: 1.9rem; font-weight: 800; }
+.tracking-gauge .ak-gauge__unit  { font-size: .5625rem; letter-spacing: .16em; }
+.tracking-gauge.is-break { --ak-gauge-signal: var(--ak-signal-success); }
 
-/* ---- 21.0.11  浅色纸感主题 ------------------------------------------- */
-body.theme-light .tp-frame { --tp-c: rgba(0, 117, 168, 0.65); }
-body.theme-light .tp-frame::after {
-    background: repeating-linear-gradient(0deg,
-        rgba(0, 0, 0, 0.030) 0 1px, transparent 1px 4px);
-    opacity: 0.5;
+.tracking-counter {
+    margin: 0;
+    padding: 0 .2rem;
+    border-right: 0;
+    gap: .3rem;
+    color: var(--text-primary);
 }
-body.theme-light .tracking-expanded::before {
-    background: linear-gradient(90deg, transparent, rgba(0, 117, 168, 0.45), transparent);
-}
-body.theme-light .tracking-decor { color: rgba(0, 100, 150, 0.80); text-shadow: none; }
-body.theme-light .tracking-focus-decor { color: rgba(160, 110, 0, 0.55); }
-body.theme-light .tracking-focus-mini {
-    background: rgba(0, 117, 168, 0.08);
-    border-color: rgba(0, 117, 168, 0.28);
-    color: var(--ak-color-tech-deep, #0075a8);
-}
-body.theme-light .tracking-title-row { border-bottom-color: rgba(0, 0, 0, 0.10); }
-/* 浅色下亮金(#FFD028)在白底上几乎看不见 —— 换成深金语义色 */
-body.theme-light .tracking-panel .tracking-title-row .star-display .star {
-    color: var(--ak-color-primary, #B8860B);
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.70), 0 1px 3px rgba(120, 90, 0, 0.30);
-}
-body.theme-light .tracking-subtask-item {
-    background: linear-gradient(90deg, rgba(0, 117, 168, 0.06), rgba(255, 255, 255, 0.5));
-    border-color: rgba(0, 0, 0, 0.08);
-    border-left-color: rgba(0, 117, 168, 0.50);
-}
-body.theme-light .tracking-subtask-item.completed {
-    background: linear-gradient(90deg, rgba(60, 150, 95, 0.10), rgba(255, 255, 255, 0.5));
-    border-color: rgba(60, 150, 95, 0.20);
-    border-left-color: rgba(60, 150, 95, 0.55);
-}
-body.theme-light .subtask-status-badge {
-    background: rgba(0, 0, 0, 0.04);
-    border-color: rgba(0, 0, 0, 0.08);
-    color: rgba(60, 60, 60, 0.60);
-}
-body.theme-light .tracking-progress-section .progress-bar {
-    background:
-        repeating-linear-gradient(90deg, transparent 0 14px, rgba(0, 0, 0, 0.10) 14px 15px),
-        rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 117, 168, 0.28);
-    box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.16);
-}
-body.theme-light .tracking-progress-section .progress-bar::after {
-    background: repeating-linear-gradient(90deg,
-        transparent 0 14px, rgba(255, 255, 255, 0.55) 14px 15px);
-}
-/* 百分比沿用语义金（浅色下 --ak-color-primary 自动切成深金 #B8860B） */
-body.theme-light .tracking-progress-section .progress-num { text-shadow: none; }
-body.theme-light .tracking-actions::before {
-    background: linear-gradient(90deg, transparent, rgba(0, 117, 168, 0.35), transparent);
-}
-body.theme-light .tracking-footer { background: linear-gradient(180deg, rgba(0, 0, 0, 0.03), transparent); }
-/* 专注模式把底部导轨底色清掉，但浅色规则在本节更靠后 —— 必须显式再关一次，
-   否则 light+focus 组合下会被上面的 linear-gradient 覆盖（同特异性后来者胜）。 */
-body.theme-light.focus-mode .tracking-footer { background: none; }
-body.theme-light .tracking-footer::before {
-    background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.10), transparent);
-}
-body.theme-light .pomodoro-status {
-    background:
-        linear-gradient(160deg, rgba(255, 255, 255, 0.70), rgba(0, 0, 0, 0.04)),
-        rgba(0, 0, 0, 0.06);
-    filter: drop-shadow(0 0 14px rgba(184, 134, 11, 0.18)) drop-shadow(0 10px 22px rgba(80, 70, 50, 0.28));
-}
-body.theme-light .pomodoro-status::before {
-    background:
-        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.90), transparent 62%),
-        #fffdf8;
-    box-shadow: inset 0 0 14px rgba(80, 70, 50, 0.16);
-}
-body.theme-light .pomodoro-progress {
-    background: conic-gradient(from -90deg,
-        var(--pm-ring, var(--ak-color-primary, #B8860B)) calc(var(--pomodoro-progress, 0) * 1%),
-        rgba(0, 0, 0, 0.07) 0);
-}
-body.theme-light .pomodoro-kind { color: rgba(60, 55, 48, 0.55); }
-body.theme-light .pomodoro-countdown {
-    color: #2b2722;
-    text-shadow: 0 2px 8px rgba(80, 70, 50, 0.25);
-}
-body.theme-light .pomodoro-controls .icon-btn {
-    background: rgba(200, 60, 45, 0.10);
-    border-color: rgba(180, 60, 45, 0.30);
-    color: #b4442f;
-}
-body.theme-light.focus-mode .tracking-panel {
-    background:
-        radial-gradient(130% 90% at 50% -10%, rgba(0, 117, 168, 0.10), transparent 62%),
-        linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(250, 247, 241, 0.85));
-    border-color: rgba(0, 117, 168, 0.22);
-    box-shadow: 0 30px 80px rgba(80, 70, 50, 0.30), 0 0 110px rgba(0, 117, 168, 0.12);
-}
-body.theme-light.focus-mode .tp-frame::before {
-    background: linear-gradient(180deg, rgba(0, 117, 168, 0.10), rgba(0, 117, 168, 0));
-    border-bottom-color: rgba(0, 117, 168, 0.22);
-    color: rgba(0, 100, 150, 0.75);
+.tracking-counter .ak-counter__prefix i { font-size: 13px; color: var(--ak-color-primary); }
+.tracking-counter .ak-counter__content { margin-left: 0; }
+.tracking-counter .tracking-timer {
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--text-primary);
     text-shadow: none;
+    font-variant-numeric: tabular-nums;
 }
+/* 底部留出余量：否则结束按钮会正好压在专注卡片的下边框上，像被切掉一半 */
+.pomodoro-controls { gap: 12px; margin: 6px 0 14px; }
+.pomodoro-controls .ak-button--fab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .14);
+    color: var(--text-secondary-1);
+    background-color: rgba(255, 255, 255, .07);
+    box-shadow: none;
+}
+.pomodoro-controls .ak-button--fab:hover:not(:disabled) {
+    color: var(--ak-signal-danger);
+    border-color: color-mix(in srgb, var(--ak-signal-danger) 50%, transparent);
+}
+.pomodoro-controls .ak-button__icon i { font-size: 14px; }
+body.theme-light .pomodoro-controls .ak-button--fab { border-color: rgba(0, 0, 0, .16); background-color: rgba(0, 0, 0, .04); }
+
+/* ---- 21.0.11  专注模式：补上旧类名消失后留下的空档 ---- */
+body.focus-mode .tracking-divider:not(.tracking-divider--sub) { display: none; }
+body.focus-mode .tracking-divider--sub { margin: 1.4rem 0 0; }   /* 侧向归零，与面板态一致 */
+body.focus-mode .tracking-progress {
+    width: min(34rem, 100%);
+    margin: 0 auto;
+    padding: .85rem 1rem .95rem;
+}
+body.focus-mode .tracking-progress .ak-progress__track { height: 1rem; }
+body.focus-mode .tracking-progress .ak-progress__value { font-size: .95rem; }
+body.focus-mode .tracking-actions .ak-button { width: auto; min-width: 150px; }
+/* 专注态恒显八角仪表（沿用旧版行为：专注窗里番茄钟始终可见） */
+body.focus-mode .tracking-footer .tracking-gauge { display: inline-grid !important; }
+body.focus-mode .tracking-footer .tracking-counter { display: none; }
+body.focus-mode .tracking-gauge { width: 184px; }
+body.focus-mode .tracking-gauge .ak-gauge__value { font-size: 2.5rem; }
+
+/* ---- 21.0.12  移动端 ---- */
+@media (max-width: 768px) {
+    .tracking-status .ak-status__detail { display: none; }
+    .tracking-divider { margin: .45rem .6rem; }
+    .tracking-divider--sub { margin: .8rem 0 .5rem; }
+    .tracking-empty-notice { grid-template-columns: 1fr; }
+    .tracking-actions .ak-button { height: 42px; }
+    .tracking-gauge { width: 128px; }
+    .tracking-counter .tracking-timer { font-size: 1.25rem; }
+}
+
+/* ---- 21.0.13  浅色主题桥接：把 ak-ui 的深色表面换成浅表面 ---- */
+body.theme-light .tracking-panel .ak-tag {
+    --ak-tag-surface: rgba(250, 250, 246, .94);
+    --ak-tag-text: #1b1d1f;
+}
+body.theme-light .tracking-progress {
+    background: rgba(250, 250, 246, .94);
+    border-color: rgba(17, 19, 21, .16);
+    color: #1b1d1f;
+}
+body.theme-light .tracking-progress .ak-progress__track { background: rgba(0, 0, 0, .12); }
+body.theme-light .tracking-gauge {
+    color: var(--text-primary);
+    background: conic-gradient(var(--ak-gauge-signal) var(--ak-gauge-value), rgba(0, 0, 0, .10) 0);
+}
+body.theme-light .tracking-gauge::before { background: #fdfcf8; }
+body.theme-light .tracking-subtask { background: rgba(0, 0, 0, .035); }
+body.theme-light .tracking-subtask:hover { background: rgba(0, 0, 0, .07); }
+body.theme-light .tracking-subtask .ak-choice__input { background: #fff; border-color: #8a8a84; }
+/* ⚠️ 特异性陷阱（本项目的老朋友）：上面这条是 (0,3,1)，会压过 ak-ui 的
+   `.ak-choice__input:checked` (0,2,0)，于是浅色主题里「已完成」的勾选框被刷成白的，
+   「绿=完成」的语义整个丢掉。必须再补一条更专的 done 态把它拉回来。 */
+body.theme-light .tracking-subtask.is-done .ak-choice__input {
+    background: var(--ak-signal-success);
+    border-color: var(--ak-signal-success);
+}
+body.theme-light .tracking-progress-slider::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, var(--ak-slider-accent) var(--ak-slider-fill), transparent var(--ak-slider-fill)) center/calc(100% - 14px) 100% no-repeat, #e4e4de;
+    box-shadow: inset 0 0 0 1px #a8a8a2;
+}
+body.theme-light .tracking-progress-slider::-moz-range-track {
+    background: linear-gradient(90deg, var(--ak-slider-accent) var(--ak-slider-fill), transparent var(--ak-slider-fill)) center/calc(100% - 14px) 100% no-repeat, #e4e4de;
+    box-shadow: inset 0 0 0 1px #a8a8a2;
+}
+body.theme-light .tracking-progress-slider::-webkit-slider-thumb { box-shadow: 0 0 0 3px #fbfbf8; }
+body.theme-light .tracking-progress-slider::-moz-range-thumb     { box-shadow: 0 0 0 3px #fbfbf8; }

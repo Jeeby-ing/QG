@@ -346,10 +346,14 @@ function cacheDOM() {
     DOM.trackingTitle = document.getElementById('trackingTitle');
     DOM.trackingDesc = document.getElementById('trackingDesc');
     DOM.trackingSubtasks = document.getElementById('trackingSubtasks');
+    DOM.trackingStatus = document.getElementById('trackingStatus');
+    DOM.trackingStatusLabel = document.getElementById('trackingStatusLabel');
+    DOM.trackingStatusDetail = document.getElementById('trackingStatusDetail');
+    DOM.trackingProgress = document.getElementById('trackingProgress');
     DOM.trackingProgressFill = document.getElementById('trackingProgressFill');
     DOM.trackingProgressNum = document.getElementById('trackingProgressNum');
-    DOM.trackingProgressThumb = document.getElementById('trackingProgressThumb');
     DOM.trackingProgressBar = document.getElementById('trackingProgressBar');
+    DOM.trackingProgressSlider = document.getElementById('trackingProgressSlider');
     DOM.taskModalTitle = document.getElementById('taskModalTitle');
     DOM.taskFormId = document.getElementById('taskFormId');
     DOM.taskFormTitle = document.getElementById('taskFormTitle');
@@ -942,7 +946,12 @@ async function apiGet(endpoint) {
             throw new Error(message);
         }
         const json = await res.json();
-        return json.data ?? json;
+        /* ⚠️ 不能用 `json.data ?? json`：`data` 为 null 时 ?? 会回退成整个信封对象，
+           于是「没有进行中的番茄钟」会变成「有一个 kind=undefined 的番茄钟」——
+           仪表被点亮、--ak-gauge-value 变 NaN%（conic-gradient 整条失效）、is-break 误加。
+           这里按「信封里是否真的存在 data 键」判断，null 就是 null。 */
+        return (json && typeof json === 'object' && Object.prototype.hasOwnProperty.call(json, 'data'))
+            ? json.data : json;
     } catch (err) {
         reportApiError(err, '请求失败');
         return null;
@@ -963,7 +972,12 @@ async function apiPost(endpoint, data = {}, isFormData = false) {
             throw new Error(message);
         }
         const json = await res.json();
-        return json.data ?? json;
+        /* ⚠️ 不能用 `json.data ?? json`：`data` 为 null 时 ?? 会回退成整个信封对象，
+           于是「没有进行中的番茄钟」会变成「有一个 kind=undefined 的番茄钟」——
+           仪表被点亮、--ak-gauge-value 变 NaN%（conic-gradient 整条失效）、is-break 误加。
+           这里按「信封里是否真的存在 data 键」判断，null 就是 null。 */
+        return (json && typeof json === 'object' && Object.prototype.hasOwnProperty.call(json, 'data'))
+            ? json.data : json;
     } catch (err) {
         console.error(err);
         showToast(err.message || '操作失败');
@@ -984,7 +998,12 @@ async function apiPut(endpoint, data = {}) {
             throw new Error(message);
         }
         const json = await res.json();
-        return json.data ?? json;
+        /* ⚠️ 不能用 `json.data ?? json`：`data` 为 null 时 ?? 会回退成整个信封对象，
+           于是「没有进行中的番茄钟」会变成「有一个 kind=undefined 的番茄钟」——
+           仪表被点亮、--ak-gauge-value 变 NaN%（conic-gradient 整条失效）、is-break 误加。
+           这里按「信封里是否真的存在 data 键」判断，null 就是 null。 */
+        return (json && typeof json === 'object' && Object.prototype.hasOwnProperty.call(json, 'data'))
+            ? json.data : json;
     } catch (err) {
         console.error(err);
         showToast(err.message || '更新失败');
@@ -1001,7 +1020,12 @@ async function apiDelete(endpoint) {
             throw new Error(message);
         }
         const json = await res.json();
-        return json.data ?? json;
+        /* ⚠️ 不能用 `json.data ?? json`：`data` 为 null 时 ?? 会回退成整个信封对象，
+           于是「没有进行中的番茄钟」会变成「有一个 kind=undefined 的番茄钟」——
+           仪表被点亮、--ak-gauge-value 变 NaN%（conic-gradient 整条失效）、is-break 误加。
+           这里按「信封里是否真的存在 data 键」判断，null 就是 null。 */
+        return (json && typeof json === 'object' && Object.prototype.hasOwnProperty.call(json, 'data'))
+            ? json.data : json;
     } catch (err) {
         console.error(err);
         showToast(err.message || '删除失败');
@@ -1368,20 +1392,34 @@ function updatePomodoroUI() {
     if (!statusEl) return;
     if (!state.pomodoro) {
         statusEl.classList.add('hidden');
+        /* 复位：不能把上一轮会话的色调/进度值留给下一轮。
+           尤其是 --ak-gauge-value 一旦是 NaN%，conic-gradient 会整条失效（background-image:none），
+           仪表变成一个没有环的空八角，看起来像「样式坏了」。 */
+        statusEl.classList.remove('ak-gauge--warning', 'is-break');
+        statusEl.style.setProperty('--ak-gauge-value', '0%');
         if (DOM.pomodoroCountdown) DOM.pomodoroCountdown.textContent = `${state.settings.pomodoro_focus_minutes || 25}:00`;
         return;
     }
     statusEl.classList.remove('hidden');
-    DOM.pomodoroKind.textContent = state.pomodoro.kind === 'focus' ? '专注' : '休息';
-    DOM.pomodoroKind.className = 'pomodoro-kind ' + state.pomodoro.kind;
-    const remainMs = Math.max(0, (state.pomodoroEndAt ? state.pomodoroEndAt.getTime() : Date.now()) - Date.now());
+    // ak-ui .ak-gauge：八角仪表，值走 --ak-gauge-value，色调走 --ak-gauge-signal
+    //（focus→.ak-gauge--warning 金，break→.is-break 绿，由 §21 集成层着色）
+    DOM.pomodoroKind.textContent = state.pomodoro.kind === 'focus' ? 'FOCUS' : 'BREAK';
+    DOM.pomodoroKind.className = 'ak-gauge__label ' + state.pomodoro.kind;
+    if (DOM.pomodoroUnit) DOM.pomodoroUnit.textContent = state.pomodoro.kind === 'focus' ? '专注' : '休息';
+    statusEl.classList.toggle('ak-gauge--warning', state.pomodoro.kind === 'focus');
+    statusEl.classList.toggle('is-break', state.pomodoro.kind === 'break');
+    // 时间一律做数值兜底：started_at/planned_seconds 任一异常都会把整个百分比污染成 NaN
+    const endMs = state.pomodoroEndAt instanceof Date ? state.pomodoroEndAt.getTime() : NaN;
+    const remainMs = Math.max(0, (Number.isFinite(endMs) ? endMs : Date.now()) - Date.now());
     const remainSec = Math.floor(remainMs / 1000);
-    const total = state.pomodoro.planned_seconds || 1;
+    const totalRaw = Number(state.pomodoro.planned_seconds);
+    const total = Number.isFinite(totalRaw) && totalRaw > 0 ? totalRaw : 1;
     const m = String(Math.floor(remainSec / 60)).padStart(2, '0');
     const sec = String(remainSec % 60).padStart(2, '0');
     DOM.pomodoroCountdown.textContent = `${m}:${sec}`;
-    const percent = Math.max(0, Math.min(100, ((total - remainSec) / total) * 100));
-    if (DOM.pomodoroStatus) DOM.pomodoroStatus.style.setProperty('--pomodoro-progress', percent);
+    const rawPercent = ((total - remainSec) / total) * 100;
+    const percent = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, rawPercent)) : 0;
+    statusEl.style.setProperty('--ak-gauge-value', `${percent}%`);
 }
 
 function updatePomodoroTimer() {
@@ -3404,6 +3442,9 @@ function levelExpForLevel(level){
     return Math.max(LEVEL_FLOOR, Math.round(need / LEVEL_STEP) * LEVEL_STEP);
 }
 function levelProgress(exp){
+    // exp 若是 NaN/undefined（后端字段缺失），`exp < total+need` 永远为假 → 死循环。
+    // 与父链那个 bug 同一类风险，这里一并兜住。
+    if (!Number.isFinite(exp)) exp = 0;
     let level = 1, total = 0;
     while (true) {
         const need = levelExpForLevel(level);
@@ -4017,90 +4058,104 @@ async function toggleFocusMode(){
     await startPomodoro('focus');
 }
 
+/* 头部 ak-ui .ak-status 三件套的状态写入（signal 色调 + eyebrow + detail）
+   tone: info(蓝，默认) / warning(金) / critical(红) / offline(灰、不脉冲) */
+function setTrackingStatus(detail, tone){
+    const el = DOM.trackingStatus; if(!el) return;
+    if(DOM.trackingStatusDetail) DOM.trackingStatusDetail.textContent = detail || '';
+    el.classList.toggle('ak-status--warning', tone === 'warning');
+    el.classList.toggle('ak-status--critical', tone === 'critical');
+    el.classList.toggle('ak-status--offline', tone === 'offline');
+}
+
 function updateTrackingPanel(){
     if(!state.trackingTaskId){
         DOM.trackingEmpty.style.display='flex'; DOM.trackingContent.style.display='none';
         DOM.trackingTimer.textContent='00:00:00'; DOM.trackingRewardBtn.classList.add('hidden');
+        setTrackingStatus('待命','offline');
         return;
     }
     DOM.trackingEmpty.style.display='none'; DOM.trackingContent.classList.remove('hidden'); DOM.trackingContent.style.display='block';
     const task=state.flatTasks.find(t=>t.id===state.trackingTaskId); if(!task) return;
     let chain=[]; let current=task;
-    while(current.parent_id){ const parent=state.flatTasks.find(t=>t.id===current.parent_id); if(parent) chain.unshift(parent); current=parent||current; }
+    /* ⚠️ 父链必须「找不到父任务就停」，绝不能写成 `current = parent || current`：
+       父任务不在 state.flatTasks 里时（被搜索筛掉 / 已归档 / 已删除而其子任务仍在）
+       parent 为 undefined，current 原地不动 → **死循环，整个页面冻死**
+       （实测无头浏览器永远等不到 load 事件，dump 0 字节）。
+       chainSeen 再兜一层：数据脏掉形成 A.parent=B / B.parent=A 的环时也不会转不出来。 */
+    const chainSeen = new Set([current.id]);
+    while(current.parent_id){
+        const parent=state.flatTasks.find(t=>t.id===current.parent_id);
+        if(!parent || chainSeen.has(parent.id)) break;
+        chain.unshift(parent); chainSeen.add(parent.id); current=parent;
+    }
+    // 父任务链：ak-ui .ak-tag 芯片（.ak-tag-group 负责换行与间距）
     DOM.trackingParentChain.innerHTML='';
-    chain.forEach((p,index)=>{ const span=document.createElement('span'); span.textContent=p.title; span.addEventListener('click',()=>openTaskDetail(p.id));
-        DOM.trackingParentChain.appendChild(span); if(index<chain.length-1) DOM.trackingParentChain.appendChild(document.createTextNode(' > ')); });
+    chain.forEach((p,index)=>{
+        const chip=document.createElement('span');
+        chip.className='ak-tag ak-tag--neutral tracking-chain-chip';
+        chip.textContent=p.title;
+        chip.addEventListener('click',()=>openTaskDetail(p.id));
+        DOM.trackingParentChain.appendChild(chip);
+        if(index<chain.length-1){ const sep=document.createElement('span'); sep.className='tracking-chain-sep'; sep.textContent='\u203a'; DOM.trackingParentChain.appendChild(sep); }
+    });
     // 追踪面板星星 - 统一15°倾斜
     DOM.trackingStars.innerHTML = goldStars(task.priority);
     DOM.trackingStars.title = `优先级 ${task.priority}`;
-    DOM.trackingTaskLine.textContent=task.task_line==='main'?'主线':'支线'; DOM.trackingTaskLine.className=`task-line-badge ${task.task_line}`;
+    // 主线/支线徽标：直接换成 ak-ui .ak-tag（advanced=金 / neutral=中性灰）
+    DOM.trackingTaskLine.textContent=task.task_line==='main'?'主线':'支线';
+    DOM.trackingTaskLine.className = task.task_line==='main' ? 'ak-tag ak-tag--advanced' : 'ak-tag ak-tag--neutral';
     DOM.trackingTitle.textContent=task.title; DOM.trackingDesc.textContent=task.description||'';
     DOM.trackingTitle.onclick = () => openTaskDetail(task.id);
-    DOM.trackingSubtasks.innerHTML=''; const children=state.flatTasks.filter(t=>t.parent_id===task.id);
+    const children=state.flatTasks.filter(t=>t.parent_id===task.id);
+    // 子任务：ak-ui .ak-choice 官方勾选行（input 只读反映完成态，点击整行进详情）
+    DOM.trackingSubtasks.innerHTML='';
+    const statusMap = { todo:'待办', in_progress:'进行中', paused:'已暂停', done:'已完成', cancelled:'已取消' };
     children.forEach(child=>{
-        const div=document.createElement('div');
         const isDone = child.status === 'done';
-        div.className=`tracking-subtask-item${isDone ? ' completed' : ''}`;
-        // 左侧状态图标 + 标题
-        const icon = document.createElement('span');
-        icon.className = 'subtask-status-icon';
-        if (isDone) { icon.textContent = '✓'; icon.style.color = 'var(--highlight-green-1)'; }
-        else { icon.textContent = '○'; icon.style.color = 'rgba(200,210,225,0.35)'; }
-        const title = document.createElement('span');
-        title.className = 'subtask-title';
-        title.textContent = child.title;
-        if (isDone) title.style.textDecoration = 'line-through';
-        title.style.opacity = isDone ? '0.5' : '1';
-        // 右侧状态标签
-        const badge = document.createElement('span');
-        badge.className = 'subtask-status-badge';
-        const statusMap = { todo:'待办', in_progress:'进行中', paused:'已暂停', done:'✓ 已完成', cancelled:'已取消' };
+        const row=document.createElement('div');
+        row.className='ak-choice tracking-subtask' + (isDone ? ' is-done' : '') + (child.status==='cancelled' ? ' is-cancelled' : '');
+        const box=document.createElement('input');
+        box.type='checkbox'; box.className='ak-choice__input';
+        box.checked=isDone; box.tabIndex=-1; box.setAttribute('aria-hidden','true');
+        const label=document.createElement('span');
+        label.className='ak-choice__label tracking-subtask-label';
+        const title=document.createElement('span');
+        title.className='subtask-title'; title.textContent=child.title;
+        const badge=document.createElement('span');
+        badge.className='ak-tag subtask-status-badge';
         badge.textContent = statusMap[child.status] || child.status || '';
-        div.appendChild(icon); div.appendChild(title); div.appendChild(badge);
-        div.addEventListener('click',()=>openTaskDetail(child.id));
-        DOM.trackingSubtasks.appendChild(div);
+        label.appendChild(title); label.appendChild(badge);
+        row.appendChild(box); row.appendChild(label);
+        row.addEventListener('click',()=>openTaskDetail(child.id));
+        DOM.trackingSubtasks.appendChild(row);
     });
-    let progress=0;
-    if(task.progress_mode==='count'&&task.target_value){ progress=Math.min(100,(task.current_value/task.target_value)*100); DOM.trackingProgressFill.className='progress-fill count'; }
-    else if(task.progress_mode==='manual'){ progress=task.progress||0; DOM.trackingProgressFill.className='progress-fill manual'; }
-    else { if(children.length){ const avg=children.reduce((sum,c)=>sum+(c.progress||0),0)/children.length; progress=avg; } DOM.trackingProgressFill.className='progress-fill'; }
-    DOM.trackingProgressFill.style.width=`${progress}%`; DOM.trackingProgressNum.textContent=`${Math.round(progress)}%`;
-    if(task.progress_mode==='manual'&&!children.length){
-        DOM.trackingProgressThumb.style.display='block'; DOM.trackingProgressThumb.style.left=`${progress}%`;
-        DOM.trackingProgressThumb.onmousedown=(e)=>{
-            const bar=DOM.trackingProgressBar, fill=DOM.trackingProgressFill, thumb=DOM.trackingProgressThumb;
-            const rect=bar.getBoundingClientRect();
-            const onMove=(ev)=>{ const x=ev.clientX-rect.left; const percent=Math.max(0,Math.min(100,(x/rect.width)*100)); fill.style.width=`${percent}%`; thumb.style.left=`${percent}%`; DOM.trackingProgressNum.textContent=`${Math.round(percent)}%`; };
-            const onUp=async (ev)=>{
-                document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp);
-                const x=ev.clientX-rect.left; const percent=Math.max(0,Math.min(100,(x/rect.width)*100));
-                if(percent>=100){
-                    await completeTaskAndHandleReward(task.id);
-                } else {
-                    task.progress=percent; updateParentProgress(task); renderTasks(); updateTrackingPanel();
-                    await apiPost(`/tasks/${task.id}/progress`,{ progress: percent });
-                }
-            };
-            document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+    setTrackingStatus(task.status==='done' ? '已完成' : (children.length ? `${children.length} 个子任务` : '无子任务'),
+                       task.status==='done' ? 'warning' : 'info');
+    let progress=0, mode='tree';
+    if(task.progress_mode==='count'&&task.target_value){ progress=Math.min(100,(task.current_value/task.target_value)*100); mode='count'; }
+    else if(task.progress_mode==='manual'){ progress=task.progress||0; mode='manual'; }
+    else { if(children.length){ const avg=children.reduce((sum,c)=>sum+(c.progress||0),0)/children.length; progress=avg; } }
+    DOM.trackingProgress.className = `ak-progress tracking-progress ${mode}`;
+    DOM.trackingProgressFill.style.setProperty('--ak-progress-value', `${progress}%`);
+    DOM.trackingProgressNum.textContent=`${Math.round(progress)}%`;
+    // manual 且无子任务：改用 ak-ui .ak-slider 原生滑块接管，track 隐藏（两条 bar 绝不同时出现）
+    const isManual = (task.progress_mode==='manual' && !children.length);
+    DOM.trackingProgressBar.classList.toggle('hidden', isManual);
+    DOM.trackingProgressSlider.classList.toggle('hidden', !isManual);
+    if(isManual){
+        const render=(percent)=>{ DOM.trackingProgressFill.style.setProperty('--ak-progress-value', `${percent}%`); DOM.trackingProgressNum.textContent=`${Math.round(percent)}%`; };
+        DOM.trackingProgressSlider.value = String(Math.round(progress));
+        DOM.trackingProgressSlider.style.setProperty('--ak-slider-fill', `${progress}%`);
+        DOM.trackingProgressSlider.oninput = (e)=>{ e.target.style.setProperty('--ak-slider-fill', `${Number(e.target.value)}%`); render(Number(e.target.value)); };
+        DOM.trackingProgressSlider.onchange = async (e)=>{
+            const percent = Number(e.target.value);
+            if(percent>=100){ await completeTaskAndHandleReward(task.id); }
+            else { task.progress=percent; updateParentProgress(task); renderTasks(); await apiPost(`/tasks/${task.id}/progress`,{ progress: percent }); }
         };
-        DOM.trackingProgressThumb.ontouchstart = (e) => {
-            e.preventDefault();
-            const bar=DOM.trackingProgressBar, fill=DOM.trackingProgressFill, thumb=DOM.trackingProgressThumb;
-            const rect=bar.getBoundingClientRect();
-            const onMove=(ev)=>{ const x=ev.touches[0].clientX-rect.left; const percent=Math.max(0,Math.min(100,(x/rect.width)*100)); fill.style.width=`${percent}%`; thumb.style.left=`${percent}%`; DOM.trackingProgressNum.textContent=`${Math.round(percent)}%`; };
-            const onEnd=async (ev)=>{
-                document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onEnd);
-                const x=ev.changedTouches[0].clientX-rect.left; const percent=Math.max(0,Math.min(100,(x/rect.width)*100));
-                if(percent>=100){
-                    await completeTaskAndHandleReward(task.id);
-                } else {
-                    task.progress=percent; updateParentProgress(task); renderTasks(); updateTrackingPanel();
-                    await apiPost(`/tasks/${task.id}/progress`,{ progress: percent });
-                }
-            };
-            document.addEventListener('touchmove',onMove); document.addEventListener('touchend',onEnd);
-        };
-    } else { DOM.trackingProgressThumb.style.display='none'; }
+    } else {
+        DOM.trackingProgressSlider.oninput = null; DOM.trackingProgressSlider.onchange = null;
+    }
     if (rewardModalOpenTaskId === task.id) {
         DOM.trackingRewardBtn.classList.add('hidden');
     } else if(claimStateOf(task)==='claimable'){
@@ -4109,6 +4164,7 @@ function updateTrackingPanel(){
         DOM.trackingRewardBtn.classList.add('hidden');
     }
 }
+
 
 function expandTrackingPanel(){
     DOM.trackingPanel.classList.add('expanded');
@@ -6406,7 +6462,7 @@ async function openWarehouse(){
         // 注意：apiGet 内部已经拼了 API_BASE('/api')，这里只能写 '/inventory'。
         // 之前写成 '/api/inventory' → 实际请求 /api/api/inventory → 404 → 返回 null，
         // 仓库整仓回落成空对象：龙门币/源石/合成玉全 0、素材 0/564。
-        // 另外 apiGet 已 return json.data ?? json，拿到的就是 {currencies, materials}，不用再取 .data。
+        // 另外 apiGet 已按信封取 data（存在 data 键才取、null 就是 null），拿到的就是 {currencies, materials}，不用再取 .data。
         const data = await apiGet('/inventory');
         renderWarehouse(data && data.currencies ? data : {currencies:{}, materials:[]});
         openModal('warehouseModal');
