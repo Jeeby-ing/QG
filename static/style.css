@@ -9276,3 +9276,192 @@ body.theme-light .tracking-progress-slider::-moz-range-track {
 }
 body.theme-light .tracking-progress-slider::-webkit-slider-thumb { box-shadow: 0 0 0 3px #fbfbf8; }
 body.theme-light .tracking-progress-slider::-moz-range-thumb     { box-shadow: 0 0 0 3px #fbfbf8; }
+
+/* ==========================================================================
+   §19.0  任务卡排版收口 + 移动端导航修复（R40）
+   --------------------------------------------------------------------------
+   本节修的四个问题是一个共同成因：**后写覆盖**。所以修法也只能是"最后写"。
+   本节全部是后写覆盖，前面一行没改；想回滚删掉这一节即可。
+
+   ① 领奖按钮「领取奖励 / 已领取」错位
+      根因在 app.js：.task-claim-row 原本挂到 .task-card 上（不是 .task-main），
+      于是 flex:1 1 100% 拿到的是**整张卡**的宽度。1440px 实测：
+        按钮右缘 1385.1  vs  描述/标签列右缘 1064.8   → 差 320px
+        row.W 1290        vs  main.W 934              → 领奖行横跨了进度列+操作列
+        row.top - actions.bottom = 0.0                → 零间距
+        card.bottom - row.bottom = 1.0                → 只剩 1px 边框
+      但 .task-claim-row{flex:1 1 100%; justify-content:flex-end} 本身是对的 ——
+      只要它落在 .task-main（可换行的横向流）里，100% 就等于**内容列**宽，
+      右对齐即与 .task-meta-row 严格同列，上方拿到 main 的 4px 行距、
+      下方拿到 main 的 9px 内边距。所以 R40 把挂载点搬到 main（app.js
+      claimRowMount()），CSS 这边只需去掉 §17.0.1 那个 2px 横向内边距 ——
+      它是按"整卡宽"时代的坐标写的，留在内容列里会让按钮比上方标签多缩 2px。
+
+   ② 两种状态高度不一致（列表右缘被拉成锯齿）
+      .task-claim-btn  min-height:30px + padding 6/18 → 实测 32.5px
+      .task-claim-btn.is-claimed  min-height:0 + padding 3/14 → 实测 24.6px
+      一屏十几张卡里"已领取"比"可领取"矮 8px。统一成同一个盒子
+      （桌面 32px / 窄屏 40px），只保留颜色差异。
+
+   ③ 移动端卡片内容被压成"竖排一列字"
+      492px 实测：.task-main W=49.3（子卡 27.6）、.task-meta-row W=33.5 H=137.9
+      —— 描述被压成 33px 宽的竖条，整屏任务列表高度 2070px。
+      根因：.task-progress{flex:0 0 186px}（L4615）与
+            .task-stars{flex:0 0 116px}（L6131）都是**顶层规则**，
+            晚于 L3856 那个 @media (max-width:768px)，
+            把那个块里写的 min-width:auto / width:auto 全盖掉了
+            （min-width:auto 也救不了 flex-basis:186px + flex-shrink:0）；
+            而 .task-actions{flex-basis:100%}（L3991）又被 L4618 的
+            flex:0 0 auto 盖掉 → 操作区不再独占一行，也来抢第一行。
+            第一行于是 = indent(20) + main + progress(186) + quick(46) + actions(154)
+            = 451 = 整行宽 → main 只剩 45px（实测 49.3，含 .task-card 的 6px 内边距）。
+      修法见 19.0.3：把移动端契约放到文件最末重新声明一次。
+
+   ④ 移动端顶部导航点不开（= 视图切换 BUG）
+      L7069-7071 的 .top-nav > .nav-center{position:relative; z-index:1}
+      特异性 (0,2,0)，晚于 L3870 移动端那条 (0,1,0) 的 position:fixed; z-index:200
+      → 手机上"全屏下拉菜单"根本不是 fixed。实测点开 #mobileMenuBtn 后
+      display 确实变成 flex，但 box = W32 H705（32px 宽的竖条，还挂在导航条里），
+      tab 一个都点不到 —— 表现就是"移动端切换不了视图"。
+      修法见 §19.1，用同特异性 + 更晚位置压回去。
+   ========================================================================== */
+
+/* ---- 19.0.1 领奖行：落在内容列里、贴右 ---- */
+.task-claim-row,
+.task-claim-row[data-state="claimed"] {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 0;           /* 去掉按"整卡宽"写的 2px 横向内边距与 3px/1px 顶部内边距 */
+    min-width: 0;
+}
+
+/* ---- 19.0.2 三态共用一个盒子：高度像素级一致，只有颜色区分 ----
+   ⚠️ 字号必须也统一：claimable 用 13px、claimed 用 12px 时，
+      行盒高差 2px（18.7 vs 16.7），实测 offsetHeight 32 vs 33 ——
+      一屏十几张卡里"已领取"比"可领取"矮 1px，右缘就是参差的。
+      "已领取"要更轻，靠**灰、透明底、无阴影**表达，不靠缩小盒子。 */
+.task-claim-btn,
+.task-claim-btn.is-claimed {
+    min-height: 32px;
+    padding: 6px 16px;
+    border-radius: 8px;
+    gap: 6px;
+    font-size: 13px;
+}
+.task-claim-btn.is-claimed {
+    color: rgba(214, 214, 206, 0.62);
+    background: rgba(38, 38, 42, 0.46);
+    border-color: rgba(255, 255, 255, 0.11);
+    box-shadow: none;
+}
+.task-claim-btn i { font-size: 13px; }
+.task-claim-btn.is-claimed i { font-size: 12px; }
+
+/* 选择模式：隐藏领奖入口。
+   原规则 (L4350) 指向 .claim-btn —— 自 R33 起 DOM 里只有 .task-claim-row，
+   于是多选时领奖按钮仍可点，点下去会**直接发奖**（那个 handler 里
+   e.stopPropagation() 把选中逻辑挡住了），是实打实的误操作。
+   这里换成现行类名；用 visibility 而不是 display，保持 L4347 注释里
+   "保留布局不跳动"的原意。 */
+body.selection-mode .task-claim-row { visibility: hidden; pointer-events: none; }
+
+/* ---- 19.0.3 窄屏（≤768px）：移动端卡片契约，放在文件最末压过 L4615 / L6131 ---- */
+@media (max-width: 768px) {
+    /* 星列收窄：13px 星 × 6 颗 + 底板内边距 ≈ 84px，留 92px；
+       1★ 与 6★ 的标题仍落在同一列。 */
+    .task-card { --task-star-col: 92px; --task-lead: 0px; }
+    .task-stars { flex: 0 0 var(--task-star-col); width: var(--task-star-col); min-width: 0; padding: 0; }
+    .task-stars .g-star { font-size: 13px; }
+    .star-bg { width: auto; min-width: 0; height: 24px; padding: 0 6px; border-radius: 12px; }
+    .task-top-row { flex: 1 1 100%; flex-wrap: nowrap; min-width: 0; gap: 6px; }
+    .task-title { font-size: 15px; }
+    .task-meta-row,
+    .count-controls { padding-left: 0; }
+    /* 描述与标签的份额：L4680 给的是 .task-tags{flex:1 1 auto}，
+       窄屏下标签会跟描述平分宽度 → 3 个标签各占 ~34px，
+       于是"日常/学习/期末冲刺"竖着堆成 3 行（实测 metaRow 高 64px）。
+       只写 flex:0 1 auto 也没用 —— 收缩量按 basis 加权分配，
+       描述 basis 是它的 max-content（~900px），照样把标签挤到 57px。
+       必须 flex-shrink:0（和桌面 L4586 一致）才真正保持标签原宽；
+       再加 max-width:62% 兜住"标签特别多"的情况 —— 超了就在标签框内部换行，
+       而不是把描述压没、或者横向溢出被 .task-card 的 overflow:hidden 裁掉。 */
+    .task-tags { flex: 0 0 auto; max-width: 62%; }
+    .task-desc { flex: 1 1 auto; min-width: 0; }
+    .task-main { padding: 8px; gap: 5px 6px; }
+
+    /* 进度区：**不再定宽 186px**，改成独占一整行。
+       这是 ③ 的主因 —— flex-basis:186px + flex-shrink:0 会死死占住第一行。
+       窄屏下进度条独占一行反而更好看清、更好拖。 */
+    .task-progress { flex: 1 1 100%; min-width: 0; width: auto; padding: 0 8px; gap: 6px; }
+    .progress-text { min-width: 34px; }
+
+    /* 快捷完成：跟内容同一行（数据里 done 的卡没有这个按钮，不影响） */
+    .task-quick { flex: 0 0 auto; padding: 0 6px; }
+    /* 操作区：独占一整行、整体贴右；放不下就换行，绝不裁切。
+       覆盖 L4150 的 flex-wrap:nowrap 与 L4153 的 overflow:hidden。 */
+    .task-actions {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+        overflow: visible;
+        opacity: 1;               /* 触屏没有 hover，操作区必须常显 */
+        justify-content: flex-end;
+        padding: 0 8px;
+        gap: 6px;
+    }
+    .action-btn { width: 34px; height: 34px; font-size: 14px; }
+
+    /* 领奖行：贴右 + 40px 触控热区（三态同一个盒子） */
+    .task-claim-row,
+    .task-claim-row[data-state="claimed"] { padding: 0; }
+    .task-claim-btn,
+    .task-claim-btn.is-claimed { min-height: 40px; padding: 8px 18px; font-size: 13px; }
+}
+
+/* ==========================================================================
+   §19.1  移动端顶部导航 = 真正的全屏下拉菜单（修 ④）
+   --------------------------------------------------------------------------
+   ① 特异性：用 .top-nav > .nav-center（(0,2,0)，与 L7070 同级但更靠后）
+      把那条 position:relative; z-index:1 压回去；
+   ② 打开态必须用 (0,3,0) 的 .top-nav > .nav-center.mobile-show ——
+      否则上面那条 display:none 会和 L4111 的 .nav-center.mobile-show
+      打成平手（都是 (0,2,0)）而由"更靠后"的它胜出，菜单永远打不开；
+   ③ 包含块：L351 的 .top-nav{backdrop-filter:blur(10px)} 按规范会给 fixed
+      子元素造包含块（那样菜单只会跟着 56px 高的导航条走）。当前这个渲染路径
+      实测没触发，但"实测没事≠到处没事"，所以窄屏直接关掉它的模糊，
+      并补一个不透明底（反正这块底 98% 被菜单自身盖住，视觉无差）；
+   ④ justify-content 必须显式 flex-start：L361 的 .nav-center{justify-content:center}
+      在纵向 flex 容器里会把 6 个 tab 垂直居中，内容一超高就把顶部 tab 裁掉
+      （flexbox 居中溢出的经典坑）；
+   ⑤ 补 100dvh：真机上 100vh 会把浏览器地址栏算进去，菜单底部会被切掉一截。
+   ========================================================================== */
+@media (max-width: 768px) {
+    .top-nav {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        background: var(--bg-panel-1);      /* 深色 #1E1E22 / 浅色 #fffdf8：去掉模糊后必须给不透明底 */
+    }
+    .top-nav > .nav-center {
+        position: fixed;
+        top: 56px; left: 0; right: 0; bottom: 0;
+        z-index: 200;                       /* 压过 L7070 的 z-index:1 */
+        width: auto;
+        max-width: none;
+        transform: none;
+        flex: none;                         /* 不再是导航条里的 flex 项 */
+        display: none;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 20px;
+        overflow-y: auto;
+        background: rgba(18, 18, 22, 0.98);
+    }
+    .top-nav > .nav-center.mobile-show {
+        display: flex;
+        height: calc(100vh - 56px);
+        height: calc(100dvh - 56px);
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+    }
+    body.theme-light .top-nav > .nav-center { background: rgba(252, 250, 245, 0.99); }
+}

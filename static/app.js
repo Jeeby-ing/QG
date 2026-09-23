@@ -2147,13 +2147,18 @@ function createTaskCard(task) {
     }
     card.appendChild(actions);
     /* R33：领奖入口从「卡片最右侧、挤在操作图标旁边的小徽章」搬到
-       「任务主内容区里独占一整行、水平居中、面积大得多的按钮」。
-       用户反馈原话：「把领取奖励按钮移动到界面中间位置，方便点击，
-       避免放在边缘导致偏远。」—— 旧徽章贴在最右缘，视线和鼠标都要跨半个卡片。
-       .task-main 自带 flex-wrap:wrap，塞进去的子项 flex:1 1 100% 就是独占一行，
-       再用 justify-content:center 居中，不需要动卡片的整体 flex 结构。 */
+       「任务主内容区里独占一整行、面积大得多的按钮」。
+       R40 修：以前这里写的是 card.appendChild —— 挂到**整张卡**上，
+       flex:1 1 100% 拿到的是卡片宽度（实测按钮右缘 1385，
+       比上方描述/标签列右缘 1048 多出 300+ px），而且它是卡片最后一个子元素，
+       上方紧贴 .task-actions（间距 0px）、下方紧贴卡片底边（只剩 1px 边框）。
+       必须挂进 .task-main（R33 注释里本来就是这么写的）：
+       main 是「可换行的横向流」(flex-direction:row + flex-wrap:wrap)，
+       100% 就是**内容列**宽，右对齐即与 .task-meta-row 严格同列，
+       上方拿到 main 的 4px 行距、下方拿到它的 9px 内边距。
+       ⚠️ 挂载点统一走 claimRowMount()，refreshTaskCard 那边也是 —— 见下方函数。 */
     if (claimState !== 'unclaimable') {
-        card.appendChild(buildClaimRow(claimState, task, card));
+        claimRowMount(card).appendChild(buildClaimRow(claimState, task, card));
     }
     card.addEventListener('click', () => {
         if (window._suppressClick) return;
@@ -2171,7 +2176,15 @@ function createTaskCard(task) {
     return card;
 }
 
-/* 领取入口（R33 重做）：独占任务主内容区一整行、水平居中。
+/* 领奖行的挂载点（R40）：一律挂进 .task-main。
+   createTaskCard 和 refreshTaskCard 必须用同一个函数 —— 否则两处各挂一层，
+   用户点一次完成/领取触发定点刷新，按钮就换了一行位置（跳位）。
+   兜底返回 cardEl：万一卡片结构变了也不至于把按钮丢了。 */
+function claimRowMount(cardEl) {
+    return cardEl.querySelector('.task-main') || cardEl;
+}
+
+/* 领取入口（R33 重做）：独占任务主内容区一整行。
    claimable → 金色大按钮「领取奖励」，点一下即发奖（和点整卡同一个动作）；
    claimed   → 同样位置给一个暗色「已领取」，但**不 disabled** ——
                点它仍然有明确反馈（toast + 打开详情）。旧版是个 disabled 徽章，
@@ -3904,8 +3917,8 @@ function refreshTaskCard(taskId) {
     } else if (!oldRow || oldRow.dataset.state !== claimState) {
         oldRow?.remove();
         const newRow = buildClaimRow(claimState, task, card);
-        // 与 createTaskCard 保持一致：挂在卡片末尾，独占一整行并水平居中
-        card.appendChild(newRow);
+        // 与 createTaskCard 保持一致：挂进 .task-main，独占内容列一整行、贴右
+        claimRowMount(card).appendChild(newRow);
     }
 }
 
