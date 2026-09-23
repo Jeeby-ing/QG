@@ -8733,3 +8733,86 @@ body.theme-light .btn-primary:active {
     background: linear-gradient(135deg, rgba(0,100,150,0.98), rgba(0,72,118,0.98));
     box-shadow: 0 2px 6px rgba(0,117,168,0.30);
 }
+
+/* ==========================================================================
+   20.0  时装窗口 · 默认视图与换装（R38）
+   --------------------------------------------------------------------------
+   默认只显示「当前皮肤 / 默认制服」，全部皮肤列表收进右上「浏览全部」按钮。
+   本节只加外观，不动上面的皮肤卡主体样式。想回滚：删本节 +
+   把 renderSkins 的 skinBrowse 分支去掉即可。
+   ========================================================================== */
+
+/* 「浏览全部 / 收起列表」小按钮 —— 与 ⓘ 同级，不做成主按钮抢视线 */
+.skin-browse-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(120, 200, 255, 0.35);
+    background: linear-gradient(135deg, rgba(0, 150, 214, 0.18), rgba(0, 96, 160, 0.14));
+    color: var(--text-primary);
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    cursor: pointer;
+    transition: background .18s ease, border-color .18s ease, transform .12s ease;
+}
+.skin-browse-btn > i { font-size: 12px; opacity: .85; }
+.skin-browse-btn:hover {
+    background: linear-gradient(135deg, rgba(0, 170, 232, 0.30), rgba(0, 112, 184, 0.24));
+    border-color: rgba(150, 215, 255, 0.65);
+    transform: translateY(-1px);
+}
+.skin-browse-btn:active { transform: translateY(1px) scale(0.97); }
+.skin-browse-btn.active {
+    background: linear-gradient(135deg, rgba(0, 150, 214, 0.85), rgba(0, 96, 160, 0.85));
+    border-color: rgba(150, 215, 255, 0.75);
+    color: #eaf6ff;
+}
+body.theme-light .skin-browse-btn {
+    border-color: rgba(0, 117, 168, 0.40);
+    background: linear-gradient(135deg, rgba(0, 117, 168, 0.12), rgba(0, 117, 168, 0.08));
+}
+body.theme-light .skin-browse-btn:hover { border-color: rgba(0, 117, 168, 0.70); }
+body.theme-light .skin-browse-btn.active { border-color: rgba(0, 117, 168, 0.85); }
+
+/* 换装按钮：挂在皮肤卡底部，和「购买」同尺寸同风格，只换语义色 */
+.skin-equip-btn, .skin-unequip-btn { font-size: 12.5px; padding: 6px 16px; letter-spacing: 0.5px; }
+.skin-unequip-btn { opacity: .82; }
+
+/* 装备中的那张卡：描一圈科技蓝，和货架上"只是拥有"的卡区分开 */
+.skin-card.equipped { border-color: rgba(120, 200, 255, 0.55); }
+.skin-card.equipped::after {
+    content: "装备中";
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(0, 150, 214, 0.88);
+    color: #eaf6ff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+}
+/* ⚠️ 伪元素绝对定位需要有定位上下文；.skin-card 本身是 relative 的话这行无副作用 */
+.skin-card { position: relative; }
+
+/* 未装备任何时装时的「默认制服」占位卡：刻意留白，不拿干员立绘冒充 */
+.skin-default-card .skin-art {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: repeating-linear-gradient(45deg,
+        rgba(255, 255, 255, 0.025) 0 10px, rgba(255, 255, 255, 0.055) 10px 20px);
+    border: 1px dashed rgba(120, 200, 255, 0.30);
+}
+.skin-default-card .skin-art > i { font-size: 44px; color: var(--ak-color-tech, #4aabea); opacity: .55; }
+body.theme-light .skin-default-card .skin-art {
+    background-image: repeating-linear-gradient(45deg,
+        rgba(0, 0, 0, 0.025) 0 10px, rgba(0, 0, 0, 0.05) 10px 20px);
+    border-color: rgba(0, 117, 168, 0.35);
+}

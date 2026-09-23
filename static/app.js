@@ -322,6 +322,7 @@ function cacheDOM() {
     DOM.skinShopList = document.getElementById('skinShopList');
     DOM.skinShopBalance = document.getElementById('skinShopBalance');
     DOM.skinFilterRow = document.getElementById('skinFilterRow');
+    DOM.skinBrowseToggleBtn = document.getElementById('skinBrowseToggleBtn');
     DOM.dragIndicator = document.getElementById('dragIndicator');
     DOM.toastContainer = document.getElementById('toastContainer');
     DOM.confirmModal = document.getElementById('confirmModal');
@@ -576,6 +577,12 @@ function bindEvents() {
         DOM.skinFilterRow.querySelectorAll('.skin-filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         skinFilter = btn.dataset.rarity;
+        renderSkins();
+    });
+    /* R38：「浏览全部」——默认视图只显示当前/默认皮肤，全部目录按需展开。 */
+    if (DOM.skinBrowseToggleBtn) DOM.skinBrowseToggleBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        skinBrowse = !skinBrowse;
         renderSkins();
     });
     /* R23：蚀刻章筛选（全部 / 已解锁 / 未解锁）—— 三百多枚章没有筛选没法找 */
@@ -3344,7 +3351,9 @@ function updateResourceDisplay(){
     const sanityCap = state.resourceMeta?.sanity_cap ?? res.sanity?.max_value ?? 120;
     if(res.sanity?.current_value!==undefined){ DOM.resSanityCurrent.textContent=res.sanity.current_value; DOM.resSanityMax.textContent=sanityCap; }
     applySanityCapHint(sanityCap);
-    if(DOM.profileExp) DOM.profileExp.textContent = res.exp?.current_value || 0;
+    /* R38：这里原本还有一句写「总经验值」徽章的语句，但 DOM.profileExp 从未被赋值过
+       （DOM 初始化里只有 profileExpFill / profileExpText），它一直是个空转的死代码；
+       同时主页也按需求去掉了总经验值展示，一并删掉。等级本身走下面的 profileLevel。 */
     if(DOM.profileStone) DOM.profileStone.textContent = res.source_stone?.current_value || 0;
     if(DOM.profileLungmen) DOM.profileLungmen.textContent = res.lungmen?.current_value || 0;
     if(DOM.profileOrundum) DOM.profileOrundum.textContent = res.orundum?.current_value || 0;
@@ -5630,6 +5639,12 @@ let skinCache = [];
 let skinShelf = [];          // 每周轮换的货架（可能含未持有干员的时装）
 let skinLimitedPool = [];    // R21：限定时装池（原版不能源石兑换，只从礼包随机奖励产出）
 let skinLoadFailed = false;  // 上一次 /skins 是否加载失败（用于区分"空货架"和"服务没起来"）
+let skinCurrent = null;      // R38：当前装备的时装条目（null = 未装备，展示默认制服）
+/* R38：默认只展示「当前/默认皮肤」，全部皮肤列表收进「浏览全部」按钮里按需展开。
+   为什么这么改：481 件皮肤一次性铺满界面，用户点进时装窗口就被淹没，
+   想看"我现在穿的什么"反而要先滚过几百张卡。 */
+let skinBrowse = false;      // false = 当前皮肤视图；true = 浏览全部（含筛选/分区）
+let skinOwnedCount = 0;      // 已拥有时装件数（浏览按钮上显示）
 /* R20：时装商店并入「采购中心 · 时装兑换」 */
 async function openSkinShop(){
     switchView('shop');
@@ -5651,24 +5666,36 @@ async function loadSkins(){
     skinCache = data.skins || [];
     skinShelf = data.shop || [];
     skinLimitedPool = data.limited_pool || [];
+    skinCurrent = data.current || null;
+    skinOwnedCount = data.owned_count || 0;
     if (DOM.skinShopBalance)
         DOM.skinShopBalance.innerHTML = `<span class="res-own-label">当前持有</span>${resAmountHTML('source_stone', data.source_stone)}`;
     renderSkins();
 }
-/* 单张时装的卡片。unlocked=false 表示这件皮肤的主人还没抽到 —— 只给预览不给下单。 */
-function buildSkinCard(s, stone){
+/* 单张时装的卡片。unlocked=false 表示这件皮肤的主人还没抽到 —— 只给预览不给下单。
+   opts.equip=true 时，已拥有的时装按钮从「已拥有」标签换成「装备 / 卸下」——
+   R38 的浏览模式要能"浏览并选择"，只挂个静态标签就选不了。 */
+function buildSkinCard(s, stone, opts){
     const card = document.createElement('div');
-    card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}`;
+    card.className = `skin-card${s.owned ? ' owned' : ''}${s.unlocked === false ? ' locked' : ''}${s.equipped ? ' equipped' : ''}`;
     const canBuy = !s.dynOnly && s.unlocked !== false && !s.limited;
-    const btn = s.dynOnly
-        ? '<span class="skin-dyn-tag"><i class="fa-solid fa-circle-play"></i>点开预览</span>'
-        : (s.owned
-            ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
-            : (s.limited
-                ? '<span class="skin-limited-tag"><i class="fa-solid fa-gift"></i>礼包限定</span>'
-                : (canBuy
-                    ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
-                    : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>')));
+    const canEquip = !!(opts && opts.equip) && s.owned && !s.dynOnly && !s.limited && s.unlocked !== false;
+    let btn;
+    if (canEquip) {
+        btn = s.equipped
+            ? '<button class="game-btn skin-unequip-btn" data-skin=""><span>卸下</span></button>'
+            : `<button class="game-btn skin-equip-btn" data-skin="${escapeHtml(s.skin_id || '')}"><span>装备</span></button>`;
+    } else {
+        btn = s.dynOnly
+            ? '<span class="skin-dyn-tag"><i class="fa-solid fa-circle-play"></i>点开预览</span>'
+            : (s.owned
+                ? '<span class="skin-owned-tag"><i class="fa-solid fa-check"></i>已拥有</span>'
+                : (s.limited
+                    ? '<span class="skin-limited-tag"><i class="fa-solid fa-gift"></i>礼包限定</span>'
+                    : (canBuy
+                        ? `<button class="game-btn skin-buy-btn" data-skin="${s.skin_id}"${stone < s.cost ? ' disabled' : ''}><span>购买</span></button>`
+                        : '<span class="skin-locked-tag"><i class="fa-solid fa-lock"></i>待解锁</span>')));
+    }
     const img = s.image ? `/static/${s.image}` : '';
     /* 21 源石及以上在原版属「动态立绘」档，但本地不一定真解到了那套 Spine 资源。
        所以分开标：手里有资源（预览里真会动）的给亮色徽章，仅档位到了的保留原样式 ——
@@ -5706,10 +5733,83 @@ function buildSkinCard(s, stone){
         '</div>';
     return card;
 }
+/* R38：默认视图 —— 只渲染"当前皮肤"这一张卡。
+   没装备过就渲染「默认制服」占位卡（不拿别人的立绘冒充，诚实留白）。 */
+function renderCurrentSkinView(list, stone){
+    const head = document.createElement('div');
+    head.className = 'skin-section-head';
+    head.innerHTML = '<span class="skin-section-kicker">当前皮肤</span>' +
+        '<span class="skin-section-note">穿在身上的那一件 · 想看别的点右上「浏览全部」</span>';
+    list.appendChild(head);
+
+    const grid = document.createElement('div');
+    grid.className = 'skin-section-grid';
+    if (skinLoadFailed){
+        const empty = document.createElement('div');
+        empty.className = 'skin-empty';
+        empty.innerHTML = '<i class="fa-solid fa-plug-circle-xmark"></i> 时装数据没加载出来——后端服务可能没启动。'
+          + '<br><span class="skin-empty-hint">先运行「一键启动.bat」，再重新打开这个窗口。</span>';
+        grid.appendChild(empty);
+    } else if (skinCurrent){
+        // 直接用后端给的 current 条目，补上 equipped 让按钮变成「卸下」
+        grid.appendChild(buildSkinCard(Object.assign({}, skinCurrent, { equipped: true }), stone, { equip: true }));
+    } else {
+        grid.appendChild(buildDefaultSkinCard());
+    }
+    list.appendChild(grid);
+
+    const hint = document.createElement('div');
+    hint.className = 'skin-empty-buy';
+    hint.innerHTML = '<i class="fa-solid fa-circle-info"></i><span>'
+        + `已拥有 ${skinOwnedCount} 件时装`
+        + (skinCurrent ? '' : '，还没装备任何一件')
+        + '。点右上「浏览全部」可以翻看全部皮肤并换装。</span>';
+    list.appendChild(hint);
+
+    list.querySelectorAll('.skin-equip-btn').forEach(b => {
+        b.addEventListener('click', () => handleSkinEquip(b.dataset.skin));
+    });
+    list.querySelectorAll('.skin-unequip-btn').forEach(b => {
+        b.addEventListener('click', () => handleSkinEquip(''));
+    });
+}
+
+/* 未装备任何时装时的占位卡。故意不放任何干员立绘 —— 那会被误读成"这就是我的皮肤"。 */
+function buildDefaultSkinCard(){
+    const card = document.createElement('div');
+    card.className = 'skin-card owned skin-default-card';
+    card.innerHTML =
+        '<div class="skin-art"><i class="fa-solid fa-shirt"></i></div>' +
+        '<div class="skin-card-body">' +
+            '<div class="skin-card-top"><span class="skin-op-name">博士</span></div>' +
+            '<div class="skin-name">默认制服</div>' +
+            '<div class="skin-tier">未装备时装</div>' +
+            '<div class="skin-card-bottom"><span class="skin-dyn-only">点「浏览全部」挑一件</span></div>' +
+        '</div>';
+    return card;
+}
+
 function renderSkins(){
     const list = DOM.skinShopList; if (!list) return;
     bindSkinPreview();
     const stone = state.resources.source_stone?.current_value || 0;
+    /* R38：把「浏览全部」按钮与筛选行的状态同步好。
+       默认视图下筛选行没有意义（只有一张卡），藏起来免得用户以为没东西可筛。 */
+    if (DOM.skinFilterRow) DOM.skinFilterRow.style.display = skinBrowse ? '' : 'none';
+    if (DOM.skinBrowseToggleBtn) {
+        DOM.skinBrowseToggleBtn.classList.toggle('active', skinBrowse);
+        const _lbl = DOM.skinBrowseToggleBtn.querySelector('span');
+        if (_lbl) _lbl.textContent = skinBrowse ? '收起列表' : '浏览全部';
+        DOM.skinBrowseToggleBtn.title = skinBrowse ? '回到当前皮肤' : '浏览并选择全部时装';
+    }
+    list.innerHTML = '';
+
+    /* ── 默认视图：只显示「当前皮肤」，没装备过就显示「默认制服」 ──
+       481 件皮肤一次性铺满会把"我现在穿的什么"淹没掉（用户要求默认收起）。 */
+    if (!skinBrowse){
+        renderCurrentSkinView(list, stone);
+        return;
+    }
     const pass = s => {
         // 'dyn' 只放动态立绘专区的卡：其余三组不带 dynOnly，自然全被滤掉
         if (skinFilter === 'dyn') return !!s.dynOnly;
@@ -5757,7 +5857,7 @@ function renderSkins(){
         list.appendChild(head);
         const grid = document.createElement('div');
         grid.className = 'skin-section-grid';
-        arr.forEach(s => grid.appendChild(buildSkinCard(s, stone)));
+        arr.forEach(s => grid.appendChild(buildSkinCard(s, stone, { equip: true })));
         list.appendChild(grid);
     };
 
@@ -5803,6 +5903,19 @@ function renderSkins(){
     list.querySelectorAll('.skin-buy-btn').forEach(b => {
         b.addEventListener('click', () => handleSkinPurchase(b.dataset.skin));
     });
+    // R38：浏览模式下已拥有的时装可以当场换装
+    list.querySelectorAll('.skin-equip-btn').forEach(b => {
+        b.addEventListener('click', () => handleSkinEquip(b.dataset.skin));
+    });
+    list.querySelectorAll('.skin-unequip-btn').forEach(b => {
+        b.addEventListener('click', () => handleSkinEquip(''));
+    });
+}
+async function handleSkinEquip(skinId){
+    const data = await apiPost('/skins/equip', { skin_id: skinId || '' });
+    if (!data) return;
+    showToast(skinId ? `已装备「${data.skin_name}」` : '已卸下时装，回到默认制服');
+    await loadSkins();
 }
 async function handleSkinPurchase(skinId){
     const data = await apiPost('/skins/purchase', { skin_id: skinId });

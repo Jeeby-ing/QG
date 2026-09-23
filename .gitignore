@@ -57,6 +57,7 @@ data/wallpaper_mobile/
 __tmp_*
 _ud/
 static/__probe.html
+static/__probe*.html
 _pj.js
 _extract.py
 _probe*.pdf

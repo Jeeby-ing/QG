@@ -82,11 +82,18 @@ TIER_METAL = {
     "diamond": "#8fd0ff",
 }
 
-# R37 难度平衡：蚀刻章解锁阈值整体放大倍数。手写表（PRESET）与家族表（EXTENDED）
+# 蚀刻章解锁阈值整体放大倍数。手写表（PRESET）与家族表（EXTENDED）
 # 在 init_db 的播种循环里统一按此倍数抬高（"初次/达到等级"两类除外，前者是入门章、
 # 后者由更陡的等级曲线自然变难），描述也按新阈值重新生成，避免"写 5 个却要 15 个"的错位。
 # 因为播种循环每次启动都会无条件 UPDATE condition_value，改这里重启即对所有（含历史）库生效。
-ACH_THRESHOLD_MULT = 3
+#
+# R37：3（首轮抬高）。R38：3 → 15 —— 用户反馈"一百多个解锁过多"，要求只留 30~50 枚。
+#   实测（见 ql_sim）按下界推算：43 枚"入门章"（condition_value<=1）与当前等级已够的
+#   level_reached 章无论如何都会亮，这部分是地板（约 36 枚），所以倍率必须拉到 15 才
+#   能把解锁量压进 50 以内；再叠上 R38 的经验回退（等级下降 → level_reached 再掉几枚）。
+#   ⚠️ 抬倍率只改"未来可解锁的门槛"，不会自动摘掉历史解锁记录 —— 摘除由
+#   _relock_achievements 一次性迁移负责（见该函数注释）。
+ACH_THRESHOLD_MULT = 15
 
 PRESET_ACHIEVEMENTS = [
     # ── 基建奖章 · 创建任务 ─────────────────────────────
@@ -1057,7 +1064,9 @@ def init_db():
             "level_rewards_claimed": [],
             "username": "博士",
             "categories": ["学习", "健身", "工作", "生活", "其他"],
-            "pomodoro_sound": "on"
+            "pomodoro_sound": "on",
+            # R38：当前装备的时装（skins_owned.skin_id）。空串 = 未装备，展示默认制服。
+            "current_skin_id": ""
         }
         cur.execute("INSERT OR IGNORE INTO settings (id, settings_json) VALUES (1, ?)", (json.dumps(default_settings),))
 
@@ -1066,8 +1075,15 @@ def init_db():
         _srow = cur.fetchone()
         if _srow:
             _s = json.loads(_srow[0])
+            _dirty = False
             if 'categories' not in _s:
                 _s['categories'] = ["学习", "健身", "工作", "生活", "其他"]
+                _dirty = True
+            # R38：补 current_skin_id（老库没有这个键；无键时读取侧有兜底，这里补齐形状）
+            if 'current_skin_id' not in _s:
+                _s['current_skin_id'] = ""
+                _dirty = True
+            if _dirty:
                 cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(_s),))
 
         # 预置蚀刻章：先 INSERT OR IGNORE 保住解锁记录，再无条件 UPDATE 把定义刷新成最新
@@ -1121,6 +1137,18 @@ def init_db():
         # 触发 check_achievement —— 于是老用户进来看到的是一片全灭（用户："我怎么不知道我做了九个"）。
         # 启动时统一扫一遍，把已达成的直接补上。
         sweep_achievements(cur)
+
+        # R38：阈值抬高（ACH_THRESHOLD_MULT 3→15）后，把历史遗留的"已达不到新阈值"的章摘掉，
+        # 并回收它们发过的经验。只跑一次（settings 标记位守卫）。
+        # 必须放在 sweep 之后：sweep 按新阈值补亮，接着这里摘掉追不上的，顺序反了会互相打架。
+        try:
+            locked = _relock_achievements(cur)
+            if locked:
+                # 经验回退会让等级下降 → 理智上限跟着降，当前值超上限的要压下来，
+                # 否则界面会出现 "98/68" 这种看着像 bug 的数字。
+                sync_sanity_cap(cur, calculate_level(get_resource(cur, 'exp')))
+        except Exception:
+            pass
 
 
 # ------------------------------------------------------------
@@ -1736,6 +1764,87 @@ def sweep_achievements(cur):
     这里在启动时（以及导入数据后）把每种条件的当前值算一遍。
     单项失败不影响其它项，也不要让它挡住启动。"""
     check_cumulative_achievements(cur, None)
+
+
+# ------------------------------------------------------------
+#  R38 蚀刻章收敛：一次性把「已达不到新阈值」的章重新锁上，并回收它们发过的经验
+# ------------------------------------------------------------
+_ACH_RELOCK_MARKER = "ach_relock_r38"
+# 回收哪些资源。用户这轮只要求"同步回退经验值数据"，所以只动 exp；
+# 蚀刻章同时发过龙门币，这里**故意不回收** —— 想一起回退就把 'lungmen' 加进来。
+_ACH_RELOCK_RESOURCES = ("exp",)
+
+
+def _rollback_achievement_rewards(cur, achievement_id: str) -> float:
+    """删除某枚蚀刻章在指定资源上发过的流水，并把余额扣回（下限 0）。返回回收的经验值。
+
+    为什么是"删流水"而不是"记一笔负数"：
+      · exp_earned 这类章条件的口径是 SUM(amount) WHERE amount > 0，
+        记一笔负数并不会让它变小 → 章会"锁了又亮"来回抽搐。
+      · 直接删掉原始流水，指标口径立刻回到真实值，账实相符。
+    余额要单独扣，是因为 resources.current_value 是独立存储的、不由流水汇总推导。
+    """
+    rolled_exp = 0.0
+    qmarks = ",".join("?" for _ in _ACH_RELOCK_RESOURCES)
+    cur.execute(
+        f"SELECT resource_type, COALESCE(SUM(amount), 0) AS s FROM resource_transactions "
+        f"WHERE reason = ? AND resource_type IN ({qmarks}) GROUP BY resource_type",
+        (f"achievement_{achievement_id}", *_ACH_RELOCK_RESOURCES))
+    for r in cur.fetchall():
+        amt = float(r["s"] or 0)
+        if not amt:
+            continue
+        if r["resource_type"] == "exp":
+            rolled_exp += amt
+        cur.execute(
+            "UPDATE resources SET current_value = MAX(0, current_value - ?) WHERE resource_type = ?",
+            (amt, r["resource_type"]))
+        cur.execute("DELETE FROM resource_transactions WHERE reason = ? AND resource_type = ?",
+                    (f"achievement_{achievement_id}", r["resource_type"]))
+    cur.execute("DELETE FROM achievement_unlocks WHERE achievement_id = ?", (achievement_id,))
+    return rolled_exp
+
+
+def _relock_achievements(cur) -> int:
+    """R38：把当前数据已达不到阈值的已解锁蚀刻章重新锁上，并回收它们发过的经验。
+
+    为什么需要单独一步：播种循环只负责把 condition_value 刷成新阈值，
+    而「补点亮」的 sweep_achievements 只增不减 —— 老库里的历史解锁记录不会自己掉。
+    这里在阈值抬高后跑一次，把追不上的那些摘掉。
+
+    只跑一次（settings 标记位幂等守卫）：之后解锁语义仍是"只增不减"，
+    不会因为用户后来删任务 / 回退经验而反复闪烁。
+
+    反复收敛：回收经验会改变 exp / exp_earned / resource_tx_count 等指标，
+    可能让更多章达不到阈值；每轮只会让解锁数变少，必然收敛，故直接循环到稳定。
+    """
+    cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+    row = cur.fetchone()
+    if not row:
+        return 0
+    settings = json.loads(row[0] or "{}")
+    if settings.get(_ACH_RELOCK_MARKER):
+        return 0
+
+    locked_total = 0
+    for _ in range(64):
+        vals = cumulative_achievement_values(cur)
+        vals["level_reached"] = calculate_level(get_resource(cur, "exp"))
+        rows = cur.execute("""
+            SELECT u.achievement_id AS aid, a.condition_type AS ct, a.condition_value AS cv
+            FROM achievement_unlocks u JOIN achievements a ON a.id = u.achievement_id
+        """).fetchall()
+        # 只判定口径已知的条件类型（如 import_count 不在 cumulative 里 → 保持原样，不乱摘）
+        losers = [r for r in rows if r["ct"] in vals and vals[r["ct"]] < (r["cv"] or 0)]
+        if not losers:
+            break
+        for r in losers:
+            _rollback_achievement_rewards(cur, r["aid"])
+        locked_total += len(losers)
+
+    settings[_ACH_RELOCK_MARKER] = True
+    cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(settings),))
+    return locked_total
 
 
 def update_parent_progress(cur, parent_id: int):
@@ -4672,13 +4781,26 @@ def limited_skin_pool(n: int = 8) -> list:
 
 @app.get("/api/skins")
 async def list_skins():
-    """时装商店：已持有干员的时装可下单；再附一条每日轮换的货架做预览。"""
+    """时装商店：已持有干员的时装可下单；再附一条每日轮换的货架做预览。
+
+    R38：默认视图只展示「当前装备的时装 / 默认制服」，全部皮肤目录改由前端
+    「浏览全部」按钮按需展开 —— 所以这里额外返回 current（当前装备条目）。
+    """
     with db_cursor() as cur:
         owned_ops = cur.execute(
             "SELECT operator_id, name, rarity, copies FROM operator_records WHERE copies > 0"
         ).fetchall()
         owned_skins = {r["skin_id"] for r in cur.execute("SELECT skin_id FROM skins_owned").fetchall()}
         stone = get_resource(cur, "source_stone")
+        # 当前装备的时装 id（存在 settings 里，空串 = 未装备）
+        cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+        _srow = cur.fetchone()
+        current_skin_id = ""
+        if _srow:
+            try:
+                current_skin_id = (json.loads(_srow[0]) or {}).get("current_skin_id") or ""
+            except Exception:
+                current_skin_id = ""
     owned_ids = {r["operator_id"] for r in owned_ops}
     # R37：时装兑换界面必须列出**所有**干员的每一件非限定皮肤（含未持有干员），
     #     未持有干员的皮肤 unlocked=False，前端只给预览不给下单。
@@ -4700,8 +4822,25 @@ async def list_skins():
     owned_skin_ids = {s["skin_id"] for s in catalog if s["owned"]}
     # 货架：从完整目录里挑每周轮换的预览子集（仅未持有、未拥有的），作「本周推荐」展示
     shop = [s for s in build_skin_shop(owned_ids) if s["skin_id"] not in owned_skin_ids]
+    limited_pool = limited_skin_pool(8)
+    # 当前装备条目：限定皮不在 catalog 里，所以两个池子都找一遍
+    current = None
+    if current_skin_id:
+        for e in catalog:
+            if e["skin_id"] == current_skin_id:
+                current = e
+                break
+        if current is None:
+            for e in limited_pool:
+                if e["skin_id"] == current_skin_id:
+                    current = dict(e)
+                    break
+        if current is not None:
+            current["owned"] = current["skin_id"] in owned_skins
+            current["equipped"] = True
     return {"data": {"skins": catalog, "shop": shop, "source_stone": stone,
-                     "limited_pool": limited_skin_pool(8),
+                     "limited_pool": limited_pool,
+                     "current": current,
                      "owned_count": len(owned_skins), "operator_count": len(owned_ops)}}
 
 
@@ -4767,6 +4906,43 @@ async def purchase_skin(req: SkinPurchaseRequest):
         check_achievement(cur, 'skins_owned', cur.fetchone()[0], None)
         check_cumulative_achievements(cur, None)
     return {"data": {"purchased": target, "source_stone": balance}}
+
+
+class SkinEquipRequest(BaseModel):
+    # 空串 / 不传 = 卸下时装，回到「默认制服」
+    skin_id: str = ""
+
+
+@app.post("/api/skins/equip")
+async def equip_skin(req: SkinEquipRequest):
+    """装备 / 卸下时装（R38）。
+
+    存在 settings.current_skin_id 里，不新建表 —— 它只是一个"当前选中项"指针。
+    只能装备已购买的时装；空串表示卸下、回到默认制服。
+    """
+    sid = (req.skin_id or "").strip()
+    with db_cursor() as cur:
+        if sid:
+            row = cur.execute(
+                "SELECT skin_id, skin_name, operator_name FROM skins_owned WHERE skin_id = ?",
+                (sid,)).fetchone()
+            if not row:
+                raise HTTPException(status_code=400, detail="该时装尚未拥有，无法装备")
+            equipped_name = row["skin_name"]
+        else:
+            equipped_name = "默认制服"
+
+        cur.execute("SELECT settings_json FROM settings WHERE id = 1")
+        _srow = cur.fetchone()
+        settings = {}
+        if _srow:
+            try:
+                settings = json.loads(_srow[0]) or {}
+            except Exception:
+                settings = {}
+        settings["current_skin_id"] = sid
+        cur.execute("UPDATE settings SET settings_json = ? WHERE id = 1", (json.dumps(settings),))
+    return {"data": {"current_skin_id": sid, "skin_name": equipped_name}}
 
 
 @app.post("/api/achievements/draw")

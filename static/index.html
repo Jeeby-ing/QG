@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260923-278">
+    <link rel="stylesheet" href="static/style.css?v=20260923-279">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -372,6 +372,7 @@
                     <div class="pc-panel-bar">
                         <span class="pc-panel-note">源石购买 · 只有已持有的干员才能下单</span>
                         <div class="pc-panel-actions">
+                            <button type="button" class="skin-browse-btn" id="skinBrowseToggleBtn" title="浏览并选择全部时装"><i class="fa-solid fa-grip"></i><span>浏览全部</span></button>
                             <button type="button" class="icon-btn gh-info-btn" id="skinShopInfoBtn" title="定价 / 购买说明"><i class="fa-solid fa-circle-info"></i></button>
                             <span class="pc-balance" id="skinShopBalance"></span>
                         </div>
@@ -484,7 +485,8 @@
                             </div>
                         </div>
                         <div class="profile-resources">
-                            <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon exp-icon" data-res-icon-profile="exp"></span><span class="res-badge" id="profileExp">0</span></div><span class="res-label">经验值</span></div>
+                            <!-- R38：主页不再展示「总经验值」——经验只在领取奖励时按"本次获得"呈现
+                                 （见奖励弹窗），常驻一个越滚越大的总数没有意义。等级与升级进度条保留。 -->
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon stone-icon" data-res-icon-profile="source_stone"></span><span class="res-badge" id="profileStone">0</span></div><span class="res-label">源石</span></div>
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon lungmen-icon" data-res-icon-profile="lungmen"></span><span class="res-badge" id="profileLungmen">0</span></div><span class="res-label">龙门币</span></div>
                             <div class="profile-res-item"><div class="res-icon-wrapper"><span class="res-icon orundum-icon" data-res-icon-profile="orundum"></span><span class="res-badge" id="profileOrundum">0</span></div><span class="res-label">合成玉</span></div>
@@ -868,6 +870,6 @@
     <script src="static/sfx.js?v=20260920-002"></script>
     <!-- 动态立绘：按需加载 Spine 3.8 runtime，本身只有索引与调度逻辑 -->
     <script src="static/dyn-portrait.js?v=20260921-004"></script>
-    <script src="static/app.js?v=20260923-266"></script>
+    <script src="static/app.js?v=20260923-267"></script>
 </body>
 </html>
