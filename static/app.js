@@ -5782,8 +5782,12 @@ function renderSkins(){
             '<span>还没有可购买的时装——先去「干员寻访」抽到干员，他的时装就能下单了。下面的货架可以先看个眼缘。</span>';
         list.appendChild(hint);
     }
-    // R37：主列表现已摊平为「全部皮肤」（含未持有干员，仅预览），
-    //     故不再单独渲染「商店货架」（其内容与主列表完全重合，避免同一件皮肤出现两次）。
+    // R38：恢复「货架」展示，并改为**每日随机轮换**（后端 _day_key + _seeded_shuffle，
+    //     每天 04:00 换一批）。货架只挑「未拥有的干员时装」，与下方「全部皮肤」少量重合
+    //     属推荐位的固有形态。
+    addSection('今日推荐 · 每日轮换',
+               '每天 04:00 随机换一批 · 未持有干员的时装可先预览',
+               shelf, false);
     const buyableCount = items.filter(s => s.unlocked !== false && !s.owned && !s.limited).length;
     addSection('全部皮肤',
                buyableCount ? `${buyableCount} 件可直接购买 · 其余为未持有干员预览` : '全部为预览（需先抽到对应干员）',

@@ -4223,6 +4223,26 @@ def _rotate(seq: list, seed: str, n: int) -> list:
     return (seq[start:] + seq[:start])[:n]
 
 
+def _day_key(salt: str) -> str:
+    """**每日**轮换种子（以本地 04:00 为日界）。
+
+    与 _daily_key 区分：那个是「周」（抽卡精选 / 礼包按周更新）；
+    时装货架 / 限定池按要求走**日更 + 随机**，用这个（R38）。
+    """
+    return f"{salt}:{period_start('daily').strftime('%Y%m%d')}"
+
+
+def _seeded_shuffle(seq: list, seed: str) -> list:
+    """按稳定种子**打乱**顺序（同一 seed 结果固定，跨 seed 完全变样）。
+
+    与 _rotate 的区别：rotate 只是整体平移、相邻元素仍相邻，看着不像「随机」；
+    这里按 md5 逐元素排序，得到一份确定的伪随机排列 —— 每日换一批的素材。
+    """
+    if not seq:
+        return []
+    return sorted(seq, key=lambda x: _stable_index(f"{seed}:{x}", 1 << 30))
+
+
 def featured_operators() -> dict:
     """寻访弹窗顶部的「本期精选」：每周轮换，只挑有立绘的干员。
 
@@ -4607,12 +4627,12 @@ def build_skin_shop(owned_op_ids: set, limit: int = 24) -> list:
     """
     if not SKIN_BUCKETS:
         return []
-    week = _daily_key("skinshop")
+    day = _day_key("skinshop")
     shop = []
     for rarity in sorted(SKIN_BUCKETS.keys(), reverse=True):
         bucket = SKIN_BUCKETS[rarity]
         quota = SKIN_SHOP_QUOTA.get(rarity, 2)
-        for sid in _rotate(bucket, f"{week}:{rarity}", len(bucket)):
+        for sid in _seeded_shuffle(bucket, f"{day}:{rarity}"):
             entry = _skin_shop_entry(sid, owned_op_ids)
             if entry["limited"]:
                 continue                      # 限定皮：只在礼包随机奖励里出
@@ -4633,13 +4653,13 @@ def limited_skin_pool(n: int = 8) -> list:
 
     只从礼包的随机奖励里产出，时装商店里买不到。
     """
-    week = _daily_key("skinlimited")
+    day = _day_key("skinlimited")
     ids = [sid for sid in sorted(SKIN_ASSETS.keys())
            if (SKIN_ASSETS.get(sid) or {}).get("file")
            and _skin_owner_meta((SKIN_ASSETS.get(sid) or {}).get("charId") or "",
                                 (SKIN_ASSETS.get(sid) or {}).get("rarity") or 0)["rarity"]]
     picks = []
-    for sid in _rotate(ids, week, len(ids)):
+    for sid in _seeded_shuffle(ids, day):
         entry = _skin_shop_entry(sid, set())
         if not entry["limited"]:
             continue
