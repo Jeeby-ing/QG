@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260923-279">
+    <link rel="stylesheet" href="static/style.css?v=20260923-280">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -138,6 +138,9 @@
                     <i class="fa-solid fa-grip-vertical"></i>
                 </div>
             <div class="tracking-expanded" id="trackingExpanded">
+                <!-- 外观装饰层（纯视觉：角标/扫描线/顶部状态带。无 id、无事件、不参与布局。
+                     R38 终端化重做用；想整体回滚删掉这一行 + style.css §21 即可） -->
+                <div class="tp-frame" aria-hidden="true"></div>
                 <div class="drag-indicator" id="dragIndicator"><span></span></div>
                 <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
                 <div class="tracking-header">
