@@ -19,7 +19,6 @@ const state = {
     realityRewards: [],
     pomodoro: null,
     pomodoroEndAt: null,
-    pomodoroTimer: null,
     filter: {
         status: '', priority: '', taskLine: '', tracked: '', search: '', tags: [], track: 'daily', category: '',
         showArchived: false, showDeleted: false
@@ -41,7 +40,6 @@ const state = {
     graphUserPanned: false,  // 用户手动拖拽/缩放后为true，阻止auto-fit覆盖
     calendarMonth: new Date(),
     selectedTags: [],
-    trackingPanelWidth: 504,
     lastLevel: 0,
     isDraggingGraph: false,
     graphDragStart: { x: 0, y: 0 },
@@ -201,10 +199,6 @@ function cacheDOM() {
     DOM.taskFormStatus = document.getElementById('taskFormStatus');
     DOM.taskFormTarget = document.getElementById('taskFormTarget');
     DOM.taskFormCurrent = document.getElementById('taskFormCurrent');
-    DOM.trackingPanel = document.getElementById('trackingPanel');
-    DOM.trackingHandle = document.getElementById('trackingHandle');
-    DOM.trackingExpanded = document.getElementById('trackingExpanded');
-    DOM.trackingResizeHandle = document.getElementById('trackingResizeHandle');
     DOM.mainContent = document.getElementById('mainContent');
     DOM.claimAllBtn = document.getElementById('claimAllBtn');
     DOM.taskList = document.getElementById('taskList');
@@ -267,11 +261,6 @@ function cacheDOM() {
     DOM.graphReset = document.getElementById('graphReset');
     DOM.calPrevMonth = document.getElementById('calPrevMonth');
     DOM.calNextMonth = document.getElementById('calNextMonth');
-    DOM.trackingToggleBtn = document.getElementById('trackingToggleBtn');
-    DOM.trackingCompleteBtn = document.getElementById('trackingCompleteBtn');
-    DOM.trackingRewardBtn = document.getElementById('trackingRewardBtn');
-    DOM.trackingFocusBtn = document.getElementById('trackingFocusBtn');
-    DOM.trackingTimer = document.getElementById('trackingTimer');
     DOM.warehouseBtn = document.getElementById('warehouseBtn');
     DOM.resStone = document.getElementById('resStone');
     DOM.resLungmen = document.getElementById('resLungmen');
@@ -326,7 +315,6 @@ function cacheDOM() {
     DOM.skinShopBalance = document.getElementById('skinShopBalance');
     DOM.skinFilterRow = document.getElementById('skinFilterRow');
     DOM.skinBrowseToggleBtn = document.getElementById('skinBrowseToggleBtn');
-    DOM.dragIndicator = document.getElementById('dragIndicator');
     DOM.toastContainer = document.getElementById('toastContainer');
     DOM.confirmModal = document.getElementById('confirmModal');
     DOM.confirmMessage = document.getElementById('confirmMessage');
@@ -335,28 +323,11 @@ function cacheDOM() {
     DOM.confirmClose = document.getElementById('confirmClose');
     DOM.exchangeRateText = document.getElementById('exchangeRateText');
     DOM.gachaCostText = document.getElementById('gachaCostText');
-    DOM.trackingHeader = document.querySelector('.tracking-header');
     DOM.userInfo = document.getElementById('userInfo');
     DOM.userName = document.getElementById('userName');
     DOM.userLevel = document.getElementById('userLevel');
     DOM.bgParticles = document.getElementById('bgParticles');
     DOM.sanityDisplay = document.getElementById('sanityDisplay');
-    DOM.trackingEmpty = document.getElementById('trackingEmpty');
-    DOM.trackingContent = document.getElementById('trackingContent');
-    DOM.trackingParentChain = document.getElementById('trackingParentChain');
-    DOM.trackingStars = document.getElementById('trackingStars');
-    DOM.trackingTaskLine = document.getElementById('trackingTaskLine');
-    DOM.trackingTitle = document.getElementById('trackingTitle');
-    DOM.trackingDesc = document.getElementById('trackingDesc');
-    DOM.trackingSubtasks = document.getElementById('trackingSubtasks');
-    DOM.trackingStatus = document.getElementById('trackingStatus');
-    DOM.trackingStatusLabel = document.getElementById('trackingStatusLabel');
-    DOM.trackingStatusDetail = document.getElementById('trackingStatusDetail');
-    DOM.trackingProgress = document.getElementById('trackingProgress');
-    DOM.trackingProgressFill = document.getElementById('trackingProgressFill');
-    DOM.trackingProgressNum = document.getElementById('trackingProgressNum');
-    DOM.trackingProgressBar = document.getElementById('trackingProgressBar');
-    DOM.trackingProgressSlider = document.getElementById('trackingProgressSlider');
     DOM.taskModalTitle = document.getElementById('taskModalTitle');
     DOM.taskFormId = document.getElementById('taskFormId');
     DOM.taskFormTitle = document.getElementById('taskFormTitle');
@@ -425,26 +396,6 @@ function bindEvents() {
         showToast('提示音设置已更新');
     });
 
-    DOM.trackingHandle.addEventListener('click', () => {
-        const wasExpanded = DOM.trackingPanel.classList.contains('expanded');
-        // 展开与收起使用完全一致的反馈：:active 按压 + 同一段图标柔光脉冲。
-        // 不再挂 transitionend（过渡被打断时一边有一边没有，导致两向反馈不一致），
-        // 点击瞬间立即播放，两个方向强度相同。
-        DOM.trackingHandle.classList.remove('pop-right', 'shake-icon', 'locked');
-        void DOM.trackingHandle.offsetWidth;
-        DOM.trackingHandle.classList.add('locked');
-        DOM.trackingHandle.addEventListener('animationend', () => DOM.trackingHandle.classList.remove('locked'), { once: true });
-        if (wasExpanded) {
-            collapseTrackingPanel();
-        } else {
-            expandTrackingPanel();
-        }
-    });
-
-    DOM.trackingToggleBtn.addEventListener('click', toggleTracking);
-    DOM.trackingCompleteBtn.addEventListener('click', completeCurrentTracking);
-    DOM.trackingRewardBtn.addEventListener('click', () => { if (state.trackingTaskId) openRewardModal(state.trackingTaskId); });
-    DOM.trackingFocusBtn.addEventListener('click', toggleFocusMode);
 
     DOM.filterStatus.addEventListener('change', applyFilters);
     DOM.filterPriority.addEventListener('change', applyFilters);
@@ -512,7 +463,6 @@ function bindEvents() {
     DOM.taskFormTaskLine.addEventListener('change', updateAutoRewardPreview);
     DOM.taskFormPriority.addEventListener('change', updateAutoRewardPreview);
 
-    DOM.trackingResizeHandle.addEventListener('mousedown', initTrackingResize);
 
     document.querySelectorAll('.modal-close').forEach(btn => btn.addEventListener('click', closeAllModals));
     DOM.modalOverlay.addEventListener('click', closeAllModals);
@@ -603,8 +553,6 @@ function bindEvents() {
         renderAchievements();
     });
 
-    DOM.pomodoroStopBtn.addEventListener('click', stopPomodoro);
-
     /* R20：采购中心内部标签切换 */
     if (DOM.shopTabBar) DOM.shopTabBar.addEventListener('click', e => {
         const btn = e.target.closest('.pc-tab');
@@ -637,39 +585,6 @@ function bindEvents() {
     });
 
     let startY = 0, currentY = 0, isDragging = false;
-    DOM.dragIndicator.addEventListener('touchstart', (e) => {
-        if (window.innerWidth > 768) return;
-        startY = e.touches[0].clientY;
-        currentY = startY;
-        isDragging = true;
-        DOM.trackingExpanded.style.transition = 'none';
-    }, { passive: true });
-
-    DOM.dragIndicator.addEventListener('touchmove', (e) => {
-        if (!isDragging) return;
-        e.preventDefault();
-        currentY = e.touches[0].clientY;
-        const deltaY = currentY - startY;
-        if (deltaY > 0) {
-            DOM.trackingExpanded.style.transform = `translateY(${deltaY}px)`;
-        }
-    }, { passive: false });
-
-    DOM.dragIndicator.addEventListener('touchend', () => {
-        if (!isDragging) return;
-        isDragging = false;
-        const deltaY = currentY - startY;
-        DOM.trackingExpanded.style.transition = 'transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94)';
-        if (deltaY > 100) {
-            collapseTrackingPanel();
-        } else {
-            DOM.trackingExpanded.style.transform = '';
-        }
-        setTimeout(() => {
-            DOM.trackingExpanded.style.transition = '';
-        }, 300);
-    });
-
     DOM.graphSvg.addEventListener('mousedown', startGraphDrag);
     DOM.graphSvg.addEventListener('touchstart', startGraphDrag, { passive: false });
     document.addEventListener('mousemove', moveGraphDrag);
@@ -691,26 +606,7 @@ function bindEvents() {
     DOM.confirmCancel.addEventListener('click', closeAllModals);
     DOM.confirmClose.addEventListener('click', closeAllModals);
 
-    window.addEventListener('resize', debounce(() => {
-        if (window.innerWidth > 768) {
-            DOM.trackingExpanded.style.transform = '';
-            DOM.trackingExpanded.style.transition = '';
-            if (DOM.trackingPanel.classList.contains('expanded')) {
-                DOM.trackingPanel.style.width = `${state.trackingPanelWidth}px`;
-                DOM.mainContent.style.marginLeft = `${state.trackingPanelWidth}px`;
-            } else {
-                DOM.mainContent.style.marginLeft = '64px';
-            }
-        } else {
-            DOM.trackingPanel.style.width = '';
-            DOM.mainContent.style.marginLeft = '0';
-            if (DOM.trackingPanel.classList.contains('expanded')) {
-                DOM.trackingExpanded.style.transform = 'translateY(0)';
-            } else {
-                DOM.trackingExpanded.style.transform = 'translateY(100%)';
-            }
-        }
-    }, 200));
+
 }
 
 function toggleMobileMenu() {
@@ -772,7 +668,6 @@ async function loadAppVersion(){
 async function initApp() {
     loadAppVersion();                 // 版本号不阻塞首屏
     await loadSettings();
-    await loadVoiceManifest();
     ArkLoader.progress(15, 'LOADING SETTINGS...');
     applyTheme();
     applyWallpaper();
@@ -1375,205 +1270,6 @@ async function claimRealityReward(id) {
     }
 }
 
-async function loadPomodoroCurrent() {
-    const data = await apiGet('/pomodoro/current');
-    if (data) {
-        state.pomodoro = data;
-        const startedAt = new Date(data.started_at).getTime();
-        const elapsedMs = Math.max(0, Date.now() - startedAt);
-        const remainMs = Math.max(0, (data.planned_seconds * 1000) - elapsedMs);
-        state.pomodoroEndAt = new Date(Date.now() + remainMs);
-    } else {
-        state.pomodoro = null;
-        state.pomodoroEndAt = null;
-    }
-    updatePomodoroUI();
-}
-
-function updatePomodoroUI() {
-    const statusEl = DOM.pomodoroStatus;
-    if (!statusEl) return;
-    if (!state.pomodoro) {
-        statusEl.classList.add('hidden');
-        /* 复位：不能把上一轮会话的色调/进度值留给下一轮。
-           尤其是 --ak-gauge-value 一旦是 NaN%，conic-gradient 会整条失效（background-image:none），
-           仪表变成一个没有环的空八角，看起来像「样式坏了」。 */
-        statusEl.classList.remove('ak-gauge--warning', 'is-break');
-        statusEl.style.setProperty('--ak-gauge-value', '0%');
-        if (DOM.pomodoroCountdown) DOM.pomodoroCountdown.textContent = `${state.settings.pomodoro_focus_minutes || 25}:00`;
-        return;
-    }
-    statusEl.classList.remove('hidden');
-    // ak-ui .ak-gauge：八角仪表，值走 --ak-gauge-value，色调走 --ak-gauge-signal
-    //（focus→.ak-gauge--warning 金，break→.is-break 绿，由 §21 集成层着色）
-    DOM.pomodoroKind.textContent = state.pomodoro.kind === 'focus' ? 'FOCUS' : 'BREAK';
-    DOM.pomodoroKind.className = 'ak-gauge__label ' + state.pomodoro.kind;
-    if (DOM.pomodoroUnit) DOM.pomodoroUnit.textContent = state.pomodoro.kind === 'focus' ? '专注' : '休息';
-    statusEl.classList.toggle('ak-gauge--warning', state.pomodoro.kind === 'focus');
-    statusEl.classList.toggle('is-break', state.pomodoro.kind === 'break');
-    // 时间一律做数值兜底：started_at/planned_seconds 任一异常都会把整个百分比污染成 NaN
-    const endMs = state.pomodoroEndAt instanceof Date ? state.pomodoroEndAt.getTime() : NaN;
-    const remainMs = Math.max(0, (Number.isFinite(endMs) ? endMs : Date.now()) - Date.now());
-    const remainSec = Math.floor(remainMs / 1000);
-    const totalRaw = Number(state.pomodoro.planned_seconds);
-    const total = Number.isFinite(totalRaw) && totalRaw > 0 ? totalRaw : 1;
-    const m = String(Math.floor(remainSec / 60)).padStart(2, '0');
-    const sec = String(remainSec % 60).padStart(2, '0');
-    DOM.pomodoroCountdown.textContent = `${m}:${sec}`;
-    const rawPercent = ((total - remainSec) / total) * 100;
-    const percent = Number.isFinite(rawPercent) ? Math.max(0, Math.min(100, rawPercent)) : 0;
-    statusEl.style.setProperty('--ak-gauge-value', `${percent}%`);
-}
-
-function updatePomodoroTimer() {
-    if (!state.pomodoro) {
-        if (DOM.pomodoroCountdown && DOM.pomodoroStatus && DOM.pomodoroStatus.classList.contains('hidden')) {
-            DOM.pomodoroCountdown.textContent = `${state.settings.pomodoro_focus_minutes || 25}:00`;
-        }
-        return;
-    }
-    if (state.pomodoroEndAt && state.pomodoroEndAt.getTime() <= Date.now()) {
-        handlePomodoroFinished();
-        return;
-    }
-    updatePomodoroUI();
-}
-
-async function handlePomodoroFinished() {
-    if (!state.pomodoro) return;
-    const finishedKind = state.pomodoro.kind;
-    await apiPost('/pomodoro/stop');
-    state.pomodoro = null;
-    state.pomodoroEndAt = null;
-    updatePomodoroUI();
-    // 到点提醒：随机干员语音（无语音文件时回退本地提示音）+ 屏幕高亮
-    playEndAlert();
-    flashAlarm();
-    if (finishedKind === 'focus') {
-        showToast('专注结束，进入休息时间');
-        const breakMinutes = parseInt(state.settings.pomodoro_break_minutes || 5);
-        if (breakMinutes > 0) {
-            const result = await apiPost('/pomodoro/start', { kind: 'break', planned_seconds: breakMinutes * 60 });
-            if (result) {
-                state.pomodoro = result;
-                state.pomodoroEndAt = new Date(Date.now() + breakMinutes * 60 * 1000);
-                updatePomodoroUI();
-            }
-        }
-    } else {
-        showToast('休息结束，继续出发');
-        document.body.classList.remove('focus-mode');
-    }
-}
-
-async function startPomodoro(kindOverride) {
-    const kind = kindOverride || 'focus';
-    const focusMinutes = parseInt(state.settings.pomodoro_focus_minutes) || 25;
-    const breakMinutes = parseInt(state.settings.pomodoro_break_minutes) || 5;
-    const planned = (kind === 'focus' ? focusMinutes : breakMinutes) * 60;
-    const taskId = state.trackingTaskId || null;
-    const result = await apiPost('/pomodoro/start', { kind, task_id: taskId, planned_seconds: planned });
-    if (result) {
-        state.pomodoro = result;
-        state.pomodoroEndAt = new Date(Date.now() + planned * 1000);
-        if (kind === 'focus') {
-            document.body.classList.add('focus-mode');
-            expandTrackingPanel();
-            showToast('专注模式已开启');
-        } else {
-            showToast('休息时间开始');
-        }
-        updatePomodoroUI();
-    }
-}
-
-async function stopPomodoro() {
-    const hadPomodoro = !!state.pomodoro;
-    if (hadPomodoro) await apiPost('/pomodoro/stop');
-    state.pomodoro = null;
-    state.pomodoroEndAt = null;
-    document.body.classList.remove('focus-mode');
-    updatePomodoroUI();
-    if (hadPomodoro) showToast('已退出专注模式');
-}
-
-// ===== 专注到点提醒（本地生成提示音，无需联网） =====
-let alarmAudioCtx = null;
-function getAlarmAudioCtx(){
-    if (!alarmAudioCtx){
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return null;
-        alarmAudioCtx = new AC();
-    }
-    if (alarmAudioCtx.state === 'suspended') alarmAudioCtx.resume();
-    return alarmAudioCtx;
-}
-// 三声「叮咚」闹钟音：高音量、双频，确保够「响」又不刺耳
-function playAlarmSound(){
-    if ((state.settings.pomodoro_sound || 'on') === 'off') return;
-    const ctx = getAlarmAudioCtx();
-    if (!ctx) return;
-    const now = ctx.currentTime;
-    const notes = [ {f:880, t:0}, {f:1175, t:0.45}, {f:880, t:0.9} ];
-    notes.forEach(({f, t}) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(f, now + t);
-        gain.gain.setValueAtTime(0.0001, now + t);
-        gain.gain.exponentialRampToValueAtTime(0.5, now + t + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.4);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now + t);
-        osc.stop(now + t + 0.42);
-    });
-}
-// 屏幕金色高亮闪动，强化「到点了」的视觉提醒
-function flashAlarm(){
-    const el = document.createElement('div');
-    el.className = 'alarm-flash';
-    document.body.appendChild(el);
-    setTimeout(() => el.remove(), 1900);
-}
-
-// ===== 到点随机语音（干员日语「完成任务」语音，PRTS 下载到 static/sounds/arkanights/） =====
-// manifest.json 由下载脚本生成；为空或缺失时回退到本地合成提示音。
-let voiceFiles = [];
-async function loadVoiceManifest(){
-    try {
-        const res = await fetch('static/sounds/arkanights/manifest.json', { cache: 'no-cache' });
-        if (!res.ok) { voiceFiles = []; return; }
-        const data = await res.json();
-        voiceFiles = Array.isArray(data.files) ? data.files : [];
-        console.log(`[voice] 已加载 ${voiceFiles.length} 条到点语音`);
-    } catch(e) { voiceFiles = []; }
-}
-// 到点提醒主入口：有语音则随机放一条，否则合成「叮咚」
-function playEndAlert(){
-    if ((state.settings.pomodoro_sound || 'on') === 'off') return;
-    if (voiceFiles.length){
-        const url = voiceFiles[Math.floor(Math.random() * voiceFiles.length)];
-        try {
-            const a = new Audio(url);
-            a.volume = 1.0;
-            const p = a.play();
-            if (p && p.catch) p.catch(() => playAlarmSound());
-            return;
-        } catch(e) { /* 落到合成音 */ }
-    }
-    playAlarmSound();
-}
-
-async function checkCurrentTracking() {
-    const current = await apiGet('/tracking/current');
-    if (current && current.task_id) {
-        state.trackingTaskId = current.task_id;
-        state.trackingStartTime = new Date(current.started_at);
-        updateTrackingPanel();
-        if (!state.settings.tracking_panel_collapsed) expandTrackingPanel();
-        else collapseTrackingPanel();
-    }
-}
 
 function renderTasks() {
     const list = DOM.taskList;
@@ -3972,7 +3668,7 @@ async function completeTaskAndHandleReward(taskId) {
         if (stopResult) {
             state.trackingTaskId = null;
             state.trackingStartTime = null;
-            if (DOM.trackingPanel.classList.contains('expanded')) collapseTrackingPanel();
+            collapseTrackingPanel();
             if (document.body.classList.contains('focus-mode')) await stopPomodoro();
         } else {
             showToast('追踪停止失败，请手动停止');
@@ -4185,200 +3881,6 @@ function startProgressDragTouch(e, task, bar, fill, thumb){
     };
     document.addEventListener('touchmove',onMove); document.addEventListener('touchend',onEnd);
 }
-
-async function toggleTrackingForTask(taskId){
-    if(state.trackingTaskId===taskId){
-        const result = await apiPost(`/tasks/${taskId}/track/stop`);
-        if (result) {
-            state.trackingTaskId=null; state.trackingStartTime=null; collapseTrackingPanel();
-            if (document.body.classList.contains('focus-mode')) await stopPomodoro();
-        }
-    } else {
-        if(state.trackingTaskId) await apiPost(`/tasks/${state.trackingTaskId}/track/stop`);
-        const result = await apiPost(`/tasks/${taskId}/track/start`);
-        if (result) {
-            state.trackingTaskId=taskId; state.trackingStartTime=new Date(); expandTrackingPanel();
-        }
-    }
-    updateTrackingPanel(); renderTasks();
-}
-
-async function toggleTracking(){
-    if(state.trackingTaskId){
-        const result = await apiPost(`/tasks/${state.trackingTaskId}/track/stop`);
-        if (result) {
-            state.trackingTaskId=null; state.trackingStartTime=null;
-            updateTrackingPanel(); renderTasks(); collapseTrackingPanel();
-            if (document.body.classList.contains('focus-mode')) await stopPomodoro();
-        }
-    }
-}
-
-async function completeCurrentTracking(){
-    if(state.trackingTaskId){
-        const taskId=state.trackingTaskId;
-        await completeTaskAndHandleReward(taskId);
-    }
-}
-
-async function toggleFocusMode(){
-    if (document.body.classList.contains('focus-mode')) {
-        await stopPomodoro();
-        return;
-    }
-    if (!state.trackingTaskId) {
-        showToast('请先追踪一个任务，再进入专注模式');
-        return;
-    }
-    await startPomodoro('focus');
-}
-
-/* 头部 ak-ui .ak-status 三件套的状态写入（signal 色调 + eyebrow + detail）
-   tone: info(蓝，默认) / warning(金) / critical(红) / offline(灰、不脉冲) */
-function setTrackingStatus(detail, tone){
-    const el = DOM.trackingStatus; if(!el) return;
-    if(DOM.trackingStatusDetail) DOM.trackingStatusDetail.textContent = detail || '';
-    el.classList.toggle('ak-status--warning', tone === 'warning');
-    el.classList.toggle('ak-status--critical', tone === 'critical');
-    el.classList.toggle('ak-status--offline', tone === 'offline');
-}
-
-function updateTrackingPanel(){
-    if(!state.trackingTaskId){
-        DOM.trackingEmpty.style.display='flex'; DOM.trackingContent.style.display='none';
-        DOM.trackingTimer.textContent='00:00:00'; DOM.trackingRewardBtn.classList.add('hidden');
-        setTrackingStatus('待命','offline');
-        return;
-    }
-    DOM.trackingEmpty.style.display='none'; DOM.trackingContent.classList.remove('hidden'); DOM.trackingContent.style.display='block';
-    const task=state.flatTasks.find(t=>t.id===state.trackingTaskId); if(!task) return;
-    let chain=[]; let current=task;
-    /* ⚠️ 父链必须「找不到父任务就停」，绝不能写成 `current = parent || current`：
-       父任务不在 state.flatTasks 里时（被搜索筛掉 / 已归档 / 已删除而其子任务仍在）
-       parent 为 undefined，current 原地不动 → **死循环，整个页面冻死**
-       （实测无头浏览器永远等不到 load 事件，dump 0 字节）。
-       chainSeen 再兜一层：数据脏掉形成 A.parent=B / B.parent=A 的环时也不会转不出来。 */
-    const chainSeen = new Set([current.id]);
-    while(current.parent_id){
-        const parent=state.flatTasks.find(t=>t.id===current.parent_id);
-        if(!parent || chainSeen.has(parent.id)) break;
-        chain.unshift(parent); chainSeen.add(parent.id); current=parent;
-    }
-    // 父任务链：ak-ui .ak-tag 芯片（.ak-tag-group 负责换行与间距）
-    DOM.trackingParentChain.innerHTML='';
-    chain.forEach((p,index)=>{
-        const chip=document.createElement('span');
-        chip.className='ak-tag ak-tag--neutral tracking-chain-chip';
-        chip.textContent=p.title;
-        chip.addEventListener('click',()=>openTaskDetail(p.id));
-        DOM.trackingParentChain.appendChild(chip);
-        if(index<chain.length-1){ const sep=document.createElement('span'); sep.className='tracking-chain-sep'; sep.textContent='\u203a'; DOM.trackingParentChain.appendChild(sep); }
-    });
-    // 追踪面板星星 - 统一15°倾斜
-    DOM.trackingStars.innerHTML = goldStars(task.priority);
-    DOM.trackingStars.title = `优先级 ${task.priority}`;
-    // 主线/支线徽标：直接换成 ak-ui .ak-tag（advanced=金 / neutral=中性灰）
-    DOM.trackingTaskLine.textContent=task.task_line==='main'?'主线':'支线';
-    DOM.trackingTaskLine.className = task.task_line==='main' ? 'ak-tag ak-tag--advanced' : 'ak-tag ak-tag--neutral';
-    DOM.trackingTitle.textContent=task.title; DOM.trackingDesc.textContent=task.description||'';
-    DOM.trackingTitle.onclick = () => openTaskDetail(task.id);
-    const children=state.flatTasks.filter(t=>t.parent_id===task.id);
-    // 子任务：ak-ui .ak-choice 官方勾选行（input 只读反映完成态，点击整行进详情）
-    DOM.trackingSubtasks.innerHTML='';
-    const statusMap = { todo:'待办', in_progress:'进行中', paused:'已暂停', done:'已完成', cancelled:'已取消' };
-    children.forEach(child=>{
-        const isDone = child.status === 'done';
-        const row=document.createElement('div');
-        row.className='ak-choice tracking-subtask' + (isDone ? ' is-done' : '') + (child.status==='cancelled' ? ' is-cancelled' : '');
-        const box=document.createElement('input');
-        box.type='checkbox'; box.className='ak-choice__input';
-        box.checked=isDone; box.tabIndex=-1; box.setAttribute('aria-hidden','true');
-        const label=document.createElement('span');
-        label.className='ak-choice__label tracking-subtask-label';
-        const title=document.createElement('span');
-        title.className='subtask-title'; title.textContent=child.title;
-        const badge=document.createElement('span');
-        badge.className='ak-tag subtask-status-badge';
-        badge.textContent = statusMap[child.status] || child.status || '';
-        label.appendChild(title); label.appendChild(badge);
-        row.appendChild(box); row.appendChild(label);
-        row.addEventListener('click',()=>openTaskDetail(child.id));
-        DOM.trackingSubtasks.appendChild(row);
-    });
-    setTrackingStatus(task.status==='done' ? '已完成' : (children.length ? `${children.length} 个子任务` : '无子任务'),
-                       task.status==='done' ? 'warning' : 'info');
-    let progress=0, mode='tree';
-    if(task.progress_mode==='count'&&task.target_value){ progress=Math.min(100,(task.current_value/task.target_value)*100); mode='count'; }
-    else if(task.progress_mode==='manual'){ progress=task.progress||0; mode='manual'; }
-    else { if(children.length){ const avg=children.reduce((sum,c)=>sum+(c.progress||0),0)/children.length; progress=avg; } }
-    DOM.trackingProgress.className = `ak-progress tracking-progress ${mode}`;
-    DOM.trackingProgressFill.style.setProperty('--ak-progress-value', `${progress}%`);
-    DOM.trackingProgressNum.textContent=`${Math.round(progress)}%`;
-    // manual 且无子任务：改用 ak-ui .ak-slider 原生滑块接管，track 隐藏（两条 bar 绝不同时出现）
-    const isManual = (task.progress_mode==='manual' && !children.length);
-    DOM.trackingProgressBar.classList.toggle('hidden', isManual);
-    DOM.trackingProgressSlider.classList.toggle('hidden', !isManual);
-    if(isManual){
-        const render=(percent)=>{ DOM.trackingProgressFill.style.setProperty('--ak-progress-value', `${percent}%`); DOM.trackingProgressNum.textContent=`${Math.round(percent)}%`; };
-        DOM.trackingProgressSlider.value = String(Math.round(progress));
-        DOM.trackingProgressSlider.style.setProperty('--ak-slider-fill', `${progress}%`);
-        DOM.trackingProgressSlider.oninput = (e)=>{ e.target.style.setProperty('--ak-slider-fill', `${Number(e.target.value)}%`); render(Number(e.target.value)); };
-        DOM.trackingProgressSlider.onchange = async (e)=>{
-            const percent = Number(e.target.value);
-            if(percent>=100){ await completeTaskAndHandleReward(task.id); }
-            else { task.progress=percent; updateParentProgress(task); renderTasks(); await apiPost(`/tasks/${task.id}/progress`,{ progress: percent }); }
-        };
-    } else {
-        DOM.trackingProgressSlider.oninput = null; DOM.trackingProgressSlider.onchange = null;
-    }
-    if (rewardModalOpenTaskId === task.id) {
-        DOM.trackingRewardBtn.classList.add('hidden');
-    } else if(claimStateOf(task)==='claimable'){
-        DOM.trackingRewardBtn.classList.remove('hidden');
-    } else {
-        DOM.trackingRewardBtn.classList.add('hidden');
-    }
-}
-
-
-function expandTrackingPanel(){
-    DOM.trackingPanel.classList.add('expanded');
-    DOM.mainContent.classList.add('panel-expanded');
-    if(window.innerWidth > 768){
-        DOM.trackingPanel.style.width=`${state.trackingPanelWidth}px`;
-        DOM.mainContent.style.marginLeft=`${state.trackingPanelWidth}px`;
-        DOM.trackingExpanded.style.transform = '';
-    } else {
-        DOM.mainContent.style.marginLeft='0';
-        DOM.trackingExpanded.style.transform = 'translateY(0)';
-    }
-}
-
-function collapseTrackingPanel(){
-    DOM.trackingPanel.classList.remove('expanded');
-    DOM.mainContent.classList.remove('panel-expanded');
-    DOM.trackingPanel.style.width='';
-    if(window.innerWidth > 768){
-        DOM.mainContent.style.marginLeft='64px';
-        DOM.trackingExpanded.style.transform = '';
-    } else {
-        DOM.mainContent.style.marginLeft='0';
-        DOM.trackingExpanded.style.transform = 'translateY(100%)';
-    }
-}
-
-function initTrackingResize(e){
-    if(window.innerWidth <= 768) return;
-    e.preventDefault(); const startX=e.clientX, startWidth=state.trackingPanelWidth;
-    const onMove=(ev)=>{ const newWidth=Math.max(480,Math.min(640,startWidth+ev.clientX-startX)); state.trackingPanelWidth=newWidth;
-        DOM.trackingPanel.style.width=`${newWidth}px`; DOM.mainContent.style.marginLeft=`${newWidth}px`; };
-    const onUp=()=>{ document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
-    document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
-}
-
-function updateTrackingTimer(){ if(state.trackingTaskId&&state.trackingStartTime){ const elapsed=Math.floor((Date.now()-state.trackingStartTime.getTime())/1000);
-    const h=String(Math.floor(elapsed/3600)).padStart(2,'0'), m=String(Math.floor((elapsed%3600)/60)).padStart(2,'0'), s=String(elapsed%60).padStart(2,'0');
-    DOM.trackingTimer.textContent=`${h}:${m}:${s}`; } }
 
 /* ===== R41 第 2 项：「领取奖励 / 已领取」的唯一权威开关 =====
    用户报的是「领取奖励后按钮残留」。根因是弹窗底部那颗按钮的状态被
@@ -4895,7 +4397,7 @@ async function openSettingsModal(){ const settings=state.settings; DOM.settingsL
     wpRefreshBtn.addEventListener('click', renderWp);
     renderWp();
 
-    const settingDefs=[ {key:'tracking_panel_collapsed',label:'追踪面板收起',type:'checkbox'}, {key:'focus_mode',label:'专注模式默认开启',type:'checkbox'}, {key:'quick_track',label:'快捷追踪按钮',type:'checkbox'}, {key:'claim_with_children',label:'领取父任务时一并领取子任务奖励',type:'checkbox'}, {key:'show_side_when_tracking_main',label:'追踪主线时显示支线',type:'checkbox'}, {key:'show_main_when_tracking_side',label:'追踪支线时显示主线',type:'checkbox'}, {key:'show_sanity',label:'理智显示开关',type:'checkbox'} ];
+    const settingDefs=[ {key:'quick_track',label:'快捷追踪按钮',type:'checkbox'}, {key:'claim_with_children',label:'领取父任务时一并领取子任务奖励',type:'checkbox'}, {key:'show_side_when_tracking_main',label:'追踪主线时显示支线',type:'checkbox'}, {key:'show_main_when_tracking_side',label:'追踪支线时显示主线',type:'checkbox'}, {key:'show_sanity',label:'理智显示开关',type:'checkbox'} ];
     settingDefs.forEach(def=>{
         const container = document.createElement('div');
         container.className = 'switch-container';
@@ -5086,19 +4588,13 @@ function applySettingsFromState() {
     if (!state.trackingTaskId) {
         document.body.classList.remove('focus-mode');
     } else {
-        if (state.settings.tracking_panel_collapsed) collapseTrackingPanel();
-        else expandTrackingPanel();
+        showTrackingPanel();
     }
 
     if (DOM.sanityDisplay) {
         DOM.sanityDisplay.style.display = state.settings.show_sanity === false ? 'none' : 'flex';
     }
 
-    if (state.settings.focus_mode && state.trackingTaskId) {
-        document.body.classList.add('focus-mode');
-    } else {
-        document.body.classList.remove('focus-mode');
-    }
     applyTheme();
     applyWallpaper();
 }
@@ -5163,7 +4659,7 @@ function changeMonth(delta){ state.calendarMonth.setMonth(state.calendarMonth.ge
 
 async function openTaskDetail(taskId){
     const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
-    if(window.innerWidth<=768&&DOM.trackingPanel.classList.contains('expanded')) collapseTrackingPanel();
+    if(window.innerWidth<=768 && trackingPanelIsOpen()) collapseTrackingPanel();
     DOM.taskDetailTitle.textContent=task.title; DOM.taskDetailBody.innerHTML='';
 
     // Hero header
