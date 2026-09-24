@@ -9465,3 +9465,975 @@ body.selection-mode .task-claim-row { visibility: hidden; pointer-events: none; 
     }
     body.theme-light .top-nav > .nav-center { background: rgba(252, 250, 245, 0.99); }
 }
+
+/* ==========================================================================
+   §22.1  左上角猫形 Logo：纯黑猫 + 光晕只走外沿（R41 · 用户第 8 项）
+   --------------------------------------------------------------------------
+   症状：猫看着发灰发绿、被一圈黄晕糊住，"不够黑也不够突出"。
+
+   根因（读 DOM 结构才能看出来的那种）：
+     index.html 里那两笔 SVG 是**同心的两层**——
+       <circle class="logo-cat-bg"   r="11">   ← 实心圆，垫在下面
+       <path   class="logo-cat-body" ...>      ← 半径 10 的**带猫形孔洞的金色圆盘**
+     也就是说"猫"根本不是画出来的实心形状，而是金色圆盘上的一个**洞**，
+     透过洞看到的是下面那层 .logo-cat-bg。而它当时是 rgba(0,0,0,0.4) ——
+     只有 40% 黑，叠在深色导航底上就是"深橄榄灰"，不是黑。
+
+   黄晕的来路更隐蔽：.logo-cat-body 挂了 drop-shadow。
+     drop-shadow 是**跟着 alpha 通道走**的，而这个形状既有外圆边、又有猫形内孔边，
+     于是滤镜在**孔洞边缘内侧**也投了一圈金色阴影 —— 正好糊在猫身上。
+     注释里写着"光晕只绑在金色 body 上"，本意是对的，但绑错了形状。
+
+   修法（零改 DOM）：
+     ① .logo-cat-bg 填成**不透明近黑**（#06060a）→ 洞口是纯黑，猫立刻实、立刻突出；
+     ② drop-shadow 与呼吸动画从 .logo-cat-body 挪到 .logo-cat-bg ——
+        bg 是**没有孔洞的实心圆**，它的阴影只能往外走，永远进不了猫；
+     ③ 金色提亮一档（#FFD75E → #E8B818 → #b8860b），黑猫/金盘的对比更强；
+     ④ 图标整体放 40→46px、猫 34→40px，"更突出"落到像素上。
+   回滚：删本节即可。
+   ========================================================================== */
+.logo-icon { width: 46px; height: 46px; }
+.logo-cat { width: 40px; height: 40px; }
+
+/* ① 洞口底色：不透明近黑。这一步是"更黑"的关键，其余都是锦上添花。 */
+.logo-cat-bg {
+    fill: #06060a;
+    stroke: rgba(232, 184, 24, 0.5);
+    stroke-width: 1;
+}
+/* ② 光晕 + 呼吸改由**实心圆**承担：阴影只能向外扩散，猫形孔洞不再被染色。 */
+.logo-cat-bg {
+    filter: drop-shadow(0 0 5px rgba(232, 184, 24, 0.42));
+    animation: catHalo 3.2s ease-in-out infinite;
+}
+.logo-icon:hover .logo-cat-bg {
+    stroke: rgba(255, 214, 90, 0.85);
+    filter: drop-shadow(0 0 11px rgba(232, 184, 24, 0.7));
+    animation: none;
+}
+/* ③ 金色圆盘：只留渐变，彻底摘掉滤镜与亮度动画 */
+.logo-cat-body {
+    fill: url(#goldGrad);
+    filter: none;
+    animation: none;
+}
+.logo-icon:hover .logo-cat-body { filter: none; }
+
+@keyframes catHalo {
+    0%, 100% { filter: drop-shadow(0 0 5px rgba(232, 184, 24, 0.42)); }
+    50%      { filter: drop-shadow(0 0 9px rgba(232, 184, 24, 0.62)); }
+}
+/* 旧的 catShimmer 是给 body 做 brightness 脉冲的，正是"黄晕影响猫"的另一半，
+   这里把它空转掉（保留 keyframes 以防别处引用，避免出现悬空 animation-name）。 */
+@keyframes catShimmer { 0%, 100% { filter: none; } 50% { filter: none; } }
+
+/* 浅色主题：导航底变亮，40% 黑会透出灰，不透明近黑同样更干净 */
+body.theme-light .logo-cat-bg { fill: #08080c; stroke: rgba(198, 152, 10, 0.75); }
+
+/* ==========================================================================
+   §22.6  寻访按钮组 = ak-ui「公开招募」原生按钮组（R41 · 用户第 6 项）
+   --------------------------------------------------------------------------
+   用户原话：「寻访按钮及两个蓝色按钮过于单调难看，彻底删除重做」。
+   旧版是两个自造矩形（.gh-act / .gh-act.primary），深灰一块 + 淡蓝透明一块，
+   既不是方舟的形，也没有任何设计语言。
+
+   这一版**直接换用 ak-ui 的原生组件**，index.html 里那条已经改成：
+     .ak-command-group--recruitment  方舟公开招募底部按钮组的本体
+       —— 青色块 + 顶部深色标签条（青色上边框 + 白色下边框）+ 两格 1px 分隔
+     .ak-command--split              格内：水印图标（14% 不透明）+ 大标题 + 副行
+   本节只做三件 ak-ui 本身不该管的事：
+
+     ① **单位换算**：ak-ui 这套按钮是按 `cqw`（容器查询宽度）画的 ——
+        没有 query container 时 cqw 会退化成"视口宽度的百分比"，
+        在 1440px 屏幕上 2.08cqw≈30px、1.75cqw≈25px，全都会大出一圈。
+        这里把用到的每一处 cqw 都钉成固定 px。
+     ② **禁用态**：ak-ui 没给 .ak-command 写 :disabled 样式，而 app.js 会
+        在合成玉不足时把两个按钮 disabled —— 不补就会"看着能点、点了没反应"。
+     ③ **主题桥接**：浅色主题下把青色块换成浅底，标签条保持深色（原本就是深色条）。
+   回滚：删本节 + 把 index.html 那条换回旧的两个 .gh-act 即可。
+   ========================================================================== */
+
+.gh-recruit-group {
+    /* ① 钉死 cqw：顶部标签条高度 */
+    padding-top: 30px;
+    /* 方舟原版这条按钮组是"贴着屏幕底边的整条"，给它一个稳定的最小高度 */
+    min-height: 96px;
+    width: 100%;
+    /* 青色块本体色沿用 ak-ui 的 --ak-dashboard-cyan；这里显式给一份，
+       免得将来 dashboard 作用域变化把它带走。 */
+    --ak-dashboard-cyan: rgba(5, 167, 220, 0.92);
+    --ak-dashboard-info: #05a7dc;
+    background: var(--ak-dashboard-cyan);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.42);
+}
+
+/* 顶部标签条：深色条 + 青色上边框（沿用 ak-ui 比例，仅把 cqw 换成 px） */
+.gh-recruit-group::before {
+    height: 30px;
+    border-top: 3px solid var(--ak-dashboard-info);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.34);
+    background: rgba(24, 26, 28, 0.92);
+}
+.gh-recruit-group .ak-command-group__label {
+    top: 5px;
+    left: 16px;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 17px;
+}
+.gh-recruit-group .ak-command-group__label small {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    opacity: 0.6;
+}
+
+/* 两格：把 .ak-command 的 cqw 内外边距全部钉成 px。
+   ⚠️ 选择器必须写成三段 .gh-recruit-group .gh-recruit-act（(0,3,0)）。
+   ak-ui 对这条按钮组的内部覆盖是：
+     .ak-command-group--recruitment .ak-command--split{min-height:0;padding:.55cqw .75cqw}   (0,3,0)
+     .ak-command-group--recruitment .ak-command--split .ak-command__label{font-size:clamp(…)}(0,3,0)
+     .ak-command-group--recruitment .ak-command--split .ak-command__watermark{width:5cqw}   (0,3,0)
+   用一/两个类写（0,1,0 / 0,2,0）钉的 px 会**静默失效**，实测就是：
+     大标题仍是 29.45px（= 2.08cqw @1416）、水印 70.8px（= 5cqw）、内边距仍走 cqw。
+   三段 + 本节位于 style.css 末尾，才能稳定压过 —— 注意自定义属性也一样受层叠约束，
+   所以 --ten 的配色也必须同步升到三段，否则会被这里的 --ak-command-surface:transparent 盖掉。 */
+.gh-recruit-group .gh-recruit-act {
+    min-height: 66px;
+    padding: 10px 18px 9px;
+    /* 格内默认是深灰面；这里透出上层青色，两格才像"同一块青色板上的两格" */
+    --ak-command-surface: transparent;
+    --ak-command-text: #fff;
+    --ak-command-muted: rgba(255, 255, 255, 0.78);
+    --ak-command-signal: #fdfdfb;
+    background-image: none;
+    box-shadow: none;
+}
+.gh-recruit-group .gh-recruit-act .ak-command__label {
+    font-family: var(--font-display, var(--font-accent));
+    font-size: 21px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    text-shadow: 0 2px 5px rgba(0, 24, 36, 0.5);
+}
+.gh-recruit-group .gh-recruit-act .ak-command__label b {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    font-weight: 800;
+}
+.gh-recruit-group .gh-recruit-act .ak-command__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: rgba(255, 255, 255, 0.86);
+}
+.gh-recruit-group .gh-recruit-act .ak-command__meta img { width: 15px; height: 15px; object-fit: contain; }
+/* 水印图标：ak-ui 给的是 5cqw；钉成 40px 并保持它 14% 的透明度语言。
+   ⚠️ 这里必须凑够 (0,3,0)：ak-ui 的原规则是
+      `.ak-command-group--recruitment .ak-command--split .ak-command__watermark{width:5cqw}`,
+      两个类已经能压过 `.gh-recruit-act .ak-command__watermark`(0,2,0) ——
+      实测水印被渲染成 70.8px（= 5cqw @1416px 视口），钉的 px 完全没生效。
+      加上组的类凑到同特异性，再靠"本节在文件末尾"胜出。 */
+.gh-recruit-group .gh-recruit-act .ak-command__watermark {
+    width: 40px;
+    height: 40px;
+    opacity: 0.16;
+}
+.gh-recruit-group .gh-recruit-act .ak-command__watermark i { font-size: 34px; line-height: 1; }
+
+/* 十连那一格：方舟把"更重的那个操作"做成实心高亮，这里用白底青字表达它的份量。
+   同样必须三段：否则会被上面 `.gh-recruit-group .gh-recruit-act` 的
+   --ak-command-surface:transparent 按层叠顺序盖掉（自定义属性不例外）。 */
+.gh-recruit-group .gh-recruit-act--ten {
+    --ak-command-surface: rgba(253, 253, 251, 0.94);
+    --ak-command-text: #0b3746;
+    --ak-command-muted: rgba(11, 55, 70, 0.72);
+    --ak-command-signal: #05a7dc;
+}
+.gh-recruit-group .gh-recruit-act--ten .ak-command__label { text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); }
+.gh-recruit-group .gh-recruit-act--ten .ak-command__meta { color: rgba(11, 55, 70, 0.78); }
+
+/* ② 禁用态：合成玉不够时 app.js 会 disabled，必须看得出来 */
+.gh-recruit-group .gh-recruit-act:disabled,
+.gh-recruit-group .gh-recruit-act:disabled:hover {
+    cursor: not-allowed;
+    filter: grayscale(0.72) brightness(0.72);
+    transform: none;
+    opacity: 0.78;
+}
+.gh-recruit-group:has(.gh-recruit-act:disabled) { --ak-dashboard-cyan: rgba(74, 82, 88, 0.9); }
+
+/* ③ 浅色主题：青色块换浅底，标签条保持深色（它本来就是深色条） */
+body.theme-light .gh-recruit-group { --ak-dashboard-cyan: rgba(214, 234, 243, 0.96); }
+body.theme-light .gh-recruit-group:has(.gh-recruit-act:disabled) { --ak-dashboard-cyan: rgba(198, 200, 202, 0.94); }
+body.theme-light .gh-recruit-act { --ak-command-text: #0b3746; --ak-command-muted: rgba(11, 55, 70, 0.74); }
+body.theme-light .gh-recruit-act .ak-command__label { text-shadow: none; }
+body.theme-light .gh-recruit-act .ak-command__meta { color: rgba(11, 55, 70, 0.8); }
+body.theme-light .gh-recruit-act .ak-command__watermark { color: #0b3746; opacity: 0.14; }
+body.theme-light .gh-recruit-act--ten {
+    --ak-command-surface: rgba(5, 167, 220, 0.94);
+    --ak-command-text: #fff;
+    --ak-command-muted: rgba(255, 255, 255, 0.8);
+}
+body.theme-light .gh-recruit-act--ten .ak-command__label { color: #fff; }
+body.theme-light .gh-recruit-act--ten .ak-command__meta { color: rgba(255, 255, 255, 0.86); }
+body.theme-light .gh-recruit-act--ten .ak-command__watermark { color: #fff; }
+
+/* 窄屏：两格改为上下堆叠（ak-ui 在 36rem 以下只处理了 .ak-command-grid，
+   这条按钮组是自成一体的，得自己补一条） */
+@media (max-width: 640px) {
+    .gh-recruit-group {
+        grid-template-columns: 1fr;
+        gap: 1px;
+        min-height: 0;
+        padding-top: 28px;
+    }
+    .gh-recruit-group::before { height: 28px; }
+    .gh-recruit-group .ak-command-group__label { font-size: 15px; }
+    /* 同上：必须三段，否则被 ak-ui 的 .ak-command--split{min-height:0} 压掉（实测只剩 47px） */
+    .gh-recruit-group .gh-recruit-act { min-height: 56px; padding: 8px 14px; }
+    .gh-recruit-group .gh-recruit-act .ak-command__label { font-size: 18px; }
+    /* 竖排时"左右分隔"变成"上下分隔" */
+    .gh-recruit-group .ak-command--split:first-of-type { border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.36); }
+    .gh-recruit-group .gh-recruit-act .ak-command__watermark { width: 30px; height: 30px; opacity: 0.14; }
+    .gh-recruit-group .gh-recruit-act .ak-command__watermark i { font-size: 26px; }
+}
+
+/* ==========================================================================
+   §22.2  领取奖励弹窗：只有资源图标 + 一层模糊（R41 · 用户第 1、2 项）
+   --------------------------------------------------------------------------
+   用户原话①：「仅显示资源图标本身，移除多余背景窗口，但保留模糊效果作为窗口体现；
+               不要采用"打勾图标居中、发放奖励置下"的排布，按原游戏弹窗样式还原。」
+
+   旧版的三层冗余被全部拆掉：
+     · .modal 的深色面板（背景窗口）→ 现在 force 透明；
+     · .random-drop 那个独立小盒子（把随机掉落切成"第二块面板"）→ 去掉盒子；
+     · 居中的绿色打勾 .reward-external-check（正是"打勾居中、奖励置下"的那个元素）
+       → app.js 里已整块删除。
+   现在整窗只有：① 一层把页面糊掉的背板；② 一列资源图标；③ 一行底部状态。
+   背板同时承担 ak-ui .ak-dialog::backdrop 的角色（同一套做法：深色 + blur 3~9px），
+   因为本项目的弹窗是自研的 .modal-container 而不是原生 <dialog>，
+   拿不到 ::backdrop 伪元素，所以用 #rewardModal::before 复刻它的取值。
+
+   第 2 项（领奖后按钮残留）的样式一侧：底部改成**互斥的一对兄弟节点** ——
+   能领时是 .reward-claim-btn，领完是 .reward-claimed-state，由 app.js 的
+   setRewardFooter() 统一切 hidden 类；谁也不用内联 style 记状态，残留无从发生。
+   回滚：删本节 + 恢复 index.html 那两段 + 回退 app.js 的 setRewardFooter 调用。
+   ========================================================================== */
+
+/* ---- 22.2.1  背板：模糊就是"窗口" ---- */
+.modal-container#rewardModal::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background:
+        radial-gradient(ellipse 64% 46% at 50% 40%, rgba(12, 14, 17, 0.30), rgba(5, 6, 8, 0.82) 74%),
+        linear-gradient(180deg, rgba(5, 6, 8, 0.55), rgba(5, 6, 8, 0.72));
+    backdrop-filter: blur(9px) saturate(0.86);
+    -webkit-backdrop-filter: blur(9px) saturate(0.86);
+    pointer-events: none;
+}
+
+/* ---- 22.2.2  窗口本体不再画板子 ---- */
+/* ⚠️ 这条是必须的：.modal-container 默认 overflow:hidden，会把头部右上角的
+   关闭按钮右半边直接切掉（实测截图里只剩一个左弧）。实测把它改成 visible 后
+   整个圆形按钮才完整出现。只作用于奖励弹窗，不影响其它 modal。 */
+.modal-container#rewardModal { overflow: visible; }
+.modal-container#rewardModal .reward-settlement-modal {
+    position: relative;
+    z-index: 1;
+    width: min(94vw, 620px);
+    max-width: 620px;
+    max-height: 88dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: visible;
+}
+.modal-container#rewardModal .reward-body { padding: 0; overflow: visible; }
+
+/* ---- 22.2.3  头部：ak-ui .ak-dialog 的零件语言（左侧强调条 + eyebrow + 标题） ---- */
+.modal-container#rewardModal .reward-head {
+    position: relative;
+    display: grid;
+    gap: 5px;
+    padding: 0 0 14px 18px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+    border-left: 5px solid var(--ak-color-primary);
+    margin-bottom: 22px;
+    /* ⚠️ 这两行是必须的：.reward-head 同时带着旧类 .modal-header，
+       而早期规则 `.modal-header` 给它刷了
+         background-image: linear-gradient(rgba(0,0,0,.4), rgba(0,0,0,.25))
+         box-shadow: 0 4px 16px rgba(0,0,0,.3), 0 0 20px rgba(232,184,24,.08)
+       —— 一条深色横带 + 一圈金晕。用户要的是"移除多余背景窗口、只留模糊"，
+       头部再画一条带子就又是一块板子（实测该元素的 background-image 仍然是那条渐变）。
+       这里显式清掉，只保留左侧 5px 强调条与底部发丝线。 */
+    background: none;
+    background-image: none;
+    box-shadow: none;
+}
+.modal-container#rewardModal .reward-head .ak-dialog__eyebrow {
+    color: var(--ak-color-tech);
+    font-size: 11px;
+    letter-spacing: 0.24em;
+}
+.modal-container#rewardModal .reward-head .ak-dialog__title {
+    margin: 0;
+    color: var(--text-primary);
+    font-family: var(--font-display, var(--font-accent));
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+.modal-container#rewardModal .reward-head .modal-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+/* ---- 22.2.4  奖励本体：一列连续图标，没有盒子 ---- */
+.modal-container#rewardModal .reward-settlement-content { display: grid; gap: 0; }
+.modal-container#rewardModal .reward-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 20px 26px;
+    padding: 0;
+}
+.modal-container#rewardModal .reward-circle-card { margin: 0; }
+.modal-container#rewardModal .reward-label {
+    color: var(--text-primary);
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+/* 随机掉落：从"第二块面板"降级为同一列里的一个分组标题 + 一排更小的图标。
+   去掉盒子是用户点名要的（"移除多余背景窗口"），用一条发丝线分组即可。 */
+.modal-container#rewardModal .random-drop {
+    margin: 22px 0 0;
+    padding: 16px 0 0;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+}
+.random-drop-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.random-drop-en {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.22em;
+    color: var(--ak-color-tech);
+}
+.modal-container#rewardModal .random-drop h4 {
+    margin: 0;
+    color: var(--text-secondary-1);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+}
+
+/* 空态 */
+.modal-container#rewardModal .reward-empty-msg {
+    margin: 0;
+    padding: 24px 0;
+    color: var(--text-secondary-1);
+    text-align: center;
+    font-size: 14px;
+}
+
+/* ---- 22.2.5  底部：互斥的一对状态（第 2 项的核心） ---- */
+.modal-container#rewardModal .reward-settlement-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+.modal-container#rewardModal .reward-claim-btn {
+    min-width: 240px;
+    letter-spacing: 0.08em;
+}
+/* 已领取：与领取按钮互斥的兄弟节点，同尺寸同位置，只换语义色 */
+.modal-container#rewardModal .reward-claimed-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 240px;
+    min-height: 46px;
+    padding: 0 26px;
+    border: 1px solid color-mix(in srgb, var(--ak-color-success, #5FBF7F) 46%, transparent);
+    border-radius: 8px;
+    color: var(--ak-color-success, #5FBF7F);
+    background: color-mix(in srgb, var(--ak-color-success, #5FBF7F) 13%, transparent);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+.modal-container#rewardModal .reward-claimed-state i { font-size: 15px; }
+/* 领奖按钮被禁用时（窄窗动画期间）必须一眼看出不可点，而不是"看着能点却没反应" */
+.modal-container#rewardModal .reward-claim-btn:disabled {
+    filter: grayscale(0.6) brightness(0.7);
+    cursor: not-allowed;
+    transform: none;
+}
+/* 两个状态只由 .hidden 决定显隐；显式写死 !important，压过任何历史内联/组件规则。
+   （.modal 内部若有 display:flex 之类的规则会和 .hidden 打架，这里一次钉死。） */
+.modal-container#rewardModal .reward-claim-btn.hidden,
+.modal-container#rewardModal .reward-claimed-state.hidden { display: none !important; }
+
+/* ---- 22.2.5b  浅色主题：透明面板上的文字要重新配一档 ----
+   深色主题下标题/标签靠"深底 + 白字 + 深投影"成立；浅色主题里底色变亮，
+   同一套深投影会把字糊成一团灰（实测浅色截图里"任务奖励"和"经验值/龙门币"
+   几乎看不清）。浅色单独一档：深字 + 极淡白描边 + 去掉暗投影。 */
+body.theme-light .modal-container#rewardModal .reward-head .ak-dialog__title {
+    color: #1b1d1f;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+body.theme-light .modal-container#rewardModal .reward-label {
+    color: #26292c;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+body.theme-light .modal-container#rewardModal .reward-head { border-bottom-color: rgba(0, 0, 0, 0.14); }
+body.theme-light .modal-container#rewardModal .random-drop { border-top-color: rgba(0, 0, 0, 0.12); }
+body.theme-light .modal-container#rewardModal .reward-settlement-footer { border-top-color: rgba(0, 0, 0, 0.14); }
+body.theme-light .modal-container#rewardModal .random-drop h4 { color: #3a3d40; }
+body.theme-light .modal-container#rewardModal .reward-empty-msg { color: #55585c; }
+
+/* ---- 22.2.6  窄屏 ---- */
+@media (max-width: 520px) {
+    .modal-container#rewardModal .reward-settlement-footer { flex-direction: column; }
+    .modal-container#rewardModal .reward-claim-btn,
+    .modal-container#rewardModal .reward-claimed-state { width: 100%; min-width: 0; }
+    .modal-container#rewardModal .reward-head .ak-dialog__title { font-size: 22px; }
+    .modal-container#rewardModal .reward-grid { gap: 16px 18px; }
+}
+
+/* ==========================================================================
+   §22.3  追踪面板：进度条 + 绿色打勾重做，并清理重复的矩形/切角矩形（R41 · 第 3 项）
+   --------------------------------------------------------------------------
+   用户原话：「追踪任务窗口风格与原游戏不符，重点重做进度条和绿色打勾图标；
+               将大量重复的矩形与切角矩形整合，减少冗余。」
+
+   三件事：
+
+   ① 进度条 —— 刻度改成**原版贴图**。
+      ak-ui 的 .ak-progress__track::after 用 repeating-linear-gradient 画竖直分隔线，
+      那是组件库对"分段"的近似。这里换成方舟任务页真正的进度刻度贴图
+      pages/missiontab/sprite_track_point_frame.webp（39×39 的菱形描边），
+      用 mask 铺成 repeat-x —— 好处是**颜色还能跟着语义走**（mask 只取 alpha，
+      底色由 background-color 决定），所以 tree/count/manual 三种配色都还成立。
+
+   ② 绿色打勾 —— 换成原版贴图，不再是 CSS 拼的方块 + 两条边。
+      贴图用 pages/pages/confirm.webp（41×41）：一个**实心圆盘 + 镂空勾**，
+      这正是方舟原版"确认/已完成"的那个图标本体。
+      ⚠️ 中途踩过的坑：一开始用的是 img_check_btn.webp，因为名字像"勾选按钮"——
+        实际它是 voucher_skin_page（时装券页）里的**蓝色三角形 + 放大镜**按钮，
+        渲染出来是一个绿色三角，完全不是勾。manifest 的 src 字段能证实来源。
+      实现方式：把 confirm 当 **mask**（只取 alpha），再用 background-color 上
+      --ak-signal-success → 得到"绿圆盘 + 镂空勾"，颜色随语义令牌走，
+      浅色主题也只需换令牌，不必换贴图。
+
+   ③ 冗余的矩形/切角矩形 —— 数一数旧版一屏里有几个盒子：
+        子任务行 ×3   → 每行一个 clip-path 切角矩形 + 一层半透明底
+        状态徽标 ×3   → 每个又一个 clip-path 切角矩形（还带一条左侧色条）
+        进度面板 ×1   → 再一个带边框的矩形
+      也就是十几张"看起来差不多"的矩形叠在一起，这正是"缺乏设计感"的来源。
+      整合后：
+        · 子任务改为**平铺行 + 发丝分隔线**（游戏里任务列表就是这样），
+          去掉每行的 clip-path 与底色，只在 hover 时给一层极淡的底；
+        · 状态徽标降级为**纯文字**（等宽、字距、按状态换色），一次干掉 3 个切角矩形；
+        · 进度面板去掉边框与底色，改成一条发丝线 + 计数值，再干掉 1 个矩形。
+   回滚：删本节即可（子任务会退回"每行一个切角盒子"的旧样式）。
+   ========================================================================== */
+
+/* ---- 22.3.1 进度条：刻度换成原版菱形贴图 ---- */
+.tracking-progress .ak-progress__track { height: .8rem; overflow: hidden; }
+.tracking-progress .ak-progress__track::after {
+    background: none;
+    background-color: rgba(243, 244, 239, 0.34);
+    -webkit-mask-image: url("img/ui/pages/missiontab/sprite_track_point_frame.webp");
+    mask-image: url("img/ui/pages/missiontab/sprite_track_point_frame.webp");
+    -webkit-mask-size: 13px 13px;
+    mask-size: 13px 13px;
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    -webkit-mask-position: left center;
+    mask-position: left center;
+}
+/* 填充条：给一个更实的收边，视觉上像"一格一格点亮" */
+.tracking-progress .ak-progress__fill { box-shadow: 0 0 .9rem color-mix(in srgb, var(--ak-progress-signal) 70%, transparent); }
+
+/* ---- 22.3.2 绿色打勾：原版 confirm 贴图做 mask + 色彩语义化 ---- */
+.tracking-subtask .ak-choice__input:checked,
+.tracking-subtask.is-done .ak-choice__input {
+    border-color: transparent;
+    /* 贴图当 mask 用（只取 alpha），颜色由 background-color 决定 ——
+       于是"绿勾"这件事只剩一个令牌：换 --ak-signal-success 即整体换色。 */
+    background-color: var(--ak-signal-success);
+    background-image: none;
+    -webkit-mask-image: url("img/ui/pages/pages/confirm.webp");
+    mask-image: url("img/ui/pages/pages/confirm.webp");
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    box-shadow: none;
+    filter: drop-shadow(0 0 5px rgba(95, 191, 127, 0.42));
+}
+/* confirm 贴图自带镂空勾形，撤掉 ak-ui 用 border 拼的那条勾，避免出现两个勾 */
+.tracking-subtask.is-done .ak-choice__input::after,
+.tracking-subtask .ak-choice__input:checked::after { opacity: 0; }
+
+/* ---- 22.3.3 子任务行：平铺 + 发丝线，删掉每行的切角矩形 ---- */
+.tracking-subtasks { gap: 0; }
+.tracking-subtask {
+    padding: .48rem .05rem;
+    background: none;
+    clip-path: none;
+    border-bottom: 1px solid rgba(255, 255, 255, .075);
+    transition: background var(--ak-motion-fast, 120ms) var(--ak-ease-standard, ease);
+}
+.tracking-subtask:last-child { border-bottom: 0; }
+.tracking-subtask:hover { background: rgba(255, 255, 255, .05); }
+.tracking-subtask.is-done { background: none; }
+.tracking-subtask.is-done:hover { background: rgba(255, 255, 255, .05); }
+/* 完成态不再把整行刷绿（那是"重复的绿色矩形"里最大的一块），
+   绿只保留在两处语义位上：左侧的勾 + 右侧的状态文字。 */
+
+/* ---- 22.3.4 状态徽标 → 纯文字（一次删掉 3 个切角矩形） ---- */
+.tracking-subtask .subtask-status-badge {
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    clip-path: none;
+    color: var(--text-muted-1);
+    font-family: var(--font-mono);
+    font-size: .625rem;
+    font-weight: 800;
+    letter-spacing: .12em;
+}
+.tracking-subtask .subtask-status-badge::before { display: none; }
+.tracking-subtask .subtask-status-badge { --ak-tag-signal: var(--ak-signal-disabled); }
+.tracking-subtask.is-done .subtask-status-badge { color: var(--ak-signal-success); }
+.tracking-subtask.is-cancelled .subtask-status-badge { color: var(--ak-signal-danger); }
+
+/* ---- 22.3.5 进度面板 → 一条发丝线（删掉最后一个矩形） ---- */
+.tracking-progress {
+    margin: .85rem 0 0;
+    padding: .75rem 0 0;
+    border: 0;
+    border-top: 1px solid rgba(255, 255, 255, .10);
+    background: none;
+    box-shadow: none;
+}
+
+/* ---- 22.3.6 浅色主题：上面几条都要跟着把盒子撤掉（旧规则特异性更高，必须补） ---- */
+body.theme-light .tracking-subtask { background: none; }
+body.theme-light .tracking-subtask:hover { background: rgba(0, 0, 0, .045); }
+body.theme-light .tracking-subtask.is-done { background: none; }
+body.theme-light .tracking-subtask { border-bottom-color: rgba(0, 0, 0, .09); }
+body.theme-light .tracking-progress { background: none; border-color: rgba(0, 0, 0, .12); }
+body.theme-light .tracking-progress .ak-progress__track::after { background-color: rgba(17, 19, 21, 0.30); }
+/* 浅色下"绿色打勾"也必须继续走 mask —— 旧规则 (0,3,1) 会给它刷一层白底绿边，把贴图挡掉。
+   注意浅色主题不能指向 --ak-signal-success（它会切成浅色语义绿，在浅底上发灰），
+   这里直接给深一档的绿，保证在浅底上仍有对比。 */
+body.theme-light .tracking-subtask.is-done .ak-choice__input,
+body.theme-light .tracking-subtask .ak-choice__input:checked {
+    background-color: var(--ak-color-success-strong, #2E9E5B);
+    background-image: none;
+    border-color: transparent;
+    -webkit-mask-image: url("img/ui/pages/pages/confirm.webp");
+    mask-image: url("img/ui/pages/pages/confirm.webp");
+}
+
+/* ==========================================================================
+   §22.4  专注模式：把"纯几何堆叠"换成原版贴图构成的舞台（R41 · 第 4 项）
+   --------------------------------------------------------------------------
+   用户原话：「专注模式设计过于单一，仅由普通几何图形堆凑，矩形过多且缺乏设计感，
+               需重新设计。」
+   旧版专注态 = 一个标题 + 一条分区线 + 一个矩形进度面板 + 两个矩形按钮 +
+   一个八角形 + 一个方形小按钮 —— 全是几何块，且彼此之间没有呼吸。
+
+   这一版的思路：**保留 ak-ui 组件（它们是规范），补上一层由原版贴图构成的
+   空间与光**，让八角仪表不再"孤零零浮在黑底上"：
+     .focus-deco-glow   径向柔光，给计时器一个体积感的光背
+     .focus-deco-flare  四角科技光斑（右上），把画面从中心往外拉
+     .focus-deco-dust   金色微粒，铺一层空气感（screen 混合）
+     .focus-deco-leak   底边渐隐，把视线收回计时器
+   全部来自 static/img/ui/（Ark-Unpacker 从 APK 解出的游戏原生 webp），
+   不是 CSS 画的形状；只在 body.focus-mode 下出现，pointer-events:none。
+
+   另外给八角仪表套了 ak-ui 自己的 .ak-face__lines 四角刻度线 ——
+   那个零件在组件库里的用途就是"给一个方块加工程图式的四角短线"，
+   用在这里正好补掉"一个孤零零的八角形"的单薄感，且不新增任何矩形。
+   回滚：删本节 + 去掉 index.html 的 .focus-deco / .tracking-gauge-wrap 两层。
+   ========================================================================== */
+
+/* ---- 22.4.1 装饰层 ---- */
+.focus-deco { display: none; }
+.focus-deco > span { position: absolute; display: block; }
+body.focus-mode .focus-deco {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+/* 内容抬到装饰层之上（装饰只负责"背景的呼吸"） */
+body.focus-mode .tracking-expanded > *:not(.focus-deco) { position: relative; z-index: 1; }
+
+.focus-deco-glow {
+    left: 50%;
+    top: 44%;
+    width: min(86vw, 760px);
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: url("img/ui/glow_basic.webp") center / contain no-repeat;
+    opacity: .34;
+    filter: saturate(.25) brightness(1.12);
+}
+.focus-deco-flare {
+    right: -10%;
+    top: -8%;
+    width: min(52vw, 460px);
+    aspect-ratio: 1;
+    background: url("img/ui/wipe_tech_1.webp") center / contain no-repeat;
+    opacity: .15;
+    transform: rotate(18deg);
+}
+.focus-deco-dust {
+    inset: 0;
+    background: url("img/ui/dust_gold.webp") left top / 230px 230px repeat;
+    opacity: .26;
+    mix-blend-mode: screen;
+}
+.focus-deco-leak {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 32%;
+    background: url("img/ui/leakedge.webp") center bottom / 100% 100% no-repeat;
+    opacity: .3;
+}
+
+/* ---- 22.4.2 八角仪表：套上 ak-ui .ak-face__lines 四角刻度线 ---- */
+.tracking-gauge-wrap {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    padding: 13px;
+    --cube-size: 208px;
+    --cube-border-width: .22rem;
+    color: color-mix(in srgb, var(--ak-color-primary) 58%, transparent);
+}
+.tracking-gauge-wrap .ak-face__line--tl,
+.tracking-gauge-wrap .ak-face__line--tr,
+.tracking-gauge-wrap .ak-face__line--bl,
+.tracking-gauge-wrap .ak-face__line--br { inset: 0; }
+/* 光背：让八角形"坐"在一团光上，而不是浮在纯黑里 */
+.tracking-gauge-wrap::before {
+    position: absolute;
+    inset: -6%;
+    content: "";
+    background: radial-gradient(circle at 50% 50%,
+        color-mix(in srgb, var(--ak-gauge-signal, var(--ak-signal-action)) 26%, transparent),
+        transparent 68%);
+    pointer-events: none;
+}
+
+/* ---- 22.4.3 专注态的节奏：分区线与进度都收窄、居中，避免"一条线顶到边" ---- */
+body.focus-mode .tracking-divider--sub { margin: 1.6rem 0 0; }
+body.focus-mode .tracking-divider--sub span { letter-spacing: .34em; }
+body.focus-mode .tracking-progress { width: min(34rem, 100%); margin: .95rem auto 0; }
+body.focus-mode .tracking-actions {
+    justify-content: center;
+    gap: 14px;
+    margin-top: 1.5rem;
+    padding-top: 1.4rem;
+    border-top: 1px solid rgba(255, 255, 255, .10);
+}
+body.theme-light.focus-mode .tracking-actions { border-top-color: rgba(0, 0, 0, .12); }
+body.focus-mode .tracking-footer { margin-top: 1.2rem; }
+
+/* ==========================================================================
+   §22.5  日历视图：把"自动算出来的节日"变成版面的主体（R41 · 第 5 项）
+   --------------------------------------------------------------------------
+   用户原话：「日历视图无任何装饰、极度单调，需自动计算并展示各类常见节日与节假日，
+               布局从左到右为周一到周日。」
+
+   两件事分头做：
+     · **周一到周日**：在 app.js renderCalendar()，把 Date.getDay() 平移 6 位
+       （Mon=0 … Sun=6），表头也跟着换成 一 MON … 日 SUN。所以周末判定
+       从"第 0、6 列"变成"第 5、6 列" —— 这里不用改，CSS 只认 .is-weekend 类。
+     · **节日与假日**：由 static/calendar-festivals.js 计算（农历 + 24 节气 +
+       法定假日，1900–2100 纯本地），每格最多显示 2 个节日 chip，超出的收成 +N，
+       网格下方再给一条本月节日图例。节日是**信息**，顺带就把"单调"解决了 ——
+       比再铺一层纯装饰图案更符合"参照原游戏"的要求。
+
+   装饰部分只加了两样，都克制：
+     ① 网格容器铺一层原版噪点贴图（card_noise.webp，4% 不透明度），
+        让玻璃面不再是干净的纯色块；
+     ② 表头改双语、周末列走暖金，和全站 OPERATION / HEADHUNT 的双语语汇对齐。
+   ⚠️ 网格容器是 display:grid，两个伪元素必须显式 position:absolute，
+      否则会变成 grid item 顶掉一格日期。
+   回滚：删本节 + 回退 renderCalendar 的两处改动。
+   ========================================================================== */
+
+/* ---- 22.5.1 网格底噪 ---- */
+.calendar-container .calendar-grid { position: relative; }
+.calendar-container .calendar-grid::after {
+    position: absolute;
+    inset: 0;
+    content: '';
+    border-radius: 10px;
+    background: url("img/ui/card_noise.webp") left top / 128px 128px repeat;
+    opacity: .045;
+    pointer-events: none;
+}
+
+/* ---- 22.5.2 表头：双语 + 周末暖金 ---- */
+.calendar-container .calendar-day-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    padding: 4px 0 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, .09);
+    letter-spacing: 0;
+    text-indent: 0;
+}
+.cal-dow-cn {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    color: var(--text-secondary-2);
+}
+.cal-dow-en {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .18em;
+    color: var(--text-muted-3);
+}
+.calendar-container .calendar-day-header.is-weekend .cal-dow-cn { color: rgba(232, 184, 24, .78); }
+.calendar-container .calendar-day-header.is-weekend .cal-dow-en { color: rgba(232, 184, 24, .48); }
+
+/* ---- 22.5.3 格子里的节日 chip ---- */
+.calendar-fest {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: -1px 0 6px;
+}
+.cal-fest {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    padding: 1px 5px;
+    border-left: 2px solid currentColor;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.45;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: rgba(255, 255, 255, .06);
+    color: var(--text-secondary-1);
+}
+.cal-fest.lv-1 { font-weight: 800; }
+.cal-fest.kind-lunar { color: #F0C860; background: rgba(240, 200, 96, .13); }
+.cal-fest.kind-term  { color: #7FD0C0; background: rgba(127, 208, 192, .13); }
+.cal-fest.kind-solar { color: #9DB6C8; background: rgba(157, 182, 200, .11); }
+.cal-fest.kind-intl  { color: #8C93A0; background: rgba(140, 147, 160, .10); }
+/* 法定假日：给它一句"休"，这是用户点名要的"节假日"最直观的表达 */
+.cal-fest-rest {
+    margin-left: 2px;
+    padding: 0 3px;
+    border-radius: 2px;
+    background: #C8433A;
+    color: #fff;
+    font-style: normal;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+.cal-fest-more { align-self: center; font-size: 10px; color: var(--text-muted-3); }
+
+/* 格子状态：有节日 → 暖金星描边；法定假日 → 收敛的赤色底 */
+.calendar-container .calendar-day.has-fest { border-color: rgba(240, 200, 96, .22); }
+.calendar-container .calendar-day.is-rest {
+    border-color: rgba(200, 67, 58, .32);
+    background:
+        linear-gradient(180deg, rgba(200, 67, 58, .10), rgba(0, 0, 0, .12)),
+        rgba(34, 30, 32, .60);
+}
+/* 周末列给一层极淡的底，让"周一 → 周日"的节奏读得出来 */
+.calendar-container .calendar-day.is-weekend:not(.other-month) { background-color: rgba(255, 255, 255, .014); }
+
+/* ---- 22.5.4 本月节日图例（网格下方那条） ---- */
+.calendar-legend {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 10px;
+    background: rgba(22, 22, 26, .45);
+}
+.cal-legend-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .22em;
+    color: var(--ak-color-primary);
+}
+.cal-legend-list { display: flex; flex-wrap: wrap; gap: 6px 10px; }
+.cal-legend-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+    padding: 2px 8px;
+    border-left: 2px solid currentColor;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, .045);
+    font-size: 11.5px;
+    color: var(--text-secondary-1);
+}
+.cal-legend-item b { font-family: var(--font-mono); font-weight: 800; color: var(--text-primary); }
+.cal-legend-item em { font-style: normal; font-weight: 700; }
+.cal-legend-item.kind-lunar { color: #F0C860; }
+.cal-legend-item.kind-term  { color: #7FD0C0; }
+.cal-legend-item.kind-solar { color: #9DB6C8; }
+.cal-legend-item.kind-intl  { color: #8C93A0; }
+
+/* ---- 22.5.5 浅色主题 ---- */
+body.theme-light .calendar-container .calendar-grid,
+body.theme-light .calendar-legend { background: rgba(255, 255, 255, .74); border-color: rgba(0, 0, 0, .08); }
+body.theme-light .cal-fest { background: rgba(0, 0, 0, .05); }
+body.theme-light .cal-legend-item { background: rgba(0, 0, 0, .04); }
+body.theme-light .cal-legend-item b { color: #1b1d1f; }
+body.theme-light .cal-dow-en { color: rgba(0, 0, 0, .42); }
+body.theme-light .calendar-container .calendar-day.has-fest { border-color: rgba(176, 132, 10, .30); }
+
+/* ==========================================================================
+   §22.7  任务卡重新布局：把中段空白换成奖励预览（R41 · 第 7 项）
+   --------------------------------------------------------------------------
+   用户原话：「任务列表卡片样式继续优化：当前排版奇怪，元素集中在两侧拥挤、
+               中间留白过多，需重新布局。」
+
+   病灶（一行 CSS 引起的）：`.task-title{flex:1 1 auto}`（L4578）。
+   标题把自己撑满整行，于是后面「主线 / 日常」两个标签被顶到行尾 ——
+   左边是"星级 + 标题"，右边是"标签 + 进度 + 操作"，中间空出一大片暗区。
+   第二行同样是"左端描述 / 右端分类标签"的分裂结构，回到同一个毛病。
+   注意：光把标题改成 flex:0 1 auto 是不够的 —— 那只会把空白挪到标签之后。
+   **空白必须被一个"看得见的东西"占掉**，所以 app.js 新增了 .task-rewards
+   （奖励图标预览，见 buildTaskRewardStrip）：它 flex:1 1 auto 吃掉整段余量，
+   并把自己的图标右对齐，正好贴在标签左侧 —— 中段于是变成"回报"信息。
+
+   第二行用 margin-right:auto 把分类标签拉回描述文字旁边（不是改它的 flex ——
+   R40 里 .task-tags 的 flex:0 0 auto / max-width:62% 是修移动端挤压的关键，
+   动它会连带把窄屏布局弄坏；margin-right:auto 只影响多余空间的分配，安全）。
+
+   窄屏：直接隐藏奖励预览条。R40 已经把移动端卡片压到 171px 高，
+   再塞一排图标会把标题行重新挤变形；而窄屏下标题只占自身宽度，
+   标签紧跟其后，本来就没有中段空白需要填。
+   回滚：删本节 + 去掉 createTaskCard 里的 buildTaskRewardStrip 调用。
+   ========================================================================== */
+
+.task-top-row { gap: 8px; }
+/* 标题不再吃满整行（只占自身宽度，过长时仍会收缩 + 省略号） */
+.task-top-row > .task-title { flex: 0 1 auto; }
+
+/* 奖励预览条：唯一的"余量承接者"，右对齐贴在标签左侧 */
+.task-rewards {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 9px;
+    overflow: hidden;
+}
+.task-reward-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+.task-reward-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+}
+.task-reward-icon svg,
+.task-reward-icon img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.task-reward-value {
+    color: var(--text-secondary-1);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.task-reward-chip.is-drop .task-reward-icon { opacity: .75; }
+/* 资源图标自带的圆形底板在 18px 下会糊，这里统一给它一层极淡的托底 */
+.task-reward-icon > span,
+.task-reward-icon > i {
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 第二行：分类标签回到描述旁边，行尾不再被撑开。
+   ⚠️ 只给 .task-tags 加 margin-right:auto 是**不够的** —— 实测标签仍然贴在行尾
+   （距行宽 100%）。原因是同一行的 .task-desc 是 flex:1 1 auto，它会把剩余空间
+   全部吃掉，auto 外边距根本没有空间可吸。必须同时把描述改成"只占自身宽度、
+   过长才收缩"（flex:0 1 auto + min-width:0 仍保留省略号截断），
+   标签才会真正跟在描述后面。 */
+.task-meta-row > .task-desc { flex: 0 1 auto; }
+.task-meta-row > .task-tags { margin-right: auto; }
+
+/* 窄屏：让位给 R40 已经调好的紧凑布局 */
+@media (max-width: 768px) {
+    .task-rewards { display: none; }
+}
+
+/* 浅色主题：数值与图标在浅底上要够深 */
+body.theme-light .task-reward-value { color: var(--text-secondary-2, #55524c); }

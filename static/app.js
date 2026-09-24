@@ -245,6 +245,9 @@ function cacheDOM() {
     DOM.rewardDetails = document.getElementById('rewardDetails');
     DOM.randomDropSection = document.getElementById('randomDropSection');
     DOM.randomDropContent = document.getElementById('randomDropContent');
+    // R41：底部「领取奖励 / 附件已领取」互斥对 + 弹窗英文小标（见 setRewardFooter）
+    DOM.rewardClaimedState = document.getElementById('rewardClaimedState');
+    DOM.rewardEyebrow = document.getElementById('rewardEyebrow');
     DOM.rewardClaimBtn = document.getElementById('rewardClaimBtn');
     DOM.importTextarea = document.getElementById('importTextarea');
     DOM.exportTextarea = document.getElementById('exportTextarea');
@@ -1871,6 +1874,72 @@ function goldStars(rarity, extraClass = '') {
     return `<span class="g-stars">${html}</span>`;
 }
 
+/* R41 第 7 项：任务卡上的「奖励预览条」。
+   方舟任务行本来就会在标题右侧列出可获得的东西，这里照这个语义做一个紧凑版：
+   只放**非零**的资源，圆形小图标 + 数值，最多 4 个（经验/龙门币/源石/合成玉），
+   后面若还有随机掉落，只给一个"宝箱 × 种类数"的角标 ——
+   既要填满标题行中段，又绝不允许把长标题挤变形（所以外层给了 max-width）。
+   图标复用 RESOURCE_SVGS + tryUpgradeResIcon，与原版资源图标是同一套。 */
+function buildTaskRewardStrip(task) {
+    const defs = [
+        ['exp', task.reward_exp, '经验值'],
+        ['lungmen', task.reward_lungmen, '龙门币'],
+        ['source_stone', task.reward_source_stone, '源石'],
+        ['orundum', task.reward_orundum, '合成玉']
+    ];
+    const items = [];
+    defs.forEach(([key, raw, name]) => {
+        const n = Math.floor(Number(raw) || 0);
+        if (n > 0) items.push({ key, val: n, name });
+    });
+    let dropKinds = 0;
+    if (task.drop_config) {
+        try {
+            const cfg = JSON.parse(task.drop_config);
+            const drops = Array.isArray(cfg) ? cfg : (cfg.random_drops || []);
+            if (Array.isArray(drops)) dropKinds = drops.length;
+        } catch (e) { /* drop_config 坏数据不该影响卡片渲染 */ }
+    }
+    if (!items.length && !dropKinds) return null;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'task-rewards';
+    // 数值紧凑化：4 位以上折成"万"，避免一条 exp 就把标题行撑爆
+    const fmt = (n) => n >= 10000 ? `${(n / 10000).toFixed(n % 10000 ? 1 : 0)}万` : String(n);
+
+    items.forEach(it => {
+        const chip = document.createElement('span');
+        chip.className = 'task-reward-chip';
+        chip.title = `${it.name} ${it.val}`;
+        const icon = document.createElement('span');
+        icon.className = 'task-reward-icon';
+        icon.innerHTML = RESOURCE_SVGS[it.key] || '';
+        try { tryUpgradeResIcon(icon, it.key); } catch (e) {}
+        const val = document.createElement('b');
+        val.className = 'task-reward-value';
+        val.textContent = fmt(it.val);
+        chip.appendChild(icon);
+        chip.appendChild(val);
+        wrap.appendChild(chip);
+    });
+
+    if (dropKinds) {
+        const chip = document.createElement('span');
+        chip.className = 'task-reward-chip is-drop';
+        chip.title = `随机掉落 ${dropKinds} 种`;
+        const icon = document.createElement('span');
+        icon.className = 'task-reward-icon';
+        icon.innerHTML = DROP_CHEST_SVG;
+        const val = document.createElement('b');
+        val.className = 'task-reward-value';
+        val.textContent = `×${dropKinds}`;
+        chip.appendChild(icon);
+        chip.appendChild(val);
+        wrap.appendChild(chip);
+    }
+    return wrap;
+}
+
 function createTaskCard(task) {
     const card = document.createElement('div');
     card.className = `task-card status-${task.status} ${task.children && task.children.length ? 'parent-task' : 'child-task'} task-level-${task.level || 0}`;
@@ -1971,6 +2040,16 @@ function createTaskCard(task) {
     trackTag.appendChild(trackIcon);
     trackTag.appendChild(document.createTextNode((task.track === 'campaign') ? ' 主线战役' : ' 日常'));
     topRow.appendChild(trackTag);
+    /* R41 第 7 项：奖励预览条 —— 填掉标题行中段那片空白。
+       用户原话：「当前排版奇怪，元素集中在两侧拥挤、中间留白过多，需重新布局」。
+       根因在 CSS：.task-title 是 flex:1 1 auto，会把后面「主线/日常」两个标签
+       一路顶到行尾，标题与标签之间于是空出一大片没有任何内容的暗区。
+       现在标题只占自身宽度，剩下的空间交给这条奖励预览（flex:1 1 auto + 右对齐）：
+       左边是"身份"（星级 + 标题 + 主线/日常），右边紧挨着"回报"（奖励图标），
+       中段不再留白 —— 而且这正是方舟任务行本来的样子（任务行右侧列奖励）。
+       没有奖励的任务不会生成这个节点，此时标题行自然左聚拢，同样没有空白。 */
+    const rewardStrip = buildTaskRewardStrip(task);
+    if (rewardStrip) topRow.appendChild(rewardStrip);
     // 稀有度框（优先级 → 方舟素材稀有度边框：1→r6金 / 2→r5 / 3→r4 / 4→r3 / 5→r2 / 6→r1）
     // 稀有度框已移除：星级（★）已是优先级的直观展示，圆形角标与卡片风格冲突
     main.appendChild(topRow);
@@ -2297,11 +2376,10 @@ async function claimTaskFromCard(taskId, cardEl){
     (result.materials || []).forEach(m => granted.push({ key: m.type, amount: m.amount }));
 
     if (granted.length){
-        showPackRewardModal(granted);
-        const titleEl = document.querySelector('#rewardModal .modal-title');
-        if (titleEl) titleEl.textContent = (result.claimed_count > 1)
-            ? `奖励已领取 · 含 ${result.claimed_count} 个任务`
-            : '奖励已领取';
+        /* R41 第 2 项：标题留在「任务奖励」，把"已经领到手了"这件事交给底部那颗
+           互斥状态 #rewardClaimedState 表达。旧版这里还把标题改成「奖励已领取」，
+           于是同一句话在弹窗里出现两遍（标题一次、按钮一次）。 */
+        showPackRewardModal(granted, 'claimed');
     } else {
         showToast('奖励已领取');
     }
@@ -2966,8 +3044,22 @@ function renderCalendar() {
     const now = state.calendarMonth;
     const year = now.getFullYear(), month = now.getMonth();
     DOM.calendarTitle.textContent = `${year}年${month+1}月`;
-    const firstDay = new Date(year, month, 1).getDay();
+    /* R41 第 5 项：周序改为**周一 → 周日**（用户明确要求"布局从左到右为周一到周日"）。
+       旧版直接用 Date.getDay()（周日=0），所以表头是 日一二三四五六。
+       把 getDay() 平移 6 位即得 Mon=0 … Sun=6：
+         Mon(1)→0, Tue(2)→1, … Sat(6)→5, Sun(0)→6。
+       下面所有和 firstDay 有关的补齐逻辑都只是"前导格数"，平移后天然成立。 */
+    const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
     const daysInMonth = new Date(year, month+1, 0).getDate();
+
+    /* R41 第 5 项：节日 / 节气 / 法定假日。
+       引擎是 static/calendar-festivals.js（纯本地计算，农历 + 24 节气，1900–2100），
+       整月一次算好，避免在 42 个格子里各算一遍。
+       取不到引擎时退化成空表 —— 日历本身必须还能用（它只是装饰层）。 */
+    const FEST = (typeof window !== 'undefined' && window.QuestFestivals) ? window.QuestFestivals : null;
+    let festByDay = {};
+    if (FEST) { try { festByDay = FEST.forMonth(year, month) || {}; } catch (e) { festByDay = {}; } }
+
     const tasksByDate = {};
     state.flatTasks.filter(t=>!t.archived&&!t.deleted).forEach(t=>{
         if(t.due_date){ const d=t.due_date.substring(0,10); if(!tasksByDate[d]) tasksByDate[d]=[]; tasksByDate[d].push(t); }
@@ -2980,17 +3072,26 @@ function renderCalendar() {
          · 前后补齐相邻月份的日期（灰显），格子不再一片空洞；
          · 数字左上、完成进度右上，格子顶部有一条状态色细线；
          · 任务条最多摆 3 条，多出来的收成「+N」；
-         · 今天 = 金色数字 + 金色描边；周末数字走暖金；悬停走暖金细线（不再蓝）。 */
+         · 今天 = 金色数字 + 金色描边；周末数字走暖金；悬停走暖金细线（不再蓝）。
+       R41 第 5 项再补：表头改双语（一 MON … 日 SUN）、格子里加节日/节气/法定假日，
+       并在网格下面给出本月节日图例 —— 用户说日历"无任何装饰、极度单调"。 */
     let html = '<div class="calendar-grid">';
-    ['日','一','二','三','四','五','六'].forEach((d,i)=>
-        html += `<div class="calendar-day-header${(i===0||i===6)?' is-weekend':''}">${d}</div>`);
+    // 周一 → 周日 + 英文小标（与全站 OPERATION / SUB TASKS / HEADHUNT 的双语风格一致）
+    [['一','MON'],['二','TUE'],['三','WED'],['四','THU'],['五','FRI'],['六','SAT'],['日','SUN']]
+        .forEach(([cn, en], i) => {
+            html += `<div class="calendar-day-header${i >= 5 ? ' is-weekend' : ''}">` +
+                        `<span class="cal-dow-cn">${cn}</span>` +
+                        `<span class="cal-dow-en">${en}</span>` +
+                    '</div>';
+        });
     // 上月尾巴：只显示数字、不作为可点日期
     const daysInPrev = new Date(year, month, 0).getDate();
     for(let i = firstDay - 1; i >= 0; i--)
         html += `<div class="calendar-day other-month"><span class="calendar-day-number">${daysInPrev - i}</span></div>`;
 
     let monthTaskTotal = 0, monthTaskDone = 0;
-    const MAX_CHIPS = 3;
+    const MAX_CHIPS = 2;          // 节日单独占一行后，任务条收到 2 条，格子高度才不会被撑爆
+    const monthFests = [];        // 收集本月值得上榜的节日，供底部图例使用
     for(let day=1; day<=daysInMonth; day++){
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const tasks = tasksByDate[dateStr] || [];
@@ -2998,11 +3099,26 @@ function renderCalendar() {
         const isToday = dateStr === todayStr;
         const doneCount = tasks.filter(t => t.status === 'done').length;
         monthTaskTotal += tasks.length; monthTaskDone += doneCount;
+
+        /* 当天的节日/假日。一天可能同时命中多个（例如"中秋 + 秋分 + 世界和平日"），
+           格子里最多摆 2 个，多的收成 +N；图例里收"法定假日 + lv1/lv2 节日"——
+           节气（term）只进格子不进图例：24 个节气每月都有一两个，全列出来会把
+           图例变成流水账，反而看不出重点。 */
+        const dayFests = Array.isArray(festByDay[day]) ? festByDay[day] : [];
+        const isRest = dayFests.some(f => f && f.statutory);
+        dayFests.forEach(f => {
+            if (f && (f.statutory || (f.level || 2) <= 2) &&
+                !monthFests.some(x => x.day === day && x.name === f.name))
+                monthFests.push({ day, name: f.name, kind: f.kind || 'solar' });
+        });
+
         const cls = ['calendar-day'];
         if (isToday) cls.push('today');
         if (tasks.length) cls.push('has-tasks');
         if (dow === 0 || dow === 6) cls.push('is-weekend');
         if (tasks.length && doneCount === tasks.length) cls.push('all-done');
+        if (dayFests.length) cls.push('has-fest');
+        if (isRest) cls.push('is-rest');
         html += `<div class="${cls.join(' ')}" data-date="${dateStr}">`;
         html += '<div class="calendar-day-top">' +
                     `<span class="calendar-day-number">${day}</span>` +
@@ -3010,6 +3126,18 @@ function renderCalendar() {
                         ? `<span class="calendar-day-count${doneCount === tasks.length ? ' is-done' : ''}">${doneCount}/${tasks.length}</span>`
                         : '') +
                 '</div>';
+        if (dayFests.length){
+            const chips = dayFests.slice(0, 2).map(f => {
+                const name = escapeHtml(String(f.name || ''));
+                const label = name.length > 4 ? name.slice(0, 4) : name;
+                return `<span class="cal-fest kind-${f.kind || 'solar'} lv-${f.level || 2}" title="${name}">` +
+                            label + (f.statutory ? '<i class="cal-fest-rest">休</i>' : '') +
+                        '</span>';
+            }).join('');
+            html += `<div class="calendar-fest">${chips}` +
+                        (dayFests.length > 2 ? `<span class="cal-fest-more">+${dayFests.length - 2}</span>` : '') +
+                    '</div>';
+        }
         html += '<span class="calendar-day-add" aria-hidden="true"><i class="fa-solid fa-plus"></i></span>';
         tasks.slice(0, MAX_CHIPS).forEach(t=>{
             const priorityColor = getPriorityColor(t.priority);
@@ -3033,6 +3161,34 @@ function renderCalendar() {
     for(let i = 1; i <= tail; i++)
         html += `<div class="calendar-day other-month"><span class="calendar-day-number">${i}</span></div>`;
     html += '</div>';
+
+    /* R41 第 5 项：本月节日图例。
+       格子里的节日受宽度限制只能写 2~4 个字，图例把它们展开成"几日 · 什么节"，
+       既是装饰（把网格下方那片空白填上），也让"自动算出来的节日"可读。
+       没有任何节日时这一段不生成，不留空框。 */
+    if (monthFests.length){
+        /* 同名节日合并 + 日期区间：法定假期会连续好几天同名（春节假期 18/19 日），
+           不合并的话图例里会连着出现两条一模一样的"春节假期"，像重复渲染。 */
+        const merged = [];
+        monthFests.slice().sort((a, b) => a.day - b.day).forEach(f => {
+            const hit = merged.find(x => x.name === f.name);
+            if (hit) { hit.last = f.day; return; }
+            merged.push({ name: f.name, kind: f.kind, first: f.day, last: f.day });
+        });
+        const items = merged
+            .map(f => {
+                const when = (f.first === f.last) ? `${f.first}日` : `${f.first}\u2013${f.last}日`;
+                return `<span class="cal-legend-item kind-${f.kind}">` +
+                           `<b>${when}</b> <em>${escapeHtml(f.name)}</em>` +
+                       '</span>';
+            })
+            .join('');
+        html += `<div class="calendar-legend">` +
+                    `<span class="cal-legend-title">本月节日 · ${month+1}月</span>` +
+                    `<div class="cal-legend-list">${items}</div>` +
+                '</div>';
+    }
+
     container.innerHTML = html;
 
     if (DOM.calendarSubtitle)
@@ -3911,11 +4067,17 @@ function refreshTaskCard(taskId) {
     card.classList.toggle('selecting', !!state.selectionMode);
     card.classList.toggle('selected', !!(state.selectedIds && state.selectedIds.has(task.id)));
     card.dataset.status = task.status;
-    const oldRow = card.querySelector('.task-claim-row');
+    /* R41 第 2 项：先把这张卡上的领奖行**一次清干净**。
+       旧写法只 remove(card.querySelector('.task-claim-row')) 的第一条 ——
+       万一某条路径留下了两行（例如 renderTasks 与 refreshTaskCard 交错），
+       第二条就会永久挂在卡上，正是"领完奖励按钮还残留"的另一种形态。
+       现在无论旧状态如何都先全清，永远至多一行。 */
+    const oldRows = card.querySelectorAll('.task-claim-row');
+    const oldRow = oldRows[0] || null;
     if (claimState === 'unclaimable') {
-        oldRow?.remove();
-    } else if (!oldRow || oldRow.dataset.state !== claimState) {
-        oldRow?.remove();
+        oldRows.forEach(r => r.remove());
+    } else if (!oldRow || oldRow.dataset.state !== claimState || oldRows.length > 1) {
+        oldRows.forEach(r => r.remove());
         const newRow = buildClaimRow(claimState, task, card);
         // 与 createTaskCard 保持一致：挂进 .task-main，独占内容列一整行、贴右
         claimRowMount(card).appendChild(newRow);
@@ -4218,6 +4380,29 @@ function updateTrackingTimer(){ if(state.trackingTaskId&&state.trackingStartTime
     const h=String(Math.floor(elapsed/3600)).padStart(2,'0'), m=String(Math.floor((elapsed%3600)/60)).padStart(2,'0'), s=String(elapsed%60).padStart(2,'0');
     DOM.trackingTimer.textContent=`${h}:${m}:${s}`; } }
 
+/* ===== R41 第 2 项：「领取奖励 / 已领取」的唯一权威开关 =====
+   用户报的是「领取奖励后按钮残留」。根因是弹窗底部那颗按钮的状态被
+   **三处各自为政地改**（openRewardModal 分支里写 style.display、
+   showPackRewardModal 里写 style.display、claimReward 里又不写），
+   外加 `dataset.taskId` 从来不清 —— 于是"上一次打开留下的显示状态 / 旧任务 id"
+   会跟着下一次打开一起进场。现在收敛成这一个函数：
+     · 两个状态是 DOM 里的**互斥兄弟节点**（btn / #rewardClaimedState），
+       只切 hidden 类，不再靠内联 style 记忆状态；
+     · 每次调用都**重写** dataset.taskId（不需要时删掉），不留可复用的旧 id；
+     · 领奖时把按钮同时 disabled —— 即使因为动画/慢关闭而短暂留在屏幕上，
+       它也不再是可点的「领取奖励」。
+   任何打开奖励弹窗的路径都必须先调它，没有例外。 */
+function setRewardFooter(mode, taskId){
+    const btn = DOM.rewardClaimBtn, st = DOM.rewardClaimedState;
+    if (st) st.classList.toggle('hidden', mode !== 'claimed');
+    if (!btn) return;
+    btn.classList.toggle('hidden', mode !== 'claim');
+    btn.disabled = (mode !== 'claim');
+    btn.style.display = '';                       // 清掉历史内联值，显示与否只由 .hidden 决定
+    if (mode === 'claim' && taskId != null) btn.dataset.taskId = String(taskId);
+    else delete btn.dataset.taskId;
+}
+
 async function openRewardModal(taskId){
     rewardModalOpenTaskId = taskId;
     // 掉落素材要靠仓库目录反查中文名/图标；目录是异步加载的，这里先确保就绪，
@@ -4225,10 +4410,23 @@ async function openRewardModal(taskId){
     await loadWarehouseCatalog();
     const titleEl = document.querySelector('#rewardModal .modal-title');
     if(titleEl) titleEl.textContent = '任务奖励';
-    const task=state.flatTasks.find(t=>t.id===taskId); if(!task) return;
+    const task=state.flatTasks.find(t=>t.id===taskId);
+    /* R41：提前返回也必须清掉 rewardModalOpenTaskId。以前 `if(!task) return;` 直接走人，
+       留下一个陈旧 id —— updateTrackingPanel 里判 `rewardModalOpenTaskId===task.id`
+       就会把追踪面板的「领取奖励」按钮永久 hidden，看起来像"按钮丢了"。 */
+    if(!task){ rewardModalOpenTaskId=null; return; }
     // 防御性拦截：已领取的任务不再打开弹窗
-    if(isClaimedFlag(task.reward_claimed)){ showToast('奖励已领取'); rewardModalOpenTaskId=null; return; }
+    if(isClaimedFlag(task.reward_claimed)){
+        showToast('奖励已领取');
+        rewardModalOpenTaskId=null;
+        if(typeof updateTrackingPanel==='function') updateTrackingPanel();
+        return;
+    }
     DOM.rewardDetails.innerHTML='';
+    /* R41 第 2 项：每次打开都先把底部两个互斥状态钉死，再往下渲染。
+       顺序很重要 —— 放在渲染之前，后面任何分支都不必再操心"上一次的残留"。 */
+    setRewardFooter('claim', taskId);
+    if(DOM.rewardEyebrow) DOM.rewardEyebrow.textContent='MISSION REWARD';
     // 使用共享 RESOURCE_SVGS（唯一真实来源）
     // 未知掉落类型的宝箱图标（定义见文件顶部模块级 DROP_CHEST_SVG）
     const rewards=[ {name:'经验值',value:task.reward_exp||0,key:'exp',svg:RESOURCE_SVGS.exp,color:'#6AB0E8'}, {name:'龙门币',value:task.reward_lungmen||0,key:'lungmen',svg:RESOURCE_SVGS.lungmen,color:'#2989D9'}, {name:'源石',value:task.reward_source_stone||0,key:'source_stone',svg:RESOURCE_SVGS.source_stone,color:'#FFD700'}, {name:'合成玉',value:task.reward_orundum||0,key:'orundum',svg:RESOURCE_SVGS.orundum,color:'#D42027'} ];
@@ -4306,37 +4504,17 @@ async function openRewardModal(taskId){
         } else DOM.randomDropSection.style.display='none';
     } catch{ DOM.randomDropSection.style.display='none'; } } else DOM.randomDropSection.style.display='none';
 
-    /* 底部对勾：可点击领取。
-       R33：它以前会被 append 到 document.body，再用 position:fixed 钉在弹窗**外面**
-       的右下角（top = 弹窗底 + 30px）—— 那才是界面里真正"落在边缘、离得远"的元素。
-       现在回到弹窗内部、和领取按钮同一个居中区块，位置完全交给布局。 */
-    const checkWrap = document.createElement('div'); checkWrap.className='reward-external-check';
-    checkWrap.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="11" fill="none" stroke="var(--highlight-green-1)" stroke-width="1.5"/><path d="M7 12l3 3 7-7" fill="none" stroke="var(--highlight-green-1)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    // 点击对勾 = 领取奖励
-    checkWrap.addEventListener('click', () => { if(!isClaimedFlag(task.reward_claimed)) claimReward(); });
-
+    /* R41 第 1 项：这里原先会造一个**居中的绿色打勾**（.reward-external-check），
+       把「三颗资源图标」和「随机掉落」切成上下两半 —— 用户点名不要这种
+       「打勾图标居中、发放奖励置下」的排布，整块已删除。
+       打勾的语义收敛到两处：能领时是底部那颗领取按钮，领完之后是底部那颗
+       互斥的「奖励已领取」（#rewardClaimedState）。两者都由 setRewardFooter 管，
+       本函数开头已经 setRewardFooter('claim', taskId) 钉过一次，这里只处理空态。 */
     if(!hasReward&&!hasDrop){
-        DOM.rewardClaimBtn.style.display='none';
+        setRewardFooter('none');
         const emptyMsg=document.createElement('p'); emptyMsg.className='reward-empty-msg';
         emptyMsg.textContent='该任务没有可领取的奖励'; DOM.rewardDetails.appendChild(emptyMsg);
-    } else if(isClaimedFlag(task.reward_claimed)){
-        // 已领取：禁用按钮，对勾变已领态
-        DOM.rewardClaimBtn.style.display='none';
-        checkWrap.classList.add('claimed');
-        const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
-        bottomArea.appendChild(checkWrap);
-        const claimedNote=document.createElement('p'); claimedNote.className='reward-claimed-note';
-        claimedNote.textContent='✦ 奖励已领取';
-        bottomArea.appendChild(claimedNote);
-        DOM.rewardDetails.appendChild(bottomArea);
-    } else {
-        DOM.rewardClaimBtn.style.display='';
-        // 有奖励：对勾 + 领取按钮同处一个居中的底部区块
-        const bottomArea = document.createElement('div'); bottomArea.className='reward-bottom-area';
-        bottomArea.appendChild(checkWrap);
-        DOM.rewardDetails.appendChild(bottomArea);
     }
-    DOM.rewardClaimBtn.dataset.taskId=taskId;
     openModal('rewardModal');
 }
 
@@ -4345,6 +4523,11 @@ async function claimReward(){
     state.rewardModalAnimating=true;
     const result=await apiPost(`/tasks/${taskId}/claim-reward`);
     if(result){
+        /* R41 第 2 项：**拿到成功响应的第一件事**就是把底部切成「奖励已领取」。
+           后面的粒子动画 + 380ms 退场动画期间弹窗还挂在屏幕上，
+           旧版这时按钮仍是可点的「领取奖励」—— 用户看到的就是"领完了按钮还在"。
+           先切状态，再谈动画。 */
+        setRewardFooter('claimed');
         /* 服务端已确认发奖：先把「已领取」写回本地，再走视觉收尾，
            避免动画期间卡片还挂着「可领取」被再点一次。 */
         const ids=(Array.isArray(result.detail)?result.detail:[]).map(d=>d&&d.id).filter(Boolean);
@@ -5116,11 +5299,12 @@ async function openTaskDetail(taskId){
     openModal('taskDetailModal');
 }
 
-// 礼包领取后弹出与「领取奖励」同款的奖励结算弹窗（物品已在后端发放完毕，此处仅展示）
-function showPackRewardModal(granted){
+// 礼包 / 任务领取后弹出与「领取奖励」同款的奖励结算弹窗（物品已在后端发放完毕，此处仅展示）
+// R41：新增第二参 footerMode —— 'claimed' 显示「奖励已领取」，省略则底部什么都不显示。
+function showPackRewardModal(granted, footerMode){
     if(!granted || !granted.length) return;
     const titleEl = document.querySelector('#rewardModal .modal-title');
-    if(titleEl) titleEl.textContent = '礼包奖励';
+    if(titleEl) titleEl.textContent = '任务奖励';
     DOM.rewardDetails.innerHTML = '';
     DOM.randomDropSection.style.display = 'none';
     // 货币固定配色；mat_ 素材从官方目录查中文名与稀有度配色（与领取奖励弹窗一致）
@@ -5194,9 +5378,14 @@ function showPackRewardModal(granted){
     });
     if(grid.childElementCount === 0) return;
     DOM.rewardDetails.appendChild(grid);
-    // 已发放：隐藏领取按钮，清理可能残留的外部对勾
-    DOM.rewardClaimBtn.style.display = 'none';
-    const oldCheck = document.querySelector('.reward-external-check'); if(oldCheck) oldCheck.remove();
+    /* R41 第 2 项：这批东西**已经发到手了**，底部绝不能留一颗还能点的「领取奖励」。
+       以前这里写 style.display='none' —— 显示状态被内联 style 记着，
+       下一次打开走的若是别的分支就不会复位，"按钮残留"正是这么来的。
+       现在统一交给 setRewardFooter，它同时会清掉 dataset.taskId（杜绝旧 id 再提交）：
+         footerMode='claimed' → 显示互斥的「奖励已领取」（任务领奖）
+         footerMode 省略       → 显示「奖励已领取」也不合适，改为什么都不显示（礼包） */
+    setRewardFooter(footerMode === 'claimed' ? 'claimed' : 'none');
+    if(DOM.rewardEyebrow) DOM.rewardEyebrow.textContent='REWARD GRANTED';
     openModal('rewardModal');
 }
 

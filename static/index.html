@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260923-283">
+    <link rel="stylesheet" href="static/style.css?v=20260923-285">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -145,6 +145,20 @@
                 <i class="fa-solid fa-grip-vertical"></i>
             </div>
             <div class="tracking-expanded" id="trackingExpanded">
+                <!-- R41 第 4 项：专注模式的装饰层。
+                     用户判「专注模式设计过于单一，仅由普通几何图形堆凑，矩形过多且缺乏设计感」。
+                     这一层全部由**原版贴图**构成（APK 解包产物），不是 CSS 画的形状：
+                       glow_basic   径向柔光，垫在计时器背后做体积
+                       wipe_tech_1  四角科技光斑，横向拉开画面纵深
+                       dust_gold    金色微粒，铺一层空气感
+                       leakedge     底边渐隐，把视线收进计时器
+                     只照 body.focus-mode 显示，不参与任何交互（aria-hidden + pointer-events:none）。 -->
+                <div class="focus-deco" aria-hidden="true">
+                    <span class="focus-deco-glow"></span>
+                    <span class="focus-deco-flare"></span>
+                    <span class="focus-deco-dust"></span>
+                    <span class="focus-deco-leak"></span>
+                </div>
                 <div class="drag-indicator" id="dragIndicator"><span></span></div>
                 <div class="tracking-resize-handle" id="trackingResizeHandle"></div>
 
@@ -229,12 +243,21 @@
                 <div class="tracking-footer">
                     <!-- 番茄钟：ak-ui .ak-gauge 八角仪表（值 --ak-gauge-value，色调 --ak-gauge-signal）
                          注意：刻意不再挂 .pomodoro-status / .pomodoro-kind / .pomodoro-countdown
-                         旧类，避免历史圆环规则与 ak-ui 组件互相打架。 -->
-                    <div class="ak-gauge tracking-gauge hidden" id="pomodoroStatus">
-                        <div class="ak-gauge__content">
-                            <span class="ak-gauge__label" id="pomodoroKind">FOCUS</span>
-                            <span class="ak-gauge__value" id="pomodoroCountdown">25:00</span>
-                            <span class="ak-gauge__unit" id="pomodoroUnit">专注</span>
+                         旧类，避免历史圆环规则与 ak-ui 组件互相打架。
+                         R41 第 4 项：外面套一层 .tracking-gauge-wrap，挂 ak-ui 自己的
+                         .ak-face__lines 四角线（那是组件库里现成的"四角刻度线"零件），
+                         给纯八角形加一点工程图般的细节，而不是再堆一个矩形。 -->
+                    <div class="tracking-gauge-wrap">
+                        <span class="ak-face__line--tl" aria-hidden="true"></span>
+                        <span class="ak-face__line--tr" aria-hidden="true"></span>
+                        <span class="ak-face__line--bl" aria-hidden="true"></span>
+                        <span class="ak-face__line--br" aria-hidden="true"></span>
+                        <div class="ak-gauge tracking-gauge hidden" id="pomodoroStatus">
+                            <div class="ak-gauge__content">
+                                <span class="ak-gauge__label" id="pomodoroKind">FOCUS</span>
+                                <span class="ak-gauge__value" id="pomodoroCountdown">25:00</span>
+                                <span class="ak-gauge__unit" id="pomodoroUnit">专注</span>
+                            </div>
                         </div>
                     </div>
                     <div class="pomodoro-controls hidden" id="pomodoroControls">
@@ -404,16 +427,29 @@
                     <div class="gh-section-head"><span class="gh-section-kicker">已寻访干员 / 信物</span><span class="gh-section-note">TOKENS</span></div>
                     <div id="operatorTokenList" class="op-token-list"></div>
                 </div>
-                <!-- 底部操作条：方舟原版把「寻访 1 次 / 寻访 10 次」钉在界面最下方 -->
+                <!-- 底部操作条：R41 第 6 项 —— 用户判「单调难看，彻底删除重做」。
+                     旧版是 .gh-act 两个自造矩形（深灰一块 + 淡蓝透明一块），
+                     现在整体换成 ak-ui 的原生「公开招募」按钮组：
+                       .ak-command-group--recruitment  青色块 + 顶部标签条 + 两格 1px 分隔
+                       .ak-command--split              格内大标题 + 14% 透明度水印图标
+                     这正是方舟公开招募页底部那条按钮组的本体，不是模仿。
+                     保留 #operatorGachaSingle / #operatorGachaTen 两个 id ——
+                     app.js 只对它们做 addEventListener 与 disabled 开关，
+                     改内部结构不影响任何逻辑。 -->
                 <div class="gh-actionbar gh-actionbar-view">
-                    <button class="gh-act" id="operatorGachaSingle">
-                        <span class="gh-act-label">寻访 <b>×1</b></span>
-                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">600</span>
-                    </button>
-                    <button class="gh-act primary" id="operatorGachaTen">
-                        <span class="gh-act-label">寻访 <b>×10</b></span>
-                        <span class="gh-act-cost"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">6000</span>
-                    </button>
+                    <div class="ak-command-group ak-command-group--recruitment gh-recruit-group">
+                        <span class="ak-command-group__label">干员寻访 <small>HEADHUNT</small></span>
+                        <button type="button" class="ak-command ak-command--split gh-recruit-act" id="operatorGachaSingle">
+                            <span class="ak-command__watermark" aria-hidden="true"><i class="fa-solid fa-user-plus"></i></span>
+                            <span class="ak-command__label">寻访 <b>×1</b></span>
+                            <span class="ak-command__meta"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">600</span>
+                        </button>
+                        <button type="button" class="ak-command ak-command--split gh-recruit-act gh-recruit-act--ten" id="operatorGachaTen">
+                            <span class="ak-command__watermark" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+                            <span class="ak-command__label">寻访 <b>×10</b></span>
+                            <span class="ak-command__meta"><img src="static/icons/orundum.png" alt="合成玉" title="合成玉" onerror="this.style.display='none'">6000</span>
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -646,16 +682,34 @@
             </div>
         </div>
 
-        <!-- 奖励弹窗 -->
+        <!-- 奖励弹窗（R41 第 1、2 项重做）
+             ① 窗口本体不再画背景板：真正承担「这是个窗口」的是背景那层**模糊**，
+                弹窗自身透明（见 style.css §22.2）。这是用户明确的要求
+                「仅显示资源图标本身，移除多余背景窗口，但保留模糊效果作为窗口体现」。
+             ② 头部改用 ak-ui .ak-dialog 的零件契约（eyebrow + title + 左侧强调条），
+                和 vender/ak-ui 的 .ak-dialog 是同一套排版语言。
+             ③ 底部的「领取奖励 / 已领取」变成一对**互斥**的兄弟节点：
+                领完后由 JS 切换 hidden，而不是把按钮 style.display 改掉。
+                这样"领完还留着一个能点的领取按钮"从结构上就不可能发生（第 2 项 BUG）。 -->
         <div class="modal-container hidden" id="rewardModal">
             <div class="modal modal-reward reward-settlement-modal">
-                <div class="modal-header"><h3 class="modal-title">任务奖励</h3><button class="icon-btn modal-close" id="rewardModalClose"><i class="fa-solid fa-xmark"></i></button></div>
-                <div class="modal-body">
+                <div class="modal-header reward-head">
+                    <span class="ak-dialog__eyebrow" id="rewardEyebrow">MISSION REWARD</span>
+                    <h3 class="modal-title ak-dialog__title">任务奖励</h3>
+                    <button class="icon-btn modal-close" id="rewardModalClose"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body reward-body">
                     <div class="reward-settlement-content">
                         <div class="reward-details" id="rewardDetails"></div>
-                        <div class="random-drop" id="randomDropSection" style="display:none;"><h4>随机掉落</h4><div id="randomDropContent"></div></div>
-                        <button class="btn btn-primary btn-large reward-claim-btn" id="rewardClaimBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                        <div class="random-drop" id="randomDropSection" style="display:none;">
+                            <div class="random-drop-head"><span class="random-drop-en">RANDOM DROP</span><h4>随机掉落</h4></div>
+                            <div id="randomDropContent"></div>
+                        </div>
                     </div>
+                </div>
+                <div class="reward-settlement-footer ak-dialog__footer">
+                    <button class="btn btn-primary btn-large reward-claim-btn" id="rewardClaimBtn"><i class="fa-solid fa-gift"></i><span>领取奖励</span></button>
+                    <span class="reward-claimed-state hidden" id="rewardClaimedState" role="status"><i class="fa-solid fa-check"></i><span>奖励已领取</span></span>
                 </div>
             </div>
         </div>
@@ -940,6 +994,10 @@
     <script src="static/sfx.js?v=20260920-002"></script>
     <!-- 动态立绘：按需加载 Spine 3.8 runtime，本身只有索引与调度逻辑 -->
     <script src="static/dyn-portrait.js?v=20260921-004"></script>
+    <!-- R41 第 5 项：节日 / 节气 / 法定假日引擎（纯本地计算，无网络依赖）。
+         暴露 window.QuestFestivals，被 app.js 的 renderCalendar() 消费。
+         必须排在 app.js 之前，否则首次渲染日历时取不到。 -->
+    <script src="static/calendar-festivals.js?v=20260923-001"></script>
     <script src="static/app.js?v=20260923-270"></script>
 </body>
 </html>
