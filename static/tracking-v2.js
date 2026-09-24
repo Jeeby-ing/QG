@@ -1,17 +1,17 @@
 /* ============================================================
-   QUEST LOG — 作战终端 / 追踪面板 + 专注模式（R43 从零重写）
-   说明：本文件是追踪面板与专注模式的唯一实现，旧实现已从
-   app.js / index.html / style.css 彻底删除。本模块通过复用
-   app.js 暴露的全局（state / apiGet / apiPost / renderTasks /
-   openRewardModal / claimStateOf / goldStars / openTaskDetail /
-   completeTaskAndHandleReward / reloadTaskData）工作，自身只负责
-   作战卡渲染、四种面板形态切换、番茄钟与全屏专注。
-   对外接口（app.js 仍按这些名字调用）：
+   QUEST LOG — 作战终端 / 追踪面板 + 专注模式（R44 · 视觉重做）
+   说明：本文件是追踪面板与专注模式的唯一实现。它复用 app.js 暴露的
+   全局（state / apiGet / apiPost / renderTasks / reloadTaskData /
+   openTaskDetail / openRewardModal / claimStateOf / goldStars /
+   completeTaskAndHandleReward / showToast）工作，自身只负责作战卡
+   渲染、四种面板形态切换、番茄钟与全屏专注。
+
+   对外接口（app.js 按这些名字调用，名字不可改）：
      checkCurrentTracking / loadPomodoroCurrent / updateTrackingTimer /
      updatePomodoroTimer / stopPomodoro / toggleTrackingForTask /
      toggleTracking / completeCurrentTracking / toggleFocusMode /
      updateTrackingPanel / expandTrackingPanel / collapseTrackingPanel /
-     trackingPanelIsOpen / showTrackingPanel
+     trackingPanelIsOpen / showTrackingPanel / startPomodoro
    ============================================================ */
 
 (function () {
@@ -24,7 +24,7 @@
         return (state.flatTasks || []).filter(t => task && t.parent_id === task.id);
     }
 
-    // ===== 形态与开关状态 =====
+    // ===== 面板开关 / 形态 =====
     window.__tpOpen = false;
     window.__tpVariant = (function () {
         try { return localStorage.getItem('tp_variant') || 'drawer-right'; }
@@ -35,11 +35,13 @@
 
     function showTrackingPanel() {
         window.__tpOpen = true;
-        const p = el('tpPanel'); if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
+        const p = el('tpPanel');
+        if (p) { p.classList.add('open'); p.setAttribute('aria-hidden', 'false'); }
     }
     function hideTrackingPanel() {
         window.__tpOpen = false;
-        const p = el('tpPanel'); if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
+        const p = el('tpPanel');
+        if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
     }
     function expandTrackingPanel() { showTrackingPanel(); }
     function collapseTrackingPanel() { hideTrackingPanel(); }
@@ -70,7 +72,8 @@
     function childProgress(c) {
         if (!c) return 0;
         if (c.status === 'done') return 100;
-        if (c.target_value && Number(c.target_value) > 0) return Math.min(100, (Number(c.current_value || 0) / Number(c.target_value)) * 100);
+        if (c.target_value && Number(c.target_value) > 0)
+            return Math.min(100, (Number(c.current_value || 0) / Number(c.target_value)) * 100);
         return Number(c.progress || 0);
     }
     function computeProgress(task) {
@@ -80,16 +83,18 @@
             return { progress: avg, mode: 'tree' };
         }
         if (task.target_value && Number(task.target_value) > 0 && task.progress_mode !== 'manual') {
-            return { progress: Math.min(100, (Number(task.current_value || 0) / Number(task.target_value)) * 100), mode: 'count' };
+            return {
+                progress: Math.min(100, (Number(task.current_value || 0) / Number(task.target_value)) * 100),
+                mode: 'count'
+            };
         }
-        if (task.progress_mode === 'manual') {
-            return { progress: Number(task.progress || 0), mode: 'manual' };
-        }
+        if (task.progress_mode === 'manual') return { progress: Number(task.progress || 0), mode: 'manual' };
         return { progress: Number(task.progress || 0), mode: 'tree' };
     }
 
-    // ===== 父链 / 子任务渲染 =====
+    // ===== 父链 / 子任务 =====
     function buildParentChain(container, task) {
+        if (!container) return;
         container.innerHTML = '';
         const chain = [];
         let cur = task; const seen = new Set();
@@ -114,6 +119,7 @@
     }
 
     function buildSubtasks(container, kids) {
+        if (!container) return;
         container.innerHTML = '';
         kids.forEach(child => {
             const row = document.createElement('label');
@@ -122,6 +128,7 @@
                 (child.status === 'cancelled' ? ' is-cancelled' : '');
             const input = document.createElement('input');
             input.type = 'checkbox';
+            input.className = 'ak-choice__input';
             input.checked = child.status === 'done';
             const lab = document.createElement('span');
             lab.className = 'ak-choice__label tracking-subtask-label';
@@ -137,24 +144,23 @@
         });
     }
 
-    // ===== 作战卡骨架（一次性构建，之后只填字段） =====
-    const CARD_SKELETON = `
-        <div class="tp-card-head">
-            <div class="ak-status tracking-status tp-status">
-                <span class="ak-status__signal"></span>
-                <span class="ak-status__label">TRACKING</span>
-                <span class="ak-status__detail tp-status-detail">待命</span>
+    // ===== 作战卡骨架（面板与专注态共用同一套 .tp-op 内容） =====
+    const OP_CONTENT = `
+        <div class="ak-status tracking-status tp-status">
+            <span class="ak-status__signal"></span>
+            <span class="ak-status__label">TRACKING</span>
+            <span class="ak-status__detail tp-status-detail">待命</span>
+        </div>
+        <div class="ak-tag-group tp-parent-chain"></div>
+        <div class="tp-op-main">
+            <h2 class="tp-title"></h2>
+            <div class="tp-title-row">
+                <div class="star-display tp-stars"></div>
+                <span class="ak-tag ak-tag--advanced tp-taskline"></span>
             </div>
-            <div class="ak-tag-group tracking-parent-chain tp-parent-chain"></div>
+            <p class="tp-desc"></p>
         </div>
-        <div class="ak-divider tracking-divider"><span>OPERATION</span></div>
-        <h2 class="ak-card__title tracking-title tp-title"></h2>
-        <p class="ak-card__description tracking-desc tp-desc"></p>
-        <div class="tp-title-row">
-            <div class="star-display tp-stars"></div>
-            <span class="ak-tag ak-tag--advanced tp-taskline"></span>
-        </div>
-        <div class="ak-divider tracking-divider tracking-divider--sub"><span>SUB TASKS</span></div>
+        <div class="ak-divider tp-divider tp-divider-sub"><span>子任务</span></div>
         <div class="tracking-subtasks tp-subtasks"></div>
         <div class="ak-progress tracking-progress tp-progress">
             <div class="ak-progress__header">
@@ -165,61 +171,35 @@
             <input type="range" class="ak-slider tracking-progress-slider tp-progress-slider hidden" min="0" max="100" step="1" value="0" aria-label="手动进度">
         </div>
         <div class="tracking-actions">
-            <button class="ak-button ak-button--outline tracking-act tp-act-stop" type="button"><span class="ak-button__icon"><i class="fa-solid fa-stop"></i></span><span class="ak-button__label">停止追踪</span></button>
+            <button class="ak-button ak-button--outline tracking-act tp-act-stop" type="button"><span class="ak-button__icon"><i class="fa-solid fa-circle-stop"></i></span><span class="ak-button__label">停止追踪</span></button>
             <button class="ak-button ak-button--action tracking-act tp-act-complete" type="button"><span class="ak-button__icon"><i class="fa-solid fa-check"></i></span><span class="ak-button__label">完成任务</span></button>
             <button class="ak-button ak-button--advanced tracking-act tp-act-reward hidden" type="button"><span class="ak-button__icon"><i class="fa-solid fa-gift"></i></span><span class="ak-button__label">领取奖励</span></button>
         </div>`;
 
+    const CARD_SKELETON = `<div class="tp-op">${OP_CONTENT}</div>`;
+
     const FOCUS_SKELETON = `
-        <div class="tp-focus-top">
-            <div class="tp-focus-gauge">
-                <span class="ak-face__line--tl" aria-hidden="true"></span>
-                <span class="ak-face__line--tr" aria-hidden="true"></span>
-                <span class="ak-face__line--bl" aria-hidden="true"></span>
-                <span class="ak-face__line--br" aria-hidden="true"></span>
-                <div class="ak-gauge tp-gauge fx-gauge hidden" id="fxPomo">
-                    <div class="ak-gauge__content">
-                        <span class="ak-gauge__label" id="fxPomoKind">FOCUS</span>
-                        <span class="ak-gauge__value" id="fxPomoCount">25:00</span>
-                        <span class="ak-gauge__unit" id="fxPomoUnit">专注</span>
+        <div class="tp-focus-head">
+            <div class="tp-focus-clock">
+                <div class="tp-focus-gauge">
+                    <div class="ak-gauge tp-gauge fx-gauge" id="fxPomo">
+                        <div class="ak-gauge__content">
+                            <span class="ak-gauge__label" id="fxPomoKind">FOCUS</span>
+                            <span class="ak-gauge__value" id="fxPomoCount">25:00</span>
+                            <span class="ak-gauge__unit" id="fxPomoUnit">专注</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tp-focus-meta">
+                    <span class="tp-focus-label">SESSION</span>
+                    <div class="ak-counter ak-counter--compact tp-focus-timer">
+                        <span class="ak-counter__prefix"><i class="fa-solid fa-clock"></i></span>
+                        <span class="ak-counter__content" id="fxTimer">00:00:00</span>
                     </div>
                 </div>
             </div>
-            <div class="ak-counter ak-counter--compact tp-focus-timer">
-                <span class="ak-counter__prefix"><i class="fa-solid fa-clock"></i></span>
-                <span class="ak-counter__content" id="fxTimer">00:00:00</span>
-            </div>
         </div>
-        <div class="tp-focus-card">
-            <div class="ak-status tracking-status tp-status">
-                <span class="ak-status__signal"></span>
-                <span class="ak-status__label">TRACKING</span>
-                <span class="ak-status__detail tp-status-detail">待命</span>
-            </div>
-            <div class="ak-tag-group tracking-parent-chain tp-parent-chain"></div>
-            <div class="ak-divider tracking-divider"><span>OPERATION</span></div>
-            <h2 class="ak-card__title tracking-title tp-title"></h2>
-            <div class="tp-title-row">
-                <div class="star-display tp-stars"></div>
-                <span class="ak-tag ak-tag--advanced tp-taskline"></span>
-            </div>
-            <p class="ak-card__description tracking-desc tp-desc"></p>
-            <div class="ak-divider tracking-divider tracking-divider--sub"><span>SUB TASKS</span></div>
-            <div class="tracking-subtasks tp-subtasks"></div>
-            <div class="ak-progress tracking-progress tp-progress">
-                <div class="ak-progress__header">
-                    <span class="ak-progress__caption">PROGRESS</span>
-                    <span class="ak-progress__value tp-progress-num">0%</span>
-                </div>
-                <div class="ak-progress__track tp-progress-bar"><span class="ak-progress__fill tp-progress-fill"></span></div>
-                <input type="range" class="ak-slider tracking-progress-slider tp-progress-slider hidden" min="0" max="100" step="1" value="0" aria-label="手动进度">
-            </div>
-            <div class="tracking-actions">
-                <button class="ak-button ak-button--outline tracking-act tp-act-stop" type="button"><span class="ak-button__icon"><i class="fa-solid fa-stop"></i></span><span class="ak-button__label">停止追踪</span></button>
-                <button class="ak-button ak-button--action tracking-act tp-act-complete" type="button"><span class="ak-button__icon"><i class="fa-solid fa-check"></i></span><span class="ak-button__label">完成任务</span></button>
-                <button class="ak-button ak-button--advanced tracking-act tp-act-reward hidden" type="button"><span class="ak-button__icon"><i class="fa-solid fa-gift"></i></span><span class="ak-button__label">领取奖励</span></button>
-            </div>
-        </div>`;
+        <div class="tp-focus-card tp-op">${OP_CONTENT}</div>`;
 
     function buildRefs(root) {
         return {
@@ -231,6 +211,7 @@
             taskLine: root.querySelector('.tp-taskline'),
             title: root.querySelector('.tp-title'),
             desc: root.querySelector('.tp-desc'),
+            subDivider: root.querySelector('.tp-divider-sub'),
             subtasks: root.querySelector('.tp-subtasks'),
             progress: root.querySelector('.tp-progress'),
             progressNum: root.querySelector('.tp-progress-num'),
@@ -239,105 +220,120 @@
             progressSlider: root.querySelector('.tp-progress-slider'),
             stopBtn: root.querySelector('.tp-act-stop'),
             completeBtn: root.querySelector('.tp-act-complete'),
-            rewardBtn: root.querySelector('.tp-act-reward'),
+            rewardBtn: root.querySelector('.tp-act-reward')
         };
     }
 
     let PANEL = null, FOCUS = null;
 
-    // ===== 渲染作战卡到某个 ref 集合 =====
+    // ===== 渲染作战卡 =====
     function renderOperation(R, task) {
         if (!R) return;
         if (!task) {
             if (R.empty) R.empty.classList.remove('hidden');
-            if (R.card) R.card.classList.add('hidden');
+            R.card.classList.add('hidden');
             return;
         }
         if (R.empty) R.empty.classList.add('hidden');
-        if (R.card) R.card.classList.remove('hidden');
+        R.card.classList.remove('hidden');
 
         const kids = childrenOf(task);
-        R.statusDetail.textContent = task.status === 'done' ? '已完成'
-            : (kids.length ? `${kids.length} 个子任务` : '追踪中');
+        const hasKids = kids.length > 0;
+
+        if (R.statusDetail) {
+            R.statusDetail.textContent = task.status === 'done'
+                ? '已完成'
+                : (hasKids ? `${kids.length} 个子任务` : '追踪中');
+        }
         buildParentChain(R.parentChain, task);
-        R.stars.innerHTML = (typeof goldStars === 'function') ? goldStars(task.priority) : '';
-        R.stars.title = `优先级 ${task.priority}`;
-        R.taskLine.textContent = task.task_line === 'main' ? '主线' : '支线';
-        R.taskLine.className = 'ak-tag ' + (task.task_line === 'main' ? 'ak-tag--advanced' : 'ak-tag--neutral') + ' tp-taskline';
-        R.title.textContent = task.title;
-        R.title.onclick = () => { if (typeof openTaskDetail === 'function') openTaskDetail(task.id); };
-        R.desc.textContent = task.description || '';
-        buildSubtasks(R.subtasks, kids);
+
+        if (R.stars) {
+            R.stars.innerHTML = (typeof goldStars === 'function') ? goldStars(task.priority) : '';
+            R.stars.title = `优先级 ${task.priority}`;
+        }
+        if (R.taskLine) {
+            const isMain = task.task_line === 'main';
+            R.taskLine.textContent = isMain ? '主线' : '支线';
+            R.taskLine.className = 'ak-tag ' + (isMain ? 'ak-tag--advanced' : 'ak-tag--neutral') + ' tp-taskline';
+        }
+        if (R.title) {
+            R.title.textContent = task.title;
+            R.title.onclick = () => { if (typeof openTaskDetail === 'function') openTaskDetail(task.id); };
+        }
+        if (R.desc) {
+            R.desc.textContent = task.description || '';
+            R.desc.classList.toggle('hidden', !(task.description || '').trim());
+        }
+
+        // 子任务区：无子任务时整块（分区线 + 列表）收起
+        if (R.subDivider) R.subDivider.classList.toggle('hidden', !hasKids);
+        if (R.subtasks) {
+            R.subtasks.classList.toggle('hidden', !hasKids);
+            buildSubtasks(R.subtasks, kids);
+        }
 
         const { progress, mode } = computeProgress(task);
-        R.progress.className = `ak-progress tracking-progress tp-progress ${mode}`;
-        R.progressFill.style.setProperty('--ak-progress-value', `${progress}%`);
-        R.progressNum.textContent = `${Math.round(progress)}%`;
-        const isManual = mode === 'manual';
-        R.progressBar.classList.toggle('hidden', isManual);
-        R.progressSlider.classList.toggle('hidden', !isManual);
-        if (isManual) R.progressSlider.value = String(Math.round(progress));
+        if (R.progress) {
+            R.progress.className = `ak-progress tracking-progress tp-progress ${mode}`;
+            R.progressFill.style.setProperty('--ak-progress-value', `${progress}%`);
+            R.progressNum.textContent = `${Math.round(progress)}%`;
+            const isManual = mode === 'manual';
+            R.progressBar.classList.toggle('hidden', isManual);
+            R.progressSlider.classList.toggle('hidden', !isManual);
+            if (isManual) R.progressSlider.value = String(Math.round(progress));
+        }
 
         const cs = (typeof claimStateOf === 'function') ? claimStateOf(task) : 'none';
-        R.rewardBtn.classList.toggle('hidden', cs !== 'claimable');
+        if (R.rewardBtn) R.rewardBtn.classList.toggle('hidden', cs !== 'claimable');
     }
 
     // ===== 番茄钟 UI =====
     function updatePomodoroUI() {
+        const active = !!state.pomodoro;
+        const focusMin = parseInt(state.settings && state.settings.pomodoro_focus_minutes) || 25;
+        const idleText = fmtMMSS(focusMin * 60);
+
+        // 面板底栏：空闲 → 显示「开始专注」；运行中 → 显示仪表 + 结束键
         const g = el('tpPomo');
-        if (!g) return;
-        if (!state.pomodoro) {
-            g.classList.add('hidden');
-            g.style.setProperty('--ak-gauge-value', '0%');
-            if (el('tpPomoCount')) el('tpPomoCount').textContent = fmtMMSS((parseInt(state.settings.pomodoro_focus_minutes || 25)) * 60);
-            if (el('tpPomoCtrl')) el('tpPomoCtrl').classList.add('hidden');
-        } else {
-            g.classList.remove('hidden');
-            if (el('tpPomoCtrl')) el('tpPomoCtrl').classList.remove('hidden');
-            const isFocus = state.pomodoro.kind === 'focus';
-            el('tpPomoKind').textContent = isFocus ? 'FOCUS' : 'BREAK';
-            el('tpPomoKind').className = 'ak-gauge__label ' + (isFocus ? 'focus' : 'break');
-            el('tpPomoUnit').textContent = isFocus ? '专注' : '休息';
-            g.classList.toggle('ak-gauge--warning', isFocus);
-            g.classList.toggle('is-break', !isFocus);
-            const endMs = state.pomodoroEndAt instanceof Date ? state.pomodoroEndAt.getTime() : NaN;
-            const remainMs = Math.max(0, (Number.isFinite(endMs) ? endMs : Date.now()) - Date.now());
-            const remainSec = remainMs / 1000;
+        const startBtn = el('tpPomoStart');
+        const stopBtn = el('tpPomoStop');
+        if (startBtn) startBtn.classList.toggle('hidden', active);
+        if (stopBtn) stopBtn.classList.toggle('hidden', !active);
+        if (g) {
+            g.classList.toggle('hidden', !active);
+            if (!active) g.style.setProperty('--ak-gauge-value', '0%');
+        }
+
+        let kind = 'focus';
+        let countText = idleText;
+        let pct = 0;
+        if (active) {
+            kind = state.pomodoro.kind === 'break' ? 'break' : 'focus';
             const total = Number(state.pomodoro.planned_seconds) || 1;
-            el('tpPomoCount').textContent = fmtMMSS(remainSec);
-            const pct = Math.max(0, Math.min(100, ((total - remainSec) / total) * 100));
-            g.style.setProperty('--ak-gauge-value', pct.toFixed(2) + '%');
+            const endMs = state.pomodoroEndAt instanceof Date ? state.pomodoroEndAt.getTime() : NaN;
+            const remainSec = Math.max(0, ((Number.isFinite(endMs) ? endMs : Date.now()) - Date.now()) / 1000);
+            countText = fmtMMSS(remainSec);
+            pct = Math.max(0, Math.min(100, ((total - remainSec) / total) * 100));
         }
-        // 同步专注层的大仪表
-        const fg = el('fxPomo');
-        if (fg) {
-            if (!state.pomodoro) {
-                fg.classList.add('hidden');
-                if (el('fxPomoCount')) el('fxPomoCount').textContent = fmtMMSS((parseInt(state.settings.pomodoro_focus_minutes || 25)) * 60);
-            } else {
-                fg.classList.remove('hidden');
-                const isFocus = state.pomodoro.kind === 'focus';
-                el('fxPomoKind').textContent = isFocus ? 'FOCUS' : 'BREAK';
-                el('fxPomoKind').className = 'ak-gauge__label ' + (isFocus ? 'focus' : 'break');
-                el('fxPomoUnit').textContent = isFocus ? '专注' : '休息';
-                fg.classList.toggle('ak-gauge--warning', isFocus);
-                fg.classList.toggle('is-break', !isFocus);
-                const endMs = state.pomodoroEndAt instanceof Date ? state.pomodoroEndAt.getTime() : NaN;
-                const remainMs = Math.max(0, (Number.isFinite(endMs) ? endMs : Date.now()) - Date.now());
-                el('fxPomoCount').textContent = fmtMMSS(remainMs / 1000);
-                const total = Number(state.pomodoro.planned_seconds) || 1;
-                const pct = Math.max(0, Math.min(100, ((total - (remainMs / 1000)) / total) * 100));
-                fg.style.setProperty('--ak-gauge-value', pct.toFixed(2) + '%');
-            }
-        }
+
+        const kindLabel = kind === 'break' ? 'BREAK' : 'FOCUS';
+        const unitLabel = kind === 'break' ? '休息' : '专注';
+
+        const set = (id, text) => { const n = el(id); if (n) n.textContent = text; };
+        set('tpPomoKind', kindLabel); set('tpPomoUnit', unitLabel); set('tpPomoCount', countText);
+        set('fxPomoKind', kindLabel); set('fxPomoUnit', unitLabel); set('fxPomoCount', countText);
+
+        // 专注态仪表常显（空闲时显示默认时长 0%）
+        [g, el('fxPomo')].forEach(gauge => {
+            if (!gauge) return;
+            gauge.classList.toggle('ak-gauge--warning', active && kind === 'focus');
+            gauge.classList.toggle('is-break', active && kind === 'break');
+            gauge.style.setProperty('--ak-gauge-value', (active ? pct : 0).toFixed(2) + '%');
+        });
     }
 
     function updatePomodoroTimer() {
-        if (!state.pomodoro) {
-            if (el('tpPomo') && el('tpPomo').classList.contains('hidden') && el('tpPomoCount'))
-                el('tpPomoCount').textContent = fmtMMSS((parseInt(state.settings.pomodoro_focus_minutes || 25)) * 60);
-            return;
-        }
+        if (!state.pomodoro) return;
         if (state.pomodoroEndAt && state.pomodoroEndAt.getTime() <= Date.now()) {
             handlePomodoroFinished();
             return;
@@ -372,7 +368,7 @@
         }
     }
 
-    // ===== 专注模式 =====
+    // ===== 专注模式（全屏沉浸层） =====
     function showFocusMode() {
         const f = el('tpFocus');
         if (f) { f.classList.add('open'); f.setAttribute('aria-hidden', 'false'); }
@@ -381,6 +377,17 @@
     function hideFocusMode() {
         const f = el('tpFocus');
         if (f) { f.classList.remove('open'); f.setAttribute('aria-hidden', 'true'); }
+    }
+    function focusModeIsOpen() {
+        const f = el('tpFocus');
+        return !!(f && f.classList.contains('open'));
+    }
+
+    async function toggleFocusMode() {
+        if (focusModeIsOpen()) { hideFocusMode(); return; }
+        if (!state.trackingTaskId) { showToast('请先追踪一个任务再进入专注模式'); return; }
+        if (!state.pomodoro) await startPomodoro('focus');
+        if (state.pomodoro) showFocusMode();
     }
 
     // ===== 提示音（本地合成，无需联网） =====
@@ -465,13 +472,10 @@
             if (kind === 'focus') {
                 document.body.classList.add('focus-mode');
                 showTrackingPanel();
-                showFocusMode();
-                showToast('专注模式已开启');
-            } else {
-                showToast('休息时间开始');
             }
             updatePomodoroUI();
         }
+        return r;
     }
 
     async function stopPomodoro() {
@@ -486,15 +490,13 @@
     }
 
     function updateTrackingTimer() {
-        const t = el('tpTimer');
+        let text = '00:00:00';
         if (state.trackingTaskId && state.trackingStartTime) {
             const e = Math.floor((Date.now() - state.trackingStartTime.getTime()) / 1000);
-            if (t) t.textContent = fmtTime(e);
-            const ft = el('fxTimer'); if (ft) ft.textContent = fmtTime(e);
-        } else {
-            if (t) t.textContent = '00:00:00';
-            const ft = el('fxTimer'); if (ft) ft.textContent = '00:00:00';
+            text = fmtTime(e);
         }
+        const t = el('tpTimer'); if (t) t.textContent = text;
+        const ft = el('fxTimer'); if (ft) ft.textContent = text;
     }
 
     async function toggleTrackingForTask(taskId) {
@@ -522,40 +524,22 @@
     }
 
     async function toggleTracking() {
-        if (state.trackingTaskId) {
-            const r = await apiPost(`/tasks/${state.trackingTaskId}/track/stop`);
-            if (r) {
-                state.trackingTaskId = null;
-                state.trackingStartTime = null;
-                updateTrackingPanel();
-                if (typeof renderTasks === 'function') renderTasks();
-                if (document.body.classList.contains('focus-mode')) await stopPomodoro();
-                hideTrackingPanel();
-            }
+        if (!state.trackingTaskId) return;
+        const r = await apiPost(`/tasks/${state.trackingTaskId}/track/stop`);
+        if (r) {
+            state.trackingTaskId = null;
+            state.trackingStartTime = null;
+            updateTrackingPanel();
+            if (typeof renderTasks === 'function') renderTasks();
+            if (document.body.classList.contains('focus-mode')) await stopPomodoro();
+            hideTrackingPanel();
         }
     }
 
     async function completeCurrentTracking() {
-        if (state.trackingTaskId) {
-            const id = state.trackingTaskId;
-            if (typeof completeTaskAndHandleReward === 'function') await completeTaskAndHandleReward(id);
+        if (state.trackingTaskId && typeof completeTaskAndHandleReward === 'function') {
+            await completeTaskAndHandleReward(state.trackingTaskId);
         }
-    }
-
-    async function toggleFocusMode() {
-        if (document.body.classList.contains('focus-mode')) {
-            await stopPomodoro();
-            return;
-        }
-        if (!state.trackingTaskId) {
-            showToast('请先追踪一个任务再进入专注模式');
-            return;
-        }
-        await startPomodoro('focus');
-    }
-
-    function setTrackingStatus(detail, tone) {
-        const d = el('tpStatusDetail'); if (d) d.textContent = detail || '';
     }
 
     function updateTrackingPanel() {
@@ -601,7 +585,7 @@
     window.showTrackingPanel = showTrackingPanel;
     window.startPomodoro = startPomodoro;
 
-    // ===== 初始化：构建骨架并绑定事件 =====
+    // ===== 初始化 =====
     function bindTrackingFeature() {
         const card = el('tpCard');
         if (card) { card.innerHTML = CARD_SKELETON; PANEL = buildRefs(card); }
@@ -614,13 +598,14 @@
         });
         setPanelVariant(window.__tpVariant);
 
-        // 面板头部按钮
+        // 面板头部 / 底栏按钮
         const fb = el('tpFocusBtn'); if (fb) fb.addEventListener('click', toggleFocusMode);
         const cb = el('tpCollapseBtn'); if (cb) cb.addEventListener('click', collapseTrackingPanel);
-        const ps = el('tpPomoStop'); if (ps) ps.addEventListener('click', stopPomodoro);
+        const pStart = el('tpPomoStart'); if (pStart) pStart.addEventListener('click', toggleFocusMode);
+        const pStop = el('tpPomoStop'); if (pStop) pStop.addEventListener('click', stopPomodoro);
         const fe = el('tpFocusExit'); if (fe) fe.addEventListener('click', stopPomodoro);
 
-        // 作战卡操作按钮（面板 + 专注层各一套）
+        // 作战卡操作按钮（面板 + 专注态各一套）
         [PANEL, FOCUS].forEach(R => {
             if (!R) return;
             if (R.stopBtn) R.stopBtn.addEventListener('click', toggleTracking);
@@ -634,7 +619,6 @@
             }
         });
 
-        // 初始渲染
         updateTrackingPanel();
         updatePomodoroUI();
     }

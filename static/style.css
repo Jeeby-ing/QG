@@ -9062,100 +9062,6 @@ body.theme-light .modal-container#rewardModal .reward-empty-msg { color: #55585c
 }
 
 /* ==========================================================================
-   §22.3  追踪面板：进度条 + 绿色打勾重做，并清理重复的矩形/切角矩形（R41 · 第 3 项）
-   --------------------------------------------------------------------------
-   用户原话：「追踪任务窗口风格与原游戏不符，重点重做进度条和绿色打勾图标；
-               将大量重复的矩形与切角矩形整合，减少冗余。」
-
-   三件事：
-
-   ① 进度条 —— 刻度改成**原版贴图**。
-      ak-ui 的 .ak-progress__track::after 用 repeating-linear-gradient 画竖直分隔线，
-      那是组件库对"分段"的近似。这里换成方舟任务页真正的进度刻度贴图
-      pages/missiontab/sprite_track_point_frame.webp（39×39 的菱形描边），
-      用 mask 铺成 repeat-x —— 好处是**颜色还能跟着语义走**（mask 只取 alpha，
-      底色由 background-color 决定），所以 tree/count/manual 三种配色都还成立。
-
-   ② 绿色打勾 —— 换成原版贴图，不再是 CSS 拼的方块 + 两条边。
-      贴图用 pages/pages/confirm.webp（41×41）：一个**实心圆盘 + 镂空勾**，
-      这正是方舟原版"确认/已完成"的那个图标本体。
-      ⚠️ 中途踩过的坑：一开始用的是 img_check_btn.webp，因为名字像"勾选按钮"——
-        实际它是 voucher_skin_page（时装券页）里的**蓝色三角形 + 放大镜**按钮，
-        渲染出来是一个绿色三角，完全不是勾。manifest 的 src 字段能证实来源。
-      实现方式：把 confirm 当 **mask**（只取 alpha），再用 background-color 上
-      --ak-signal-success → 得到"绿圆盘 + 镂空勾"，颜色随语义令牌走，
-      浅色主题也只需换令牌，不必换贴图。
-
-   ③ 冗余的矩形/切角矩形 —— 数一数旧版一屏里有几个盒子：
-        子任务行 ×3   → 每行一个 clip-path 切角矩形 + 一层半透明底
-        状态徽标 ×3   → 每个又一个 clip-path 切角矩形（还带一条左侧色条）
-        进度面板 ×1   → 再一个带边框的矩形
-      也就是十几张"看起来差不多"的矩形叠在一起，这正是"缺乏设计感"的来源。
-      整合后：
-        · 子任务改为**平铺行 + 发丝分隔线**（游戏里任务列表就是这样），
-          去掉每行的 clip-path 与底色，只在 hover 时给一层极淡的底；
-        · 状态徽标降级为**纯文字**（等宽、字距、按状态换色），一次干掉 3 个切角矩形；
-        · 进度面板去掉边框与底色，改成一条发丝线 + 计数值，再干掉 1 个矩形。
-   回滚：删本节即可（子任务会退回"每行一个切角盒子"的旧样式）。
-   ========================================================================== */
-
-/* ---- 22.3.1 进度条：刻度换成原版菱形贴图 ---- */
-
-/* 填充条：给一个更实的收边，视觉上像"一格一格点亮" */
-
-/* ---- 22.3.2 绿色打勾：原版 confirm 贴图做 mask + 色彩语义化 ---- */
-
-/* confirm 贴图自带镂空勾形，撤掉 ak-ui 用 border 拼的那条勾，避免出现两个勾 */
-
-/* ---- 22.3.3 子任务行：平铺 + 发丝线，删掉每行的切角矩形 ---- */
-
-/* 完成态不再把整行刷绿（那是"重复的绿色矩形"里最大的一块），
-   绿只保留在两处语义位上：左侧的勾 + 右侧的状态文字。 */
-
-/* ---- 22.3.4 状态徽标 → 纯文字（一次删掉 3 个切角矩形） ---- */
-
-/* ---- 22.3.5 进度面板 → 一条发丝线（删掉最后一个矩形） ---- */
-
-/* ---- 22.3.6 浅色主题：上面几条都要跟着把盒子撤掉（旧规则特异性更高，必须补） ---- */
-
-/* 浅色下"绿色打勾"也必须继续走 mask —— 旧规则 (0,3,1) 会给它刷一层白底绿边，把贴图挡掉。
-   注意浅色主题不能指向 --ak-signal-success（它会切成浅色语义绿，在浅底上发灰），
-   这里直接给深一档的绿，保证在浅底上仍有对比。 */
-
-/* ==========================================================================
-   §22.4  专注模式：把"纯几何堆叠"换成原版贴图构成的舞台（R41 · 第 4 项）
-   --------------------------------------------------------------------------
-   用户原话：「专注模式设计过于单一，仅由普通几何图形堆凑，矩形过多且缺乏设计感，
-               需重新设计。」
-   旧版专注态 = 一个标题 + 一条分区线 + 一个矩形进度面板 + 两个矩形按钮 +
-   一个八角形 + 一个方形小按钮 —— 全是几何块，且彼此之间没有呼吸。
-
-   这一版的思路：**保留 ak-ui 组件（它们是规范），补上一层由原版贴图构成的
-   空间与光**，让八角仪表不再"孤零零浮在黑底上"：
-     .focus-deco-glow   径向柔光，给计时器一个体积感的光背
-     .focus-deco-flare  四角科技光斑（右上），把画面从中心往外拉
-     .focus-deco-dust   金色微粒，铺一层空气感（screen 混合）
-     .focus-deco-leak   底边渐隐，把视线收回计时器
-   全部来自 static/img/ui/（Ark-Unpacker 从 APK 解出的游戏原生 webp），
-   不是 CSS 画的形状；只在 body.focus-mode 下出现，pointer-events:none。
-
-   另外给八角仪表套了 ak-ui 自己的 .ak-face__lines 四角刻度线 ——
-   那个零件在组件库里的用途就是"给一个方块加工程图式的四角短线"，
-   用在这里正好补掉"一个孤零零的八角形"的单薄感，且不新增任何矩形。
-   回滚：删本节 + 去掉 index.html 的 .focus-deco / .tracking-gauge-wrap 两层。
-   ========================================================================== */
-
-/* ---- 22.4.1 装饰层 ---- */
-
-/* 内容抬到装饰层之上（装饰只负责"背景的呼吸"） */
-
-/* ---- 22.4.2 八角仪表：套上 ak-ui .ak-face__lines 四角刻度线 ---- */
-
-/* 光背：让八角形"坐"在一团光上，而不是浮在纯黑里 */
-
-/* ---- 22.4.3 专注态的节奏：分区线与进度都收窄、居中，避免"一条线顶到边" ---- */
-
-/* ==========================================================================
    §22.5  日历视图：把"自动算出来的节日"变成版面的主体（R41 · 第 5 项）
    --------------------------------------------------------------------------
    用户原话：「日历视图无任何装饰、极度单调，需自动计算并展示各类常见节日与节假日，
@@ -9408,321 +9314,419 @@ body.theme-light .calendar-container .calendar-day.has-fest { border-color: rgba
 /* 浅色主题：数值与图标在浅底上要够深 */
 body.theme-light .task-reward-value { color: var(--text-secondary-2, #55524c); }
 
-/* ==========================================================================
-   §21.11  追踪面板视觉重构（沿用 §22.6 招募按钮组方向）· R42
-   --------------------------------------------------------------------------
-   用户原话：「优化追踪面板的视觉设计，当前样式仍不够美观。请以现有按钮组件为正
-   面范例（其已完整还原原游戏美术风格与视觉质感），沿用同一方向对追踪面板进行
-   美化重构，使配色、字体、边框、间距与整体布局均与原游戏界面及按钮保持统一
-   协调。」
-
-   正面范例 = §22.6 寻访按钮组（ak-ui「公开招募」原生按钮组），其视觉语汇是：
-     · 青色实心块（--ak-dashboard-cyan: rgba(5,167,220,.92)）
-     · 顶部深色标签条：深底(rgba(24,26,28,.92)) + 青色上边框(3px) + 白下边框(1px)
-     · 强投影（box-shadow: 0 6px 22px rgba(0,0,0,.42)）做体积
-     · 大标题用 display 字体、技术标签用等宽字体（--font-mono）
-     · 浅色主题下青块换浅底、标签条保持深色（它本来就是深色条）
-   本层把同一套语汇「移植」到追踪面板（不改任何 DOM、不碰 §21.0）：
-     ① 面板头部 = 深色标签条：深底 + 青色上边框(3px) + 白下边框(1px)，
-        直接平移 §22.6 的 ::before 处理，让面板顶读起来像寻访按钮组的标题条。
-     ② 分区线（OPERATION / SUB TASKS）= 居中「深色铭牌」：深底 + 青色上边框 +
-        白下边框 + 等宽大写标签，复刻 §22.6 标签条的形态（弃用原来两条细长金杠）。
-     ③ 面板整体 = 青色描边 + 加深投影，呼应 §22.6 青块边缘与体积感。
-     ④ 配色统一到「青=结构 / 金=奖励」：头部描边、分区铭牌、面板边线走科技青
-        (--tp-cyan = #05a7dc，与 §22.6 的 --ak-dashboard-info 完全一致)，
-        金色只留给「领取奖励」与标题高亮，与 §22.6「青块 + 十连高亮」的分工一致。
-     ⑤ 字体：铭牌 / 状态标签 / 计时一律等宽，标题用 display 字体，与范例同语汇。
-   回滚：删本层即可（§21.0 与 DOM 均不动）。
-   ========================================================================== */
-
-/* ---- 21.11.0  作用域内青色调（与 §22.6 招募按钮组同一支青色） ---- */
-
-/* ---- 21.11.1  面板外壳：青色描边 + 加深投影（呼应 §22.6 青块边缘与体积） ---- */
-
-/* ---- 21.11.2  头部 = 深色标签条（直接平移 §22.6 的 ::before 处理） ----
-   深底 + 青色上边框(3px) + 白色下边框(1px)，与寻访按钮组顶部标签条同形。 */
-
-/* 头部里 status 坐在这条深条上，给一点与深底协调的描边 */
-
-/* ---- 21.11.3  分区线 = 居中「深色铭牌」：复刻 §22.6 标签条形态 ----
-   去掉 ak-ui 默认的两根细杠，改为与寻访按钮组同款的深底 + 青色上边框 +
-   白下边框 + 等宽大写标签。 */
-
-   /* 去掉 ak-ui 默认的两根细杠 */
-
-/* SUB TASKS 铭牌：结构性标题同样走青（覆盖 §21.0.4 的旧金色），保持统一 */
-
-/* ---- 21.11.4  操作区 / 底部：用同支青做极淡描边，把整块面板收成一套 ---- */
-
-/* ---- 21.11.5  浅色主题：深条保持深色，青边 / 投影换浅色描边（镜像 §22.6） ---- */
-
-/* ---- 21.11.6  移动端：铭牌字号 / 间距收紧，不顶边 ---- */
-@media (max-width: 768px) {
-    
-    
-    
-}
-
 /* ============================================================
-   §23  作战终端 / 追踪面板 + 专注模式（R43 从零重写）
-   形态：drawer-right（右侧覆盖抽屉·默认）/ hud（悬浮作战卡）/
-        view（作战视图页）/ dock（底部任务坞）；专注 = 全屏沉浸
-   组件：全部复用 ak-ui 原生组件（ak-status / ak-progress /
-        ak-gauge / ak-counter / ak-tag / ak-choice / ak-divider /
-        ak-card / ak-notice / ak-button / ak-face / ak-slider /
-        ak-loading-track）。颜色由下方 --ak-signal-* 映射统一驱动，
-        不再依赖被项目 §15.0 改写的 --ak-color-primary。
-   回滚方式：删除本整节即可（旧实现已彻底移除，无残留依赖）。
+   §23  作战终端 / 追踪面板 + 专注模式（R44 · 视觉重做）
+   ------------------------------------------------------------
+   目标（用户原话）：功能正常、交互自然、界面美观协调、布局清晰、
+   配色合理、整体风格简洁专业。
+
+   设计原则
+   ① 克制的配色：蓝(#4aabea)=主操作 / 金(#f0c246)=奖励与关键数值 /
+      绿(#46c47c)=完成 / 红(#e5484d)=停止 / 灰=次要。同屏强调色不超过两个。
+   ② 去盒子：关掉 ak-ui 默认的深底块(.ak-status)、描边盒(.ak-progress)、
+      进度刻度梯(.ak-progress__track::after)、按钮白描边与按压蒙层，
+      改用发丝线 + 留白分组 —— 这是「不够简洁」的根因。
+   ③ 类型层级：等宽大写小标签 → 标题 → 正文(dim)，一级比一级弱。
+   ④ 交互：按钮等高等宽、圆角一致；hover 有反馈；「停止追踪」=次要(hover 转红)、
+      「完成任务」=主操作蓝、「领取奖励」=金；专注态有明确的开始/退出。
+   ⑤ 组件仍全部是 ak-ui 原生类（ak-status / progress / gauge / counter / tag /
+      choice / divider / notice / button / face / slider），本层只做
+      「信号令牌映射 + 表面重塑」，不改任何组件契约、不动 DOM 结构语义。
+   回滚：删本整节即可（旧实现已彻底移除，无残留依赖）。
    ============================================================ */
+
+/* ---- 23.0  作用域令牌：信号色 + 表面 ---- */
 .tp-root{
-  /* 信号色映射：蓝=科技信息 / 金=关键数值 / 橙=强调 / 绿=成功 / 红=危险 / 灰=禁用 */
-  --ak-signal-info: #4aabea;
-  --ak-signal-action: #f1c644;
-  --ak-signal-accent: #f6540e;
-  --ak-signal-success: #46c47c;
-  --ak-signal-danger: #e33b3b;
-  --ak-signal-disabled: #9c9c9c;
-  --ak-status-signal: var(--ak-signal-info);
-  --ak-status-text: #f0f0e8;
-  --tp-surface: #17191b;
-  --tp-surface-2: #1f2225;
-  --tp-border: rgba(243,244,239,.12);
-  --tp-text: #f0f0e8;
-  --tp-text-dim: rgba(240,240,232,.62);
+  --tp-accent:#4aabea;          /* 主操作 / 科技信息 */
+  --tp-accent-d:#2f95d8;
+  --tp-gold:#f0c246;            /* 奖励 / 关键数值 */
+  --tp-gold-d:#d9a72b;
+  --tp-success:#46c47c;         /* 完成 */
+  --tp-danger:#e5484d;          /* 停止 / 危险 */
+  --tp-line:rgba(236,235,228,.10);
+  --tp-line-2:rgba(236,235,228,.18);
+  --tp-text:#ecebe4;
+  --tp-dim:rgba(236,235,228,.56);
+  --tp-faint:rgba(236,235,228,.34);
+  --tp-mono:'SFMono-Regular',Menlo,Monaco,Consolas,monospace;
+
+  /* ak-ui 信号令牌映射（不依赖被 §15.0 改写为金的 --ak-color-primary） */
+  --ak-signal-info:var(--tp-accent);
+  --ak-signal-action:var(--tp-gold);
+  --ak-signal-accent:#f6540e;
+  --ak-signal-success:var(--tp-success);
+  --ak-signal-danger:var(--tp-danger);
+  --ak-signal-disabled:#8b9095;
+  --ak-color-primary:var(--tp-accent);
+  --ak-color-advanced:var(--tp-gold);
+  --ak-color-low:#8b9095;
+  color:var(--tp-text);
 }
 
-/* 面板基础：固定覆盖层，不挤压主内容 */
+/* ---- 23.1  面板外壳 ---- */
 .tp-panel{
-  position: fixed;
-  z-index: 1200;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(180deg, rgba(26,29,33,.96), rgba(17,19,21,.98));
-  color: var(--tp-text);
-  border: 1px solid var(--tp-border);
-  box-shadow: 0 0 40px rgba(0,0,0,.55), inset 0 0 0 1px rgba(74,171,234,.06);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateX(20px);
-  transition: opacity .28s ease, transform .28s cubic-bezier(.2,.7,.2,1);
-  backdrop-filter: blur(6px);
+  position:fixed; z-index:1200;
+  display:flex; flex-direction:column;
+  background:linear-gradient(180deg,#181c20,#101317);
+  color:var(--tp-text);
+  border:1px solid var(--tp-line-2);
+  box-shadow:0 28px 64px -20px rgba(0,0,0,.78);
+  opacity:0; visibility:hidden; transform:translateX(24px);
+  transition:opacity .26s ease, transform .30s cubic-bezier(.22,.68,.2,1);
+  overflow:hidden;
 }
 .tp-panel.open{ opacity:1; visibility:visible; transform:none; }
+.tp-panel[data-variant="hud"]:not(.open){ transform:translateY(-14px) scale(.97); }
+.tp-panel[data-variant="view"]:not(.open){ transform:translate(-50%,-46%) scale(.97); }
+.tp-panel[data-variant="dock"]:not(.open){ transform:translateY(100%); }
 
 .tp-frame{
   position:absolute; inset:0; pointer-events:none; z-index:0;
-  background:
-    radial-gradient(120% 80% at 100% 0%, rgba(74,171,234,.10), transparent 60%),
-    radial-gradient(120% 80% at 0% 100%, rgba(241,198,68,.06), transparent 60%);
+  background:radial-gradient(130% 60% at 100% 0%, rgba(74,171,234,.09), transparent 62%);
 }
 .tp-panel > *{ position:relative; z-index:1; }
 
+/* ---- 23.2  顶栏 ---- */
 .tp-bar{
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 14px 16px 10px;
-  border-bottom: 1px solid var(--tp-border);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:13px 16px; border-bottom:1px solid var(--tp-line);
+  background:linear-gradient(180deg, rgba(74,171,234,.07), transparent);
 }
 .tp-eyebrow{
-  font: 700 11px/1.2 'SFMono-Regular',Menlo,Consolas,monospace;
-  letter-spacing:.14em; text-transform:uppercase; color: var(--ak-signal-info);
-  display:inline-flex; align-items:center; gap:.4rem;
+  display:inline-flex; align-items:center; gap:.5rem;
+  font:800 10.5px/1 var(--tp-mono);
+  letter-spacing:.18em; text-transform:uppercase; color:var(--tp-accent);
 }
+.tp-eyebrow i{ font-size:12px; opacity:.9; }
 .tp-bar-actions{ display:flex; gap:8px; }
 .tp-icon-btn{
-  width:34px; height:34px; display:grid; place-items:center;
-  background: rgba(243,244,239,.06); color: var(--tp-text);
-  border:1px solid var(--tp-border); border-radius:6px; cursor:pointer;
-  transition: background .15s, transform .15s;
+  width:32px; height:32px; display:grid; place-items:center;
+  color:var(--tp-dim); background:transparent;
+  border:1px solid var(--tp-line); border-radius:7px; cursor:pointer;
+  transition:color .15s, background .15s, border-color .15s;
 }
-.tp-icon-btn:hover{ background: rgba(74,171,234,.18); transform: translateY(-1px); }
+.tp-icon-btn i{ font-size:13px; }
+.tp-icon-btn:hover{ color:var(--tp-text); background:rgba(236,235,228,.08); border-color:var(--tp-line-2); }
 
-.tp-body{ flex:1; overflow:auto; padding: 14px 16px; }
-.tp-empty{ display:flex; flex-direction:column; gap:18px; align-items:center; justify-content:center; min-height: 220px; }
+/* ---- 23.3  主体 ---- */
+.tp-body{ flex:1; min-height:0; overflow-y:auto; padding:16px; }
+.tp-body::-webkit-scrollbar{ width:8px; }
+.tp-body::-webkit-scrollbar-thumb{ background:rgba(236,235,228,.14); border-radius:8px; }
+.tp-body::-webkit-scrollbar-track{ background:transparent; }
 .tp-empty.hidden, .tp-card.hidden{ display:none; }
-.tp-standby{ width: 160px; }
 
-.tp-card-head{ display:flex; flex-direction:column; gap:10px; margin-bottom:6px; }
+/* 空态：深色铭牌 + 金强调条（ak-notice 重塑） */
+.tp-empty{ display:flex; flex-direction:column; justify-content:center; min-height:200px; }
+.tp-root .ak-notice{
+  grid-template-columns:4.6rem 1fr;
+  min-height:0; padding:.9rem 1rem .9rem 0;
+  background:rgba(240,194,70,.05);
+  border:1px solid rgba(240,194,70,.22);
+  color:var(--tp-text);
+}
+.tp-root .ak-notice::before{ width:3px; }
+.tp-root .ak-notice__code{ font-size:.58rem; letter-spacing:.14em; color:var(--tp-gold); }
+.tp-root .ak-notice__body{ border-left:1px solid rgba(240,194,70,.18); }
+.tp-root .ak-notice__title{ font-size:.95rem; font-weight:800; color:var(--tp-text); }
+.tp-root .ak-notice__message{ margin-top:.4rem; font-size:.76rem; line-height:1.6; color:var(--tp-dim); }
+
+/* ---- 23.4  作战卡（.tp-op = 面板与专注态共用的内容骨架） ---- */
+.tp-op{ display:flex; flex-direction:column; gap:14px; }
+.tp-op-main{ display:flex; flex-direction:column; gap:8px; }
+
+/* 状态行：一行，无底色 */
+.tp-root .ak-status{
+  display:flex; align-items:center; gap:.5rem;
+  min-height:0; padding:0; background:transparent;
+  /* ak-ui 在 .ak-tag/.ak-status 元素上直接声明了浅色文字令牌(#f3f4ef)，
+     元素自身的声明会压过 .tp-root 继承值 —— 必须写在同一元素上才能随主题 */
+  --ak-status-text:var(--tp-text);
+}
+.tp-root .ak-status__signal{
+  width:.5rem; height:.5rem; border-radius:50%; grid-row:auto;
+  animation:tp-dot 2s ease-in-out infinite;
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--ak-status-signal) 20%, transparent);
+}
+.tp-root .ak-status__label{
+  font:800 .64rem/1 var(--tp-mono); letter-spacing:.16em;
+  text-transform:uppercase; color:var(--ak-status-signal);
+}
+.tp-root .ak-status__detail{ margin-top:0; font-size:.75rem; color:var(--tp-dim); }
+@keyframes tp-dot{ 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* 父任务链 */
 .tp-parent-chain{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
-.tracking-chain-chip{ font-size:.72rem; }
-.tracking-chain-sep{ color: var(--tp-text-dim); }
+.tp-parent-chain:empty{ display:none; }
+.tracking-chain-sep{ color:var(--tp-faint); font-size:.8rem; }
 
-.tp-status{ --ak-status-signal: var(--ak-signal-info); }
-.tp-status__detail{ color: var(--ak-status-text); }
+/* 标签（ak-tag 重塑：去掉重底，保留切角） */
+.tp-root .ak-tag{
+  min-height:0; padding:.26rem .6rem .26rem .65rem;
+  font-size:.63rem; letter-spacing:.1em;
+  background:rgba(236,235,228,.05);
+  border:1px solid color-mix(in srgb, var(--ak-tag-signal) 42%, transparent);
+  border-radius:2px;
+  --ak-tag-text:var(--tp-text); color:var(--tp-text);
+}
+.tp-root .ak-tag::before{ width:2px; }
 
-.tp-title-row{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
-.tp-title{ font-size:1.05rem; font-weight:700; margin:0 0 4px; cursor:pointer; }
-.tp-title:hover{ color: var(--ak-signal-info); }
-.tp-desc{ color: var(--tp-text-dim); font-size:.85rem; line-height:1.5; margin:0 0 4px; }
-.tracking-subtasks{ display:flex; flex-direction:column; gap:4px; margin-bottom:10px; max-height:180px; overflow:auto; }
-.tracking-subtask .ak-choice__label{ color: var(--tp-text); }
-.tracking-subtask.is-done .ak-choice__label{ text-decoration: line-through; color: var(--tp-text-dim); }
+/* 标题 / 正文 */
+.tp-title{ margin:0; font-size:1.15rem; font-weight:800; line-height:1.32; cursor:pointer; transition:color .15s; }
+.tp-title:hover{ color:var(--tp-accent); }
+.tp-desc{ margin:0; font-size:.83rem; line-height:1.62; color:var(--tp-dim); }
+.tp-title-row{ display:flex; align-items:center; gap:10px; }
 
-/* 进度三段语义色 */
-.tp-progress.tree{ --ak-progress-signal: var(--ak-signal-action); }
-.tp-progress.count{ --ak-progress-signal: var(--ak-signal-success); }
-.tp-progress.manual{ --ak-progress-signal: var(--ak-signal-info); }
+/* 分区线（ak-divider 重塑：细线 + 居中等宽标签，替掉原来的三段粗白杠） */
+.tp-root .ak-divider{ margin:2px 0; }
+.tp-root .ak-divider::before,
+.tp-root .ak-divider::after{ content:""; width:auto; height:1px; flex:1 1 auto; }
+.tp-root .ak-divider::before{ background:linear-gradient(90deg, transparent, var(--tp-line-2)); }
+.tp-root .ak-divider::after{ background:linear-gradient(90deg, var(--tp-line-2), transparent); }
+.tp-root .ak-divider span{
+  width:auto; flex:0 0 auto; padding:0 .7rem;
+  font:800 .58rem/1 var(--tp-mono); letter-spacing:.2em;
+  text-transform:uppercase; color:var(--tp-faint); filter:none;
+}
 
-/* ak-ui 组件在原版面板里的表面桥接（深色） */
-.tp-root .ak-tag{ font-size:.7rem; }
-.tp-root .ak-divider{ margin:.4rem 0; }
-.tp-root .ak-divider span{ color: var(--tp-text-dim); letter-spacing:.12em; font-size:.68rem; }
-.tp-root .ak-progress__caption{ color: var(--tp-text-dim); font-size:.68rem; letter-spacing:.1em; }
-.tp-root .ak-notice{ background: rgba(241,198,68,.08); border:1px solid rgba(241,198,68,.25); border-radius:8px; padding:14px; text-align:left; }
-.tp-root .ak-notice__title{ color:#f1c644; font-weight:700; }
-.tp-root .ak-notice__message{ color: var(--tp-text-dim); font-size:.8rem; }
-.tp-root .ak-gauge{ --ak-gauge-signal: var(--ak-signal-info); }
-.tp-root .ak-gauge.ak-gauge--warning{ --ak-gauge-signal: var(--ak-signal-action); }
-.tp-root .ak-gauge.is-break{ --ak-gauge-signal: var(--ak-signal-success); }
-.tp-root .ak-button{ font-size:.82rem; }
-.tp-root .ak-button__label{ font-family: inherit; }
+/* 子任务（ak-choice 重塑：平铺行 + 发丝感，去掉每行盒子） */
+.tracking-subtasks{ display:flex; flex-direction:column; }
+.tp-root .ak-choice{
+  display:flex; align-items:center; gap:.6rem;
+  padding:.42rem .3rem; border-radius:6px; color:var(--tp-text);
+  transition:background .14s;
+}
+.tp-root .ak-choice:hover{ background:rgba(236,235,228,.045); }
+.tp-root .ak-choice__input{
+  width:1.15rem; height:1.15rem; border-width:2px; border-radius:3px;
+  border-color:rgba(236,235,228,.34); background:transparent;
+  --ak-choice-fill:var(--tp-success); --ak-choice-signal:var(--tp-success);
+}
+.tp-root .ak-choice__input::after{ border-color:#0b1a12; }
+.tp-root .ak-choice__label{ font-size:.85rem; line-height:1.4; color:var(--tp-text); }
+.tracking-subtask.is-done .ak-choice__label{ color:var(--tp-dim); text-decoration:line-through; }
 
-/* 面板底部：番茄钟 + 会话计时 */
+/* 进度（ak-progress 重塑：无盒、无刻度梯、单条实心） */
+.tp-root .ak-progress{
+  display:flex; flex-direction:column; gap:9px;
+  padding:0; border:0; background:transparent;
+}
+.tp-root .ak-progress__header{ font-size:.58rem; letter-spacing:.18em; color:var(--tp-faint); }
+.tp-root .ak-progress__caption{ color:var(--tp-faint); }
+.tp-root .ak-progress__value{ font-size:.8rem; font-weight:800; }
+.tp-root .ak-progress__track{
+  height:8px; border-radius:3px; overflow:hidden;
+  background:rgba(236,235,228,.09);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.35);
+}
+.tp-root .ak-progress__track::after{ display:none; }
+.tp-root .ak-progress__fill{
+  border-radius:3px;
+  background:linear-gradient(90deg, color-mix(in srgb,var(--ak-progress-signal) 72%, transparent), var(--ak-progress-signal));
+  box-shadow:0 0 10px -2px color-mix(in srgb,var(--ak-progress-signal) 80%, transparent);
+  transition:width .3s cubic-bezier(.22,.68,.2,1);
+}
+.tp-progress.tree{ --ak-progress-signal:var(--tp-gold); }
+.tp-progress.count{ --ak-progress-signal:var(--tp-success); }
+.tp-progress.manual{ --ak-progress-signal:var(--tp-accent); }
+.tp-root .ak-slider{ height:30px; --ak-slider-accent:var(--tp-accent); }
+
+/* 操作按钮（等高等宽，圆角统一；去掉 ak-ui 白描边与按压蒙层） */
+.tracking-actions{ display:flex; gap:10px; }
+.tp-root .ak-button{
+  flex:1 1 0; width:auto; min-width:0; height:42px; gap:.5rem;
+  border-radius:8px; box-shadow:none; font-weight:800;
+  transition:background .16s, border-color .16s, color .16s, transform .12s, filter .16s;
+}
+.tp-root .ak-button:hover:not(:disabled){ filter:none; transform:translateY(-1px); }
+.tp-root .ak-button:active{ transform:translateY(0); }
+.tp-root .ak-button::after{ display:none; }
+.tp-root .ak-button__icon{ width:auto; height:auto; font-size:.9rem; }
+.tp-root .ak-button__label{ font-size:.82rem; font-weight:800; }
+.tp-root .ak-button--outline{
+  background:rgba(236,235,228,.03); border:1px solid var(--tp-line-2); color:var(--tp-dim);
+}
+.tp-root .ak-button--outline:hover{
+  color:#ffa7a9; border-color:color-mix(in srgb,var(--tp-danger) 55%,transparent);
+  background:color-mix(in srgb,var(--tp-danger) 12%,transparent);
+}
+.tp-root .ak-button--action{ background:linear-gradient(180deg,var(--tp-accent),var(--tp-accent-d)); color:#08151d; }
+.tp-root .ak-button--action:hover{ filter:brightness(1.07); }
+.tp-root .ak-button--advanced{ background:linear-gradient(180deg,#f6cd5c,var(--tp-gold-d)); color:#2b2000; }
+.tp-root .ak-button--advanced:hover{ filter:brightness(1.05); }
+
+/* ---- 23.5  底栏：会话计时 + 番茄钟 ---- */
 .tp-foot{
-  display:flex; align-items:center; gap:14px; padding:12px 16px;
-  border-top:1px solid var(--tp-border);
+  display:flex; align-items:center; gap:12px;
+  padding:12px 16px; border-top:1px solid var(--tp-line);
+  background:rgba(0,0,0,.16);
 }
-.tp-pomo{ position:relative; display:flex; align-items:center; gap:8px; }
-.tp-gauge-wrap{ position:relative; width:64px; height:64px; display:grid; place-items:center; }
-.tp-gauge-wrap .ak-face__line--tl, .tp-gauge-wrap .ak-face__line--tr,
-.tp-gauge-wrap .ak-face__line--bl, .tp-gauge-wrap .ak-face__line--br{
-  position:absolute; width:10px; height:10px; border:1px solid rgba(74,171,234,.5);
-}
-.tp-gauge-wrap .ak-face__line--tl{ left:0; top:0; border-right:0; border-bottom:0; }
-.tp-gauge-wrap .ak-face__line--tr{ right:0; top:0; border-left:0; border-bottom:0; }
-.tp-gauge-wrap .ak-face__line--bl{ left:0; bottom:0; border-right:0; border-top:0; }
-.tp-gauge-wrap .ak-face__line--br{ right:0; bottom:0; border-left:0; border-top:0; }
-.tp-gauge{ width:56px; height:56px; }
-.tp-gauge .ak-gauge__value{ font-size:1rem; }
-.tp-gauge .ak-gauge__label{ font-size:.5rem; }
-.tp-gauge .ak-gauge__unit{ font-size:.5rem; }
-.tp-pomo-ctrl{ display:flex; }
-.tp-pomo-stop{ width:34px; height:30px; }
-.tp-timer{ flex:1; justify-content:flex-end; }
-.tp-timer .ak-counter__content{ font: 700 1.1rem/1 'SFMono-Regular',Menlo,Consolas,monospace; color: var(--tp-text); letter-spacing:.04em; }
+.tp-session{ display:inline-flex; align-items:center; gap:.55rem; min-width:0; }
+.tp-session-label{ font:800 .56rem/1 var(--tp-mono); letter-spacing:.2em; color:var(--tp-faint); }
+.tp-root .ak-counter--compact{ border:0; padding:0; margin:0; min-height:0; }
+.tp-root .ak-counter--compact .ak-counter__prefix .ak-icon{ width:1.1rem; height:1.1rem; }
+.tp-timer .ak-counter__content{ font:800 .95rem/1 var(--tp-mono); color:var(--tp-text); letter-spacing:.03em; }
 
-/* 形态切换器 */
-.tp-switch{
-  display:flex; gap:4px; padding:8px 16px 12px; border-top:1px solid var(--tp-border);
+.tp-pomo{ display:inline-flex; align-items:center; gap:9px; margin-left:auto; }
+.tp-gauge-wrap{ position:relative; width:42px; height:42px; display:grid; place-items:center; }
+.tp-root .ak-gauge{ --ak-gauge-signal:var(--tp-accent); }
+.tp-root .ak-gauge.ak-gauge--warning{ --ak-gauge-signal:var(--tp-gold); }
+.tp-root .ak-gauge.is-break{ --ak-gauge-signal:var(--tp-success); }
+.tp-gauge{ width:42px; height:42px; }
+.tp-gauge .ak-gauge__value{ margin-top:.08rem; font-size:.76rem; }
+.tp-gauge .ak-gauge__label{ font-size:.42rem; letter-spacing:.04em; }
+.tp-gauge .ak-gauge__unit{ display:none; }
+.tp-pomo-start{
+  display:inline-flex; align-items:center; gap:.42rem; height:34px; padding:0 14px;
+  font:800 .78rem/1 inherit; color:#08151d; cursor:pointer;
+  white-space:nowrap; flex:0 0 auto;
+  background:linear-gradient(180deg,var(--tp-accent),var(--tp-accent-d));
+  border:0; border-radius:8px; transition:filter .16s, transform .12s;
 }
+.tp-pomo-start:hover{ filter:brightness(1.07); transform:translateY(-1px); }
+.tp-pomo-start i{ font-size:.72rem; }
+.tp-pomo-stop{ width:34px; height:34px; }
+
+/* ---- 23.6  形态切换器 ---- */
+.tp-switch{ display:flex; gap:4px; padding:8px 12px 12px; border-top:1px solid var(--tp-line); }
 .tp-variant{
-  flex:1; padding:6px 0; font-size:.72rem; color: var(--tp-text-dim);
-  background: rgba(243,244,239,.05); border:1px solid var(--tp-border); border-radius:6px;
-  cursor:pointer; transition: all .15s; font-family:inherit;
+  flex:1 1 0; height:26px; font:700 .68rem/1 inherit; color:var(--tp-faint);
+  background:transparent; border:1px solid transparent; border-radius:6px; cursor:pointer;
+  transition:color .15s, background .15s, border-color .15s;
 }
-.tp-variant:hover{ color: var(--tp-text); }
+.tp-variant:hover{ color:var(--tp-dim); background:rgba(236,235,228,.05); }
 .tp-variant.active{
-  color:#0c0e10; background: var(--ak-signal-info); border-color: var(--ak-signal-info);
-  font-weight:700;
+  color:var(--tp-text); background:rgba(74,171,234,.16);
+  border-color:color-mix(in srgb,var(--tp-accent) 45%,transparent);
 }
 
-/* ---- 形态一：右侧覆盖抽屉（默认） ---- */
-.tp-panel[data-variant="drawer-right"]{
-  top:0; right:0; height:100%; width:min(420px, 92vw);
-  border-left:1px solid rgba(74,171,234,.18);
-}
-.tp-panel[data-variant="drawer-right"].open{ transform:none; }
+/* ---- 23.7  四种形态 ---- */
+.tp-panel[data-variant="drawer-right"]{ top:0; right:0; height:100%; width:min(420px,92vw); }
 
-/* ---- 形态二：悬浮作战卡 HUD ---- */
 .tp-panel[data-variant="hud"]{
-  top:72px; right:18px; left:auto; bottom:auto;
-  width:320px; max-height:70vh; height:auto;
-  border-radius:12px; transform: translateY(-12px) scale(.98);
+  top:72px; right:18px; left:auto; bottom:auto; height:auto; max-height:70vh;
+  width:340px; border-radius:12px;
 }
-.tp-panel[data-variant="hud"].open{ transform:none; }
 .tp-panel[data-variant="hud"] .tp-parent-chain,
 .tp-panel[data-variant="hud"] .tracking-subtasks,
-.tp-panel[data-variant="hud"] .ak-divider--sub{ display:none; }
+.tp-panel[data-variant="hud"] .tp-divider{ display:none; }
 
-/* ---- 形态三：作战视图页（居中大卡） ---- */
 .tp-panel[data-variant="view"]{
-  top:50%; left:50%; right:auto; bottom:auto; transform: translate(-50%,-46%) scale(.98);
-  width:min(720px, 94vw); max-height:88vh; height:auto; border-radius:14px;
+  top:50%; left:50%; right:auto; bottom:auto;
+  width:min(680px,94vw); height:auto; max-height:88vh; border-radius:14px;
 }
-.tp-panel[data-variant="view"].open{ transform: translate(-50%,-50%); }
+.tp-panel[data-variant="view"].open{ transform:translate(-50%,-50%); }
 .tp-panel[data-variant="view"] .tp-switch{ display:none; }
 
-/* ---- 形态四：底部任务坞 Dock ---- */
 .tp-panel[data-variant="dock"]{
   left:0; right:0; bottom:0; top:auto; width:100%; height:auto;
-  flex-direction:row; align-items:center; gap:16px; padding:12px 18px;
-  border-top:1px solid rgba(74,171,234,.18); border-left:0; border-right:0; border-bottom:0;
-  border-radius:14px 14px 0 0; transform: translateY(100%);
+  flex-direction:row; align-items:stretch; gap:16px; padding:12px 16px;
+  border-left:0; border-right:0; border-bottom:0; border-radius:14px 14px 0 0;
 }
-.tp-panel[data-variant="dock"].open{ transform:none; }
 .tp-panel[data-variant="dock"] .tp-bar,
-.tp-panel[data-variant="dock"] .tp-foot,
-.tp-panel[data-variant="dock"] .tp-switch{ display:none; }
-.tp-panel[data-variant="dock"] .tp-body{ display:flex; align-items:center; gap:18px; padding:0; overflow:visible; }
+.tp-panel[data-variant="dock"] .tp-switch,
+.tp-panel[data-variant="dock"] .tp-foot{ display:none; }
+.tp-panel[data-variant="dock"] .tp-body{ display:flex; flex-direction:row; align-items:center; gap:16px; overflow:visible; padding:0; }
 .tp-panel[data-variant="dock"] .tp-empty{ display:none; }
-.tp-panel[data-variant="dock"] .tp-card{ display:flex; align-items:center; gap:18px; }
-.tp-panel[data-variant="dock"] .tp-card-head,
+.tp-panel[data-variant="dock"] .tp-op{ flex-direction:row; align-items:center; gap:16px; flex:1 1 auto; }
+.tp-panel[data-variant="dock"] .tp-op-main{ flex:1 1 auto; min-width:0; }
+.tp-panel[data-variant="dock"] .tp-op .ak-status,
+.tp-panel[data-variant="dock"] .ak-tag-group,
 .tp-panel[data-variant="dock"] .ak-divider,
-.tp-panel[data-variant="dock"] .tp-title-row,
-.tp-panel[data-variant="dock"] .tracking-subtasks{ display:none; }
-.tp-panel[data-variant="dock"] .tp-desc{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:320px; }
+.tp-panel[data-variant="dock"] .tracking-subtasks,
+.tp-panel[data-variant="dock"] .tp-desc{ display:none; }
+.tp-panel[data-variant="dock"] .tp-progress{ width:180px; flex:0 0 auto; }
+.tp-panel[data-variant="dock"] .tracking-actions{ flex:0 0 auto; }
+.tp-panel[data-variant="dock"] .ak-button{ flex:0 0 auto; padding:0 16px; }
 
-/* ---- 专注模式：全屏沉浸 ---- */
+/* ---- 23.8  专注模式（全屏沉浸） ---- */
 .tp-focus{
-  position:fixed; inset:0; z-index:2000; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; gap:28px; padding:5vh 5vw;
+  position:fixed; inset:0; z-index:2000;
+  display:flex; align-items:center; justify-content:center; padding:5vh 5vw;
   background:
-    radial-gradient(120% 90% at 50% 0%, rgba(74,171,234,.12), transparent 55%),
-    radial-gradient(120% 90% at 50% 100%, rgba(241,198,68,.07), transparent 55%),
-    linear-gradient(180deg, #0c0e10, #14171a 60%, #0c0e10);
-  opacity:0; visibility:hidden; transition: opacity .4s ease, visibility .4s;
+    radial-gradient(120% 80% at 50% 0%, rgba(74,171,234,.10), transparent 58%),
+    radial-gradient(120% 80% at 50% 110%, rgba(240,194,70,.06), transparent 58%),
+    linear-gradient(180deg,#0d1013,#07090b);
+  opacity:0; visibility:hidden; transition:opacity .32s ease;
 }
 .tp-focus.open{ opacity:1; visibility:visible; }
-.tp-focus-deco span{ position:absolute; pointer-events:none; }
-.tp-focus-glow{ inset:0; background: radial-gradient(60% 50% at 50% 42%, rgba(74,171,234,.18), transparent 70%); }
-.tp-focus-flare{
-  top:8%; left:50%; width:60vw; height:30vh; transform:translateX(-50%);
-  background: conic-gradient(from 0deg, transparent, rgba(74,171,234,.10), transparent 40%);
-  filter: blur(20px);
+.tp-focus-deco{ position:absolute; inset:0; pointer-events:none; }
+.tp-focus-deco span{ position:absolute; }
+.tp-focus-glow{ inset:0; background:radial-gradient(50% 40% at 50% 38%, rgba(74,171,234,.16), transparent 70%); }
+.tp-focus-dust{ inset:0; background-image:url('/static/img/ui/dust_gold.webp'); background-size:cover; opacity:.045; mix-blend-mode:screen; }
+.tp-focus-leak{ left:0; right:0; bottom:0; height:28vh; background:linear-gradient(0deg, rgba(74,171,234,.10), transparent); }
+.tp-focus-inner{
+  position:relative; z-index:1; width:min(560px,92vw); max-height:88vh; overflow-y:auto;
+  display:flex; flex-direction:column; gap:20px; align-items:center; padding:4px;
 }
-.tp-focus-dust{ inset:0; background-image:url('/static/img/ui/dust_gold.webp'); background-size:cover; opacity:.05; mix-blend-mode:screen; }
-.tp-focus-leak{ left:0; right:0; bottom:0; height:30vh; background:linear-gradient(0deg, rgba(74,171,234,.10), transparent); }
-.tp-focus-top{ display:flex; align-items:center; gap:28px; z-index:1; }
-.tp-focus-gauge{ position:relative; width:120px; height:120px; display:grid; place-items:center; }
-.tp-focus-gauge .ak-face__line--tl, .tp-focus-gauge .ak-face__line--tr,
-.tp-focus-gauge .ak-face__line--bl, .tp-focus-gauge .ak-face__line--br{
-  position:absolute; width:16px; height:16px; border:1px solid rgba(241,198,68,.6);
-}
-.tp-focus-gauge .ak-face__line--tl{ left:0; top:0; border-right:0; border-bottom:0; }
-.tp-focus-gauge .ak-face__line--tr{ right:0; top:0; border-left:0; border-bottom:0; }
-.tp-focus-gauge .ak-face__line--bl{ left:0; bottom:0; border-right:0; border-top:0; }
-.tp-focus-gauge .ak-face__line--br{ right:0; bottom:0; border-left:0; border-top:0; }
-.tp-focus-gauge .ak-gauge{ width:104px; height:104px; }
-.tp-focus-gauge .ak-gauge__value{ font-size:1.8rem; }
-.tp-focus-timer{ flex-direction:column; align-items:flex-start; border-right:0; border-left:1px solid rgba(243,244,239,.16); padding-left:1.2rem; }
-.tp-focus-timer .ak-counter__content{ font-size:2rem; }
+.tp-focus-inner::-webkit-scrollbar{ width:8px; }
+.tp-focus-inner::-webkit-scrollbar-thumb{ background:rgba(236,235,228,.14); border-radius:8px; }
+.tp-focus-head{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+.tp-focus-clock{ display:flex; align-items:center; gap:22px; }
+.tp-focus-gauge{ position:relative; width:128px; height:128px; display:grid; place-items:center; }
+.tp-focus-gauge .ak-gauge{ width:128px; height:128px; }
+.tp-focus-gauge .ak-gauge__value{ margin-top:.3rem; font-size:2.1rem; }
+.tp-focus-gauge .ak-gauge__label{ font-size:.62rem; }
+.tp-focus-gauge .ak-gauge__unit{ font-size:.58rem; }
+.tp-focus-meta{ display:flex; flex-direction:column; gap:6px; }
+.tp-focus-label{ font:800 .58rem/1 var(--tp-mono); letter-spacing:.2em; color:var(--tp-faint); }
+.tp-root .tp-focus-timer.ak-counter{ border:0; padding:0; margin:0; }
+.tp-focus-timer .ak-counter__content{ font:800 2rem/1 var(--tp-mono); letter-spacing:.02em; }
 .tp-focus-card{
-  z-index:1; width:min(640px, 92vw); background: rgba(17,19,21,.72);
-  border:1px solid rgba(74,171,234,.18); border-radius:14px; padding:22px 26px;
-  backdrop-filter: blur(8px); display:flex; flex-direction:column; gap:10px; max-height:46vh; overflow:auto;
+  width:100%; padding:20px 22px; border-radius:14px;
+  background:rgba(21,24,27,.72); border:1px solid var(--tp-line);
+  box-shadow:0 20px 50px -24px rgba(0,0,0,.8);
+  backdrop-filter:blur(6px);
 }
 .tp-focus-exit{
-  position:absolute; top:20px; right:24px; width:42px; height:42px; display:grid; place-items:center;
-  background: rgba(243,244,239,.06); color:#fff; border:1px solid var(--tp-border); border-radius:50%; cursor:pointer; z-index:2;
+  position:absolute; top:22px; right:24px; z-index:2;
+  width:40px; height:40px; display:grid; place-items:center;
+  color:var(--tp-dim); background:rgba(236,235,228,.05);
+  border:1px solid var(--tp-line); border-radius:50%; cursor:pointer;
+  transition:color .15s, background .15s, border-color .15s;
 }
-.tp-focus-exit:hover{ background: rgba(227,59,59,.3); }
+.tp-focus-exit:hover{ color:#fff; background:color-mix(in srgb,var(--tp-danger) 70%,transparent); border-color:transparent; }
 
-/* 专注到点提醒闪烁 */
+/* 到点提醒 */
 .alarm-flash{
   position:fixed; inset:0; z-index:9999; pointer-events:none;
-  background: radial-gradient(60% 60% at 50% 50%, rgba(241,198,68,.32), transparent 70%);
-  animation: tp-alarm 1.9s ease-out forwards;
+  background:radial-gradient(60% 60% at 50% 50%, rgba(240,194,70,.30), transparent 70%);
+  animation:tp-alarm 1.9s ease-out forwards;
 }
 @keyframes tp-alarm{ 0%{opacity:0} 12%{opacity:1} 100%{opacity:0} }
 
-/* 浅色主题桥接 */
-body.theme-light .tp-panel{
-  background: linear-gradient(180deg, rgba(244,245,242,.98), rgba(232,234,230,.99));
-  color:#1c1f22; border-color: rgba(20,30,40,.14);
-  --tp-text:#1c1f22; --tp-text-dim: rgba(28,31,34,.62); --tp-border: rgba(20,30,40,.14);
+/* ---- 23.9  浅色主题桥接 ---- */
+body.theme-light .tp-root{
+  --tp-line:rgba(20,30,40,.14); --tp-line-2:rgba(20,30,40,.24);
+  --tp-text:#1a1e22; --tp-dim:rgba(26,30,34,.62); --tp-faint:rgba(26,30,34,.44);
+  --ak-signal-info:#2f95d8; --ak-signal-success:#2f9e63;
+  --ak-signal-danger:#cf3b40; --ak-signal-disabled:#7a8085;
+  --ak-color-primary:#2f95d8; --ak-color-low:#7a8085;
 }
-body.theme-light .tp-desc{ color: rgba(28,31,34,.62); }
-body.theme-light .tp-variant{ color: rgba(28,31,34,.6); }
-body.theme-light .tp-variant.active{ color:#fff; background: var(--ak-signal-info); }
-body.theme-light .tp-focus{ background: linear-gradient(180deg, #eef0ec, #e3e6e0 60%, #eef0ec); }
-body.theme-light .tp-focus-card{ background: rgba(255,255,255,.8); color:#1c1f22; }
-body.theme-light .alarm-flash{ background: radial-gradient(60% 60% at 50% 50%, rgba(241,198,68,.4), transparent 70%); }
+body.theme-light .tp-panel{ background:linear-gradient(180deg,#f5f6f4,#e8eae7); color:var(--tp-text); }
+body.theme-light .tp-bar{ background:linear-gradient(180deg, rgba(47,149,216,.08), transparent); }
+body.theme-light .tp-frame{ background:radial-gradient(130% 60% at 100% 0%, rgba(47,149,216,.10), transparent 62%); }
+body.theme-light .tp-icon-btn:hover{ background:rgba(20,30,40,.07); }
+body.theme-light .tp-root .ak-notice{ background:rgba(220,150,20,.08); border-color:rgba(190,130,10,.30); }
+body.theme-light .tp-root .ak-notice__title{ color:#1a1e22; }
+body.theme-light .tp-root .ak-progress__track{ background:rgba(20,30,40,.12); }
+body.theme-light .tp-root .ak-choice__input{ border-color:rgba(20,30,40,.34); }
+body.theme-light .tp-root .ak-tag{ background:rgba(20,30,40,.05); }
+body.theme-light .tp-root .ak-button--outline{ background:rgba(20,30,40,.03); color:rgba(26,30,34,.7); }
+body.theme-light .tp-root .ak-button--outline:hover{ color:#c0313a; }
+body.theme-light .tp-foot{ background:rgba(20,30,40,.03); }
+body.theme-light .tp-focus{ background:linear-gradient(180deg,#eef0ee,#e2e5e1); }
+body.theme-light .tp-focus-card{ background:rgba(255,255,255,.78); }
+body.theme-light .tp-focus-exit{ color:rgba(26,30,34,.6); background:rgba(20,30,40,.05); }
+body.theme-light .tp-variant:hover{ background:rgba(20,30,40,.05); }
+body.theme-light .alarm-flash{ background:radial-gradient(60% 60% at 50% 50%, rgba(220,160,30,.34), transparent 70%); }
+
+/* body 滚动锁（旧 §21 的 focus-mode 规则随面板重写一并删除，这里补回） */
+body.focus-mode{ overflow:hidden; }
+
+/* ---- 23.10  窄屏微调 ---- */
+@media (max-width:480px){
+  .tp-panel[data-variant="drawer-right"]{ width:100vw; }
+  .tp-focus-clock{ gap:16px; }
+  .tp-focus-gauge, .tp-focus-gauge .ak-gauge{ width:104px; height:104px; }
+  .tp-focus-gauge .ak-gauge__value{ font-size:1.7rem; }
+}

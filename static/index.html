@@ -14,7 +14,7 @@
     <link rel="stylesheet" href="static/vendor/fontawesome/all.min.css">
     <!-- ak-ui：方舟设计 token 与组件（MIT）。全部 .ak- 前缀，不含裸元素重置，与现有样式零冲突 -->
     <link rel="stylesheet" href="static/vendor/ak-ui/ak-ui.min.css?v=20260920-001">
-    <link rel="stylesheet" href="static/style.css?v=20260923-302">
+    <link rel="stylesheet" href="static/style.css?v=20260925-304">
 </head>
 <body>
     <!-- 方舟风格加载画面 -->
@@ -140,17 +140,19 @@
                .ak-slider（手动进度） / .ak-button 变体（操作按钮） / .ak-gauge（番茄钟八角仪表）
                .ak-counter--compact（会话计时）
              想整体回滚：恢复本段 HTML + 删掉 style.css §21 即可。 -->
-        <!-- ============ 作战终端 / 追踪面板（R43 从零重写） ============ -->
-        <!-- 同一套作战卡内容，通过 #tpPanel 的 data-variant 切换四种形态：
+        <!-- ============ 作战终端 / 追踪面板（R44 视觉重做） ============ -->
+        <!-- 同一套作战卡内容（.tp-op），通过 #tpPanel 的 data-variant 切换四种形态：
              drawer-right（右侧覆盖抽屉，默认）/ hud（悬浮作战卡）/ view（作战视图页）/ dock（底部任务坞）
-             切换器 #tpSwitch 一键对比；专注模式 = #tpFocus 全屏沉浸层。 -->
+             切换器 #tpSwitch 一键对比；专注模式 = #tpFocus 全屏沉浸层。
+             R44：配色收敛为「蓝=主操作 / 金=奖励 / 绿=完成 / 红=停止」，
+             去掉 ak-ui 默认的深底块与粗描边，改用发丝线 + 留白分组。 -->
         <div class="tp-root" id="tpRoot">
             <aside class="tp-panel" id="tpPanel" data-variant="drawer-right" aria-hidden="true">
                 <span class="tp-frame" aria-hidden="true"></span>
                 <header class="tp-bar">
                     <span class="tp-eyebrow"><i class="fa-solid fa-satellite-dish"></i> PRTS // 作战终端</span>
                     <div class="tp-bar-actions">
-                        <button class="tp-icon-btn" id="tpFocusBtn" type="button" title="专注模式" aria-label="专注模式"><i class="fa-solid fa-expand"></i></button>
+                        <button class="tp-icon-btn" id="tpFocusBtn" type="button" title="进入全屏专注" aria-label="全屏专注"><i class="fa-solid fa-expand"></i></button>
                         <button class="tp-icon-btn" id="tpCollapseBtn" type="button" title="收起面板" aria-label="收起面板"><i class="fa-solid fa-chevron-right"></i></button>
                     </div>
                 </header>
@@ -161,21 +163,23 @@
                             <div class="ak-notice__code">STANDBY</div>
                             <div class="ak-notice__body">
                                 <span class="ak-notice__title">暂无追踪任务</span>
-                                <p class="ak-notice__message">在任务卡上点按「追踪」，PRTS 终端即开始记录该任务的实时进度。</p>
+                                <p class="ak-notice__message">在任务卡上点按「追踪」，PRTS 终端即刻开始记录该任务的实时进度。</p>
                             </div>
                         </div>
-                        <div class="ak-loading-track tp-standby"><span class="ak-loading-track__runner"></span><span class="ak-loading-track__label">IDLE</span></div>
                     </div>
                     <div class="tp-card hidden" id="tpCard"></div>
                 </div>
 
                 <footer class="tp-foot" id="tpFoot">
+                    <div class="tp-session">
+                        <span class="tp-session-label">SESSION</span>
+                        <div class="ak-counter ak-counter--compact tp-timer">
+                            <span class="ak-counter__prefix"><i class="fa-solid fa-clock"></i></span>
+                            <span class="ak-counter__content" id="tpTimer">00:00:00</span>
+                        </div>
+                    </div>
                     <div class="tp-pomo">
                         <div class="tp-gauge-wrap">
-                            <span class="ak-face__line--tl" aria-hidden="true"></span>
-                            <span class="ak-face__line--tr" aria-hidden="true"></span>
-                            <span class="ak-face__line--bl" aria-hidden="true"></span>
-                            <span class="ak-face__line--br" aria-hidden="true"></span>
                             <div class="ak-gauge tp-gauge hidden" id="tpPomo">
                                 <div class="ak-gauge__content">
                                     <span class="ak-gauge__label" id="tpPomoKind">FOCUS</span>
@@ -184,13 +188,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="tp-pomo-ctrl hidden" id="tpPomoCtrl">
-                            <button class="ak-button ak-button--fab tp-pomo-stop" id="tpPomoStop" type="button" title="结束番茄钟"><i class="fa-solid fa-stop"></i></button>
-                        </div>
-                    </div>
-                    <div class="ak-counter ak-counter--compact tp-timer">
-                        <span class="ak-counter__prefix"><i class="fa-solid fa-clock"></i></span>
-                        <span class="ak-counter__content" id="tpTimer">00:00:00</span>
+                        <button class="tp-pomo-start" id="tpPomoStart" type="button" title="开启全屏专注"><i class="fa-solid fa-play"></i><span>开始专注</span></button>
+                        <button class="tp-icon-btn tp-pomo-stop hidden" id="tpPomoStop" type="button" title="结束番茄钟"><i class="fa-solid fa-circle-stop"></i></button>
                     </div>
                 </footer>
 
@@ -205,12 +204,11 @@
             <div class="tp-focus" id="tpFocus" aria-hidden="true">
                 <div class="tp-focus-deco" aria-hidden="true">
                     <span class="tp-focus-glow"></span>
-                    <span class="tp-focus-flare"></span>
                     <span class="tp-focus-dust"></span>
                     <span class="tp-focus-leak"></span>
                 </div>
                 <div class="tp-focus-inner" id="tpFocusInner"></div>
-                <button class="tp-focus-exit" id="tpFocusExit" type="button" title="退出专注"><i class="fa-solid fa-xmark"></i></button>
+                <button class="tp-focus-exit" id="tpFocusExit" type="button" title="退出专注模式"><i class="fa-solid fa-xmark"></i></button>
             </div>
         </div>
 
@@ -940,6 +938,6 @@
          必须排在 app.js 之前，否则首次渲染日历时取不到。 -->
     <script src="static/calendar-festivals.js?v=20260923-001"></script>
     <script src="static/app.js?v=20260923-302"></script>
-    <script src="static/tracking-v2.js?v=20260923-301"></script>
+    <script src="static/tracking-v2.js?v=20260925-303"></script>
 </body>
 </html>
