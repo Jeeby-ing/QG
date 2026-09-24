@@ -5901,7 +5901,11 @@ let skinCurrent = null;      // R38：当前装备的时装条目（null = 未�
 /* R38：默认只展示「当前/默认皮肤」，全部皮肤列表收进「浏览全部」按钮里按需展开。
    为什么这么改：481 件皮肤一次性铺满界面，用户点进时装窗口就被淹没，
    想看"我现在穿的什么"反而要先滚过几百张卡。 */
-let skinBrowse = false;      // false = 当前皮肤视图；true = 浏览全部（含筛选/分区）
+/* R41 修复：默认改为 true —— 直接展示全部皮肤目录。
+   旧默认（false）只渲染一张「当前皮肤」，未装备时更是退化成一张**凭空造出来的
+   「博士 / 默认制服」占位卡**；用户据此报「时装全部丢失 + 多出一件空白博士时装」。
+   目录本身一直是完好的（481 件），只是被默认折叠藏起来了。 */
+let skinBrowse = true;       // true = 浏览全部（含筛选/分区）；false = 仅当前皮肤
 let skinOwnedCount = 0;      // 已拥有时装件数（浏览按钮上显示）
 /* R20：时装商店并入「采购中心 · 时装兑换」 */
 async function openSkinShop(){
@@ -6012,7 +6016,14 @@ function renderCurrentSkinView(list, stone){
         // 直接用后端给的 current 条目，补上 equipped 让按钮变成「卸下」
         grid.appendChild(buildSkinCard(Object.assign({}, skinCurrent, { equipped: true }), stone, { equip: true }));
     } else {
-        grid.appendChild(buildDefaultSkinCard());
+        /* R41 修复：这里原本会造一张「博士 / 默认制服」的假卡（buildDefaultSkinCard）。
+           那既不是真实数据、又会被当成"系统多生成了一件空白的博士时装"。
+           未装备时改为一句**诚实的空态**，不再伪造任何皮肤条目。 */
+        const empty = document.createElement('div');
+        empty.className = 'skin-empty';
+        empty.innerHTML = '<i class="fa-solid fa-shirt"></i> 你还没有装备任何时装。'
+            + '<br><span class="skin-empty-hint">点右上「浏览全部」挑一件换上。</span>';
+        grid.appendChild(empty);
     }
     list.appendChild(grid);
 
@@ -6032,20 +6043,10 @@ function renderCurrentSkinView(list, stone){
     });
 }
 
-/* 未装备任何时装时的占位卡。故意不放任何干员立绘 —— 那会被误读成"这就是我的皮肤"。 */
-function buildDefaultSkinCard(){
-    const card = document.createElement('div');
-    card.className = 'skin-card owned skin-default-card';
-    card.innerHTML =
-        '<div class="skin-art"><i class="fa-solid fa-shirt"></i></div>' +
-        '<div class="skin-card-body">' +
-            '<div class="skin-card-top"><span class="skin-op-name">博士</span></div>' +
-            '<div class="skin-name">默认制服</div>' +
-            '<div class="skin-tier">未装备时装</div>' +
-            '<div class="skin-card-bottom"><span class="skin-dyn-only">点「浏览全部」挑一件</span></div>' +
-        '</div>';
-    return card;
-}
+/* R41：删除了 buildDefaultSkinCard()。
+   它会在「未装备任何时装」时凭空造一张 operator_name='博士'、skin_name='默认制服'
+   的空白卡 —— 用户把这个伪造条目报成"系统额外生成了一件空白的博士时装"。
+   现在未装备时走 renderCurrentSkinView 里的诚实空态（一句提示，不伪造皮肤）。 */
 
 function renderSkins(){
     const list = DOM.skinShopList; if (!list) return;

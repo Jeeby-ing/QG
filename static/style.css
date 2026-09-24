@@ -10437,3 +10437,125 @@ body.theme-light .calendar-container .calendar-day.has-fest { border-color: rgba
 
 /* 浅色主题：数值与图标在浅底上要够深 */
 body.theme-light .task-reward-value { color: var(--text-secondary-2, #55524c); }
+
+
+/* ==========================================================================
+   §21.11  追踪面板视觉重构（沿用 §22.6 招募按钮组方向）· R42
+   --------------------------------------------------------------------------
+   用户原话：「优化追踪面板的视觉设计，当前样式仍不够美观。请以现有按钮组件为正
+   面范例（其已完整还原原游戏美术风格与视觉质感），沿用同一方向对追踪面板进行
+   美化重构，使配色、字体、边框、间距与整体布局均与原游戏界面及按钮保持统一
+   协调。」
+
+   正面范例 = §22.6 寻访按钮组（ak-ui「公开招募」原生按钮组），其视觉语汇是：
+     · 青色实心块（--ak-dashboard-cyan: rgba(5,167,220,.92)）
+     · 顶部深色标签条：深底(rgba(24,26,28,.92)) + 青色上边框(3px) + 白下边框(1px)
+     · 强投影（box-shadow: 0 6px 22px rgba(0,0,0,.42)）做体积
+     · 大标题用 display 字体、技术标签用等宽字体（--font-mono）
+     · 浅色主题下青块换浅底、标签条保持深色（它本来就是深色条）
+   本层把同一套语汇「移植」到追踪面板（不改任何 DOM、不碰 §21.0）：
+     ① 面板头部 = 深色标签条：深底 + 青色上边框(3px) + 白下边框(1px)，
+        直接平移 §22.6 的 ::before 处理，让面板顶读起来像寻访按钮组的标题条。
+     ② 分区线（OPERATION / SUB TASKS）= 居中「深色铭牌」：深底 + 青色上边框 +
+        白下边框 + 等宽大写标签，复刻 §22.6 标签条的形态（弃用原来两条细长金杠）。
+     ③ 面板整体 = 青色描边 + 加深投影，呼应 §22.6 青块边缘与体积感。
+     ④ 配色统一到「青=结构 / 金=奖励」：头部描边、分区铭牌、面板边线走科技青
+        (--tp-cyan = #05a7dc，与 §22.6 的 --ak-dashboard-info 完全一致)，
+        金色只留给「领取奖励」与标题高亮，与 §22.6「青块 + 十连高亮」的分工一致。
+     ⑤ 字体：铭牌 / 状态标签 / 计时一律等宽，标题用 display 字体，与范例同语汇。
+   回滚：删本层即可（§21.0 与 DOM 均不动）。
+   ========================================================================== */
+
+/* ---- 21.11.0  作用域内青色调（与 §22.6 招募按钮组同一支青色） ---- */
+.tracking-panel {
+    --tp-cyan: #05a7dc;                                   /* = §22.6 --ak-dashboard-info */
+    --tp-cyan-soft: rgba(5, 167, 220, 0.34);
+    --tp-darkbar: rgba(24, 26, 28, 0.92);                 /* = §22.6 ::before 深底 */
+}
+
+/* ---- 21.11.1  面板外壳：青色描边 + 加深投影（呼应 §22.6 青块边缘与体积） ---- */
+.tracking-expanded {
+    border-right: 1px solid var(--tp-cyan-soft);
+    box-shadow: 14px 0 46px rgba(0, 0, 0, .62),
+                inset 1px 0 0 var(--tp-cyan-soft);
+}
+
+/* ---- 21.11.2  头部 = 深色标签条（直接平移 §22.6 的 ::before 处理） ----
+   深底 + 青色上边框(3px) + 白色下边框(1px)，与寻访按钮组顶部标签条同形。 */
+.tracking-header {
+    padding: 10px 12px;
+    background: var(--tp-darkbar);
+    border-top: 3px solid var(--tp-cyan);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.30);
+}
+/* 头部里 status 坐在这条深条上，给一点与深底协调的描边 */
+.tracking-header .tracking-status { background: rgba(0, 0, 0, 0.22); }
+
+/* ---- 21.11.3  分区线 = 居中「深色铭牌」：复刻 §22.6 标签条形态 ----
+   去掉 ak-ui 默认的两根细杠，改为与寻访按钮组同款的深底 + 青色上边框 +
+   白下边框 + 等宽大写标签。 */
+.tracking-divider {
+    justify-content: center;
+    gap: 0;
+    margin: .75rem 1rem;
+}
+.tracking-divider::before,
+.tracking-divider::after { display: none; }   /* 去掉 ak-ui 默认的两根细杠 */
+.tracking-divider span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .30rem 1.1rem;
+    background: var(--tp-darkbar);
+    border-top: 2px solid var(--tp-cyan);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.26);
+    border-radius: 2px;
+    color: var(--tp-cyan);
+    font-family: var(--font-mono);
+    font-size: .625rem;
+    font-weight: 700;
+    letter-spacing: .26em;
+    text-indent: .26em;   /* 抵消末字 letter-spacing，视觉居中 */
+    filter: none;
+}
+/* SUB TASKS 铭牌：结构性标题同样走青（覆盖 §21.0.4 的旧金色），保持统一 */
+.tracking-divider--sub span {
+    color: var(--tp-cyan);
+    border-top-color: var(--tp-cyan);
+    border-bottom-color: rgba(255, 255, 255, 0.26);
+}
+
+/* ---- 21.11.4  操作区 / 底部：用同支青做极淡描边，把整块面板收成一套 ---- */
+.tracking-actions { border-top: 1px solid var(--tp-cyan-soft); }
+.tracking-footer  { border-top: 1px solid var(--tp-cyan-soft); }
+
+/* ---- 21.11.5  浅色主题：深条保持深色，青边 / 投影换浅色描边（镜像 §22.6） ---- */
+body.theme-light .tracking-expanded {
+    border-right-color: rgba(5, 167, 220, 0.42);
+}
+body.theme-light .tracking-header {
+    background: rgba(24, 26, 28, 0.94);
+    border-top-color: var(--tp-cyan);
+    border-bottom-color: rgba(255, 255, 255, 0.22);
+}
+body.theme-light .tracking-header .tracking-status { background: rgba(0, 0, 0, 0.20); }
+body.theme-light .tracking-divider span {
+    background: rgba(24, 26, 28, 0.94);
+    border-top-color: var(--tp-cyan);
+    border-bottom-color: rgba(255, 255, 255, 0.24);
+    color: var(--tp-cyan);
+}
+body.theme-light .tracking-divider--sub span {
+    color: var(--tp-cyan);
+    border-top-color: var(--tp-cyan);
+    border-bottom-color: rgba(255, 255, 255, 0.24);
+}
+body.theme-light .tracking-actions,
+body.theme-light .tracking-footer { border-top-color: rgba(5, 167, 220, 0.30); }
+
+/* ---- 21.11.6  移动端：铭牌字号 / 间距收紧，不顶边 ---- */
+@media (max-width: 768px) {
+    .tracking-divider { margin: .6rem .6rem; }
+    .tracking-divider span { padding: .26rem .9rem; font-size: .6rem; letter-spacing: .22em; }
+    .tracking-header { padding: 9px 11px; }
+}
